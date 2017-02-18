@@ -1,0 +1,585 @@
+REM >WinManager
+REM $Id: WinManager 1.3 97/04/14 14:01:28 gerph Exp $
+REM v0.00 (MG) Started (29 March 1997)
+REM v0.01 (MG) Various mini-changes (13 April 1997)
+CHAIN "<IRClient$Dir>.IRCsource"
+END
+
+DEF FNwkspWindowManager
+[OPT pass%
+.AssociationChain               EQUD  0         ; the chain of window/instance associations
+.HelpMessageRef                 EQUD  0         ; the last help message ref received
+.HelpMessageTask                EQUD  0         ; the sender of the last help message
+]
+=""
+
+DEF FNassembleWindowManager
+
+Association_Next        = 0
+Association_Window      = 4
+Association_Object      = 8
+sizeof_Association      = 12
+
+CloseFlag_Shift  = &1000
+CloseFlag_Adjust = 1
+
+[OPT pass%
+
+; ***************************************************************
+; Name          AssociateWindow
+; Function      Associates a window with an instance
+; On Entry      r0 =  window handle
+;               r1 =  object handle
+; On Exit       -
+; Notes         Registers a reference with the instance
+; ***************************************************************
+.AssociateWindow
+STMFD   R13!,{R0-R7,R14}
+FNfunction("AssociateWindow")
+
+BL      DissociateWindow        ; remove any previous association of this window
+
+MOV     R7,R1                   ; hang onto the object handle
+MOV     R6,R0                   ; and the window handle
+
+; First check the window handle is valid
+LDR     R1,[R12,#WimpArea]
+STR     R0,[R1]
+SWI     "XWimp_GetWindowState"
+ADRVS   R0,NotAWindowHandle
+BVS     Error
+
+MOV     R0,R7
+BL      Instance_GetInstance    ; check the instance
+TEQ     R0,#0
+BEQ     NotAClass               ; generate error
+
+MOV     R3,#sizeof_Association
+BL      Claim                   ; r2->association block
+
+STR     R6,[R2,#Association_Window]
+STR     R7,[R2,#Association_Object]     ; store in the details
+
+LDR     R0,[R12,#AssociationChain]
+STR     R0,[R2]
+STR     R2,[R12,#AssociationChain]      ; standard chain onto LList
+
+MOV     R0,R7                   ; get the instance back
+BL      Instance_RegisterReference
+                                ; and add a reference to it
+
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.NotAWindowHandle
+        EQUS    "Not a window handle"+CHR$0:ALIGN
+
+:
+
+; ***************************************************************
+; Name          DissociateWindow
+; Function      Removes a window's association with an object
+; On Entry      r0 =  window handle
+; On Exit       -
+; Notes         Ignores windows not in the chain
+; ***************************************************************
+
+.DissociateWindow
+STMFD   R13!,{R0-R7,R14}
+FNfunction("DissociateWindow")
+
+ADD     R1,R12,#AssociationChain
+
+.RemoveAssociation_Loop
+LDR     R2,[R1]                 ; get next
+TEQ     R2,#0
+BEQ     RemoveAssociation_End
+
+LDR     R3,[R2,#Association_Window]
+TEQ     R0,R3                   ; check - is it the same?
+MOVNE   R1,R2                   ; No - try the next one
+BNE     RemoveAssociation_Loop
+
+LDR     R3,[R2,#Association_Next]
+STR     R3,[R1]                 ; prev->next = this->next
+
+LDR     R0,[R2,#Association_Object]
+BL      Instance_DeregisterReference
+                                ; this is one less reference
+
+BL      Release                 ; and release the memory
+
+.RemoveAssociation_End
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+
+:
+
+; ***************************************************************
+; **         IRBasic wrappers for the above functions          **
+; ***************************************************************
+
+.Proc_wAssociateWindow   ; PROCwAssociateWindow(handle,instance)
+STMFD   R13!,{R14}
+TEQ     R1,#2
+BNE     CrapParms
+LDMIA   R2,{R0-R3}
+TEQ     R0,#fptrNum
+TEQEQ   R2,#fptrNum
+BNE     CrapParms       ; parameter type checking
+
+MOV     R0,R1
+MOV     R1,R3           ; get parameter values
+BL      AssociateWindow
+
+MOV     R0,#0
+LDMFD   R13!,{PC}^      ; and return with no value
+
+.Proc_wDissociateWindow   ; PROCwDissociateWindow(handle)
+STMFD   R13!,{R14}
+TEQ     R1,#1
+BNE     CrapParms
+LDMIA   R2,{R0-R1}
+TEQ     R0,#fptrNum
+BNE     CrapParms       ; parameter type checking
+
+MOV     R0,R1
+BL      DissociateWindow
+
+MOV     R0,#0
+LDMFD   R13!,{PC}^      ; and return with no value
+
+:
+
+.Proc_wHelpReply     ; PROCwHelpReply("Hayulp!") - replies to current help message
+STMFD   R13!,{R14}
+TEQ     R1,#1
+BNE     CrapParms
+LDMIA   R2,{R0,R1}
+TEQ     R0,#fptrStr
+BNE     CrapParms
+
+MOV     R0,R1
+BL      GetStringLen
+ADD     R1,R1,#4 + 20
+BIC     R2,R1,#3
+
+LDR     R1,[R12,#WimpArea]
+
+STR     R2,[R1,#0]                      ; store length
+LDR     R2,[R12,#HelpMessageRef]
+STR     R2,[R1,#12]                     ; your ref
+MOV     R2,#&500
+ADD     R2,R2,#&3                       ; &503 = help reply
+STR     R2,[R1,#16]
+
+ADD     R2,R1,#20
+
+.lp
+LDRB    R14,[R0],#1
+STRB    R14,[R2],#1
+TEQ     R14,#0
+BNE     lp
+
+MOV     R0,#17
+LDR     R2,[R12,#HelpMessageTask]
+SWI     "Wimp_SendMessage"
+
+MOV     r0,#0                           ; No parameters !
+LDMFD   R13!,{PC}^
+
+; ***************************************************************
+; Name          WindowManager_FindInstance
+; Function      Finds the instance associated with this window handle
+; On Entry      r0 =  window handle
+; On Exit       r0 =  ptr to instance, or 0 if none found
+; Notes         -
+; ***************************************************************
+
+.WindowManager_FindInstance
+STMFD   R13!,{R1-R2,R14}
+LDR     R1,[R12,#AssociationChain]
+.lp
+TEQ     R1,#0
+MOVEQ   R0,#0
+LDMEQFD R13!,{R1-R2,PC}^
+LDR     R2,[R1,#Association_Window]
+TEQ     R0,R2
+LDRNE   R1,[R1]
+BNE     lp
+ADD     R0,R1,#Association_Object
+LDMFD   R13!,{R1-R2,PC}^
+
+; ***************************************************************
+; Name          WindowManager_WimpPoll
+; Function      Despatches calls to the windowmanager subsystem
+; On Entry      r0 =  return value from Wimp_Poll, r1->block
+; On Exit       r0 =  -1 if handled, else preserved
+; Notes         -
+; ***************************************************************
+
+.WindowManager_WimpPoll
+STMFD   R13!,{R1-R7,R14}
+FNfunction("WindowManager_WimpPoll")
+
+ADR     R14,WindowManager_WimpPoll_End          ; somewhere to return to
+
+CMP     R0,#19
+LDRLT   PC,[PC,R0,LSL #2]
+B       WindowManager_WimpPoll_End
+EQUD    WindowManager_WimpPoll_End              ; null polls ignored
+EQUD    WindowManager_Redraw
+EQUD    WindowManager_Open
+EQUD    WindowManager_Close
+EQUD    WindowManager_Pointer
+EQUD    WindowManager_Pointer
+EQUD    WindowManager_Click
+EQUD    WindowManager_WimpPoll_End              ; drag box polls ignored
+EQUD    WindowManager_KeyPress
+EQUD    WindowManager_WimpPoll_End              ; menu selections dealt elsewhere
+EQUD    WindowManager_WimpPoll_End              ; scroll reqs ignored
+EQUD    WindowManager_Focus
+EQUD    WindowManager_Focus
+EQUD    WindowManager_WimpPoll_End              ; non-zero ignored
+EQUD    WindowManager_WimpPoll_End              ; reserved
+EQUD    WindowManager_WimpPoll_End              ; reserved
+EQUD    WindowManager_WimpPoll_End              ; reserved
+EQUD    WindowManager_Message                   ; Message
+EQUD    WindowManager_Message                   ; Message
+EQUD    WindowManager_Message                   ; Message
+
+.WindowManager_WimpPoll_End
+FNend
+LDMFD   R13!,{R1-R7,PC}^
+
+:
+
+.WindowManager_Redraw
+STMFD   R13!,{R14}
+LDR     R0,[R1]
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,#1                                   ; you'll have to redraw
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+SWI     "Wimp_RedrawWindow"                     ; redraw the wimp's bits
+TEQ     R0,#0                                   ; anything more to do?
+LDMEQFD R13!,{PC}^                              ; nope - our work is done
+
+LDR     R6,[R1,#4]                              ; get x0
+LDR     R7,[R1,#16]                             ; get y1
+
+LDR     R14,[R1,#20]
+SUB     R6,R6,R14                               ; take into account scroll x
+LDR     R14,[R1,#24]
+SUB     R7,R7,R14                               ; take into account scroll y
+
+.WindowManager_Redraw_Loop
+ADR     R2,WM_Redraw_Block
+STR     R6,[R2,#4]                              ; store l
+STR     R7,[R2,#12]                             ; store t
+
+LDR     R0,[R1,#28]
+SUB     R0,R0,R6
+STR     R0,[R2,#20]                             ; minx
+
+LDR     R0,[R1,#32]
+SUB     R0,R0,R7
+STR     R0,[R2,#28]                             ; miny
+
+LDR     R0,[R1,#28]
+SUB     R0,R0,R6
+STR     R0,[R2,#36]                             ; maxx
+
+LDR     R0,[R1,#40]
+SUB     R0,R0,R7
+STR     R0,[R2,#44]                             ; maxy
+
+ADR     R0,WM_Redraw_Function                   ; name of method
+LDR     R1,[R1]                                 ; get window handle for later
+STMFD   R13!,{R1}                               ; hang on to it
+MOV     R1,#6                                   ; six parameters, r2 & r3 set up
+BL      CallMethod
+LDMFD   R13!,{R7}                               ; get window handle back
+LDR     R1,[R12,#WimpArea]
+STR     R7,[R1]                                 ; and store w/hand back
+
+SWI     "XWimp_GetRectangle"
+bvc     itsok
+FNcrash
+.itsok
+TEQ     R0,#0
+BNE     WindowManager_Redraw_Loop               ; more to do? re-loop
+
+LDMFD   R13!,{PC}^                              ; dan-ar
+
+.WM_Redraw_Block:.WM_Open_Block
+        EQUD    fptrNum:        EQUD    0
+        EQUD    fptrNum:        EQUD    0
+        EQUD    fptrNum:        EQUD    0
+        EQUD    fptrNum:        EQUD    0
+        EQUD    fptrNum:        EQUD    0
+        EQUD    fptrNum:        EQUD    0
+        EQUD    fptrNum:        EQUD    0
+.WM_Redraw_Function
+        EQUS    "wRedraw"+CHR$0:ALIGN
+
+:
+
+.WindowManager_Open
+STMFD   R13!,{R14}
+LDR     R0,[R1]
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,#2                                   ; open message
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+ADR     R2,WM_Open_Block
+LDMIA   R1!,{R0,R4,R5,R6,R7}                    ; get vis 4 co-ords
+STR     R4,[R2,#4]
+STR     R5,[R2,#12]
+STR     R6,[R2,#20]
+STR     R7,[R2,#28]                             ; store them back in
+LDMIA   R1!,{R4,R5,R6}                          ; get scx,scy, handle
+STR     R4,[R2,#36]
+STR     R5,[R2,#44]
+STR     R6,[R2,#52]
+
+ADR     R0,WM_Open_Function
+MOV     R1,#7                                   ; 7 (!) params
+; r2 & 3 set up
+BL      CallMethod
+
+MOV     R0,#0                                   ; claimed
+LDMFD   R13!,{PC}^
+.WM_Open_Function
+        EQUS    "wOpen"+CHR$0:ALIGN
+
+:
+
+.WindowManager_Close
+STMFD   R13!,{R14}
+LDR     R0,[R1]
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,#3
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+SWI     "Wimp_GetPointerInfo"                   ; check for adjust-close
+LDR     R2,[R1,#8]
+TST     R2,#1
+MOVNE   R4,#CloseFlag_Adjust
+MOVEQ   R4,#0
+
+MOV     R0,#129
+MOV     R1,#256-1
+MOV     R2,#255
+SWI     "OS_Byte"
+TEQ     R2,#255                                 ; was shift pressed?
+ORREQ   R4,R4,#CloseFlag_Shift
+
+ADR     R2,WM_Open_Block
+STR     R4,[R2,#4]
+MOV     R1,#1                                   ; one param
+ADR     R0,WM_Close_Function
+BL      CallMethod
+
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_Close_Function
+        EQUS    "wClose"+CHR$0:ALIGN
+
+:
+
+.WindowManager_Pointer
+STMFD   R13!,{R14}
+MOV     R7,R0                                   ; preserve r0 in case it all goes wrong
+LDR     R0,[R1]
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,R7
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+TEQ     R7,#5
+MOVEQ   R0,#1
+MOVNE   R0,#0
+STR     R0,WM_Open_Block + 4                    ; store flag
+ADR     R0,WM_Pointer_Function
+MOV     R1,#1
+ADR     R2,WM_Open_Block
+BL      CallMethod
+
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_Pointer_Function
+        EQUS    "wPointer"+CHR$0:ALIGN
+
+:
+
+.WindowManager_Click                            ; bit more tricky this one
+STMFD   R13!,{R14}
+LDR     R0,[R1,#12]                             ; why this isn't the same...?
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,#6                                   ; moose click
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+LDMIA   R1,{R4,R5,R6}                           ; get x,y,buttons
+LDR     R7,[R1,#16]                             ; r7 = icon handle
+
+LDR     R0,[R1,#12]
+STR     R0,[R1]                                 ; put handle at r1+0
+SWI     "Wimp_GetWindowState"                   ; make offsets relative:
+LDR     R0,[R1,#4]
+SUB     R4,R4,R0                                ; relativise x
+LDR     R0,[R1,#20]
+ADD     R4,R4,R0                                ; relativise x (scroll)
+LDR     R0,[R1,#16]
+SUB     R5,R5,R0                                ; relativise y
+LDR     R0,[R1,#24]
+ADD     R5,R5,R0                                ; relativise y (scroll)
+
+ADR     R2,WM_Open_Block
+STR     R4,[R2,#4]
+STR     R5,[R2,#12]                             ; store x,y
+
+TST     R6,#2                                   ; is this a menu click?
+BNE     WindowManager_Click_Menu
+
+STR     R6,[R2,#20]                             ; store buttons
+STR     R7,[R2,#28]                             ; store icon
+
+ADR     R0,WM_Click_Function
+MOV     R1,#4
+BL      CallMethod
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_Click_Function
+        EQUS    "wClick"+CHR$0:ALIGN
+.WindowManager_Click_Menu
+STR     R7,[R2,#20]                             ; store icon
+ADR     R0,WM_Menu_Function
+MOV     R1,#3
+BL      CallMethod
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_Menu_Function
+        EQUS    "wMenu"+CHR$0:ALIGN
+
+:
+
+.WindowManager_KeyPress
+STMFD   R13!,{R14}
+LDR     R0,[R1]
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,#8                                   ; key pressed
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+ADR     R2,WM_Open_Block
+LDR     R0,[R1,#24]
+STR     R0,[R2,#4]
+LDR     R0,[R1,#4]
+STR     R0,[R2,#12]
+
+MOV     R1,#2
+ADR     R0,WM_KeyPress_Function
+BL      CallMethod
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_KeyPress_Function
+        EQUS    "wKey"+CHR$0:ALIGN
+
+:
+
+.WindowManager_Focus
+STMFD   R13!,{R14}
+MOV     R7,R0
+LDR     R0,[R1]
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+MOVEQ   R0,R7
+LDMEQFD R13!,{PC}^                              ; return if not a registered window
+
+ADR     R2,WM_Open_Block
+TEQ     R7,#12
+MVNEQ   R0,#0
+MOVNE   R0,#0                                   ; flag for gainNotLost
+STR     R0,[R2,#4]
+LDR     R0,[R1,#4]
+STR     R0,[R2,#12]
+
+MOV     R1,#2
+ADR     R0,WM_Focus_Function
+BL      CallMethod
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_Focus_Function
+        EQUS    "wFocus"+CHR$0:ALIGN
+
+:
+
+.WindowManager_Message
+STMFD   R13!,{R14}
+MOV     R7,R0                                   ; preserve poll code
+LDR     R0,[R1,#16]                             ; get message code
+SUB     R14,R0,#&500
+TEQ     R14,#2                                  ; &502 = Help request
+BEQ     WM_Mes_Help
+.WM_Mes_Nope
+MOV     R0,R7                                   ; pass on if we didn't recognside it
+LDMFD   R13!,{PC}^
+
+.WM_Mes_Help
+LDR     R0,[R1,#32]                             ; get window handle
+BL      WindowManager_FindInstance              ; can we find the right one?
+MOVS    R3,R0
+BEQ     WM_Mes_Nope                             ; no matching window?
+
+LDR     R0,[R1,#4]
+STR     R0,[R12,#HelpMessageTask]               ; remember who sent it
+LDR     R0,[R1,#8]
+STR     R0,[R12,#HelpMessageRef]                ; remember their ref
+
+ADD     R1,R1,#20
+LDMIA   R1,{R4,R5}                              ; get x,y
+LDR     R7,[R1,#16]                             ; r7 = icon handle
+
+LDR     R0,[R1,#12]
+STR     R0,[R1]                                 ; put handle at r1+0
+SWI     "Wimp_GetWindowState"                   ; make offsets relative:
+LDR     R0,[R1,#4]
+SUB     R4,R4,R0                                ; relativise x
+LDR     R0,[R1,#20]
+ADD     R4,R4,R0                                ; relativise x (scroll)
+LDR     R0,[R1,#16]
+SUB     R5,R5,R0                                ; relativise y
+LDR     R0,[R1,#24]
+ADD     R5,R5,R0                                ; relativise y (scroll)
+
+ADR     R2,WM_Open_Block
+STR     R4,[R2,#4]
+STR     R5,[R2,#12]                             ; store x,y
+
+STR     R7,[R2,#20]                             ; store icon handle
+
+MOV     R1,#3
+ADR     R0,WM_Mes_Help_Function
+BL      CallMethod
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+.WM_Mes_Help_Function
+EQUS    "wHelp"+CHR$0:ALIGN
+
+
+
+]
+=""
+
+DEF FNirbasicWindowManager
+[OPT pass%
+EQUS    "wAssociateWindow"+CHR$0:ALIGN  :EQUD Proc_wAssociateWindow
+EQUS    "wDissociateWindow"+CHR$0:ALIGN :EQUD Proc_wDissociateWindow
+EQUS    "wHelpReply"+CHR$0:ALIGN        :EQUD Proc_wHelpReply
+]
+=""

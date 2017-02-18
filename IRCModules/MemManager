@@ -1,0 +1,402 @@
+REM >MemManager
+REM $Id: MemManager 1.1 97/04/13 17:36:36 matt Exp $
+CHAIN "<IRClient$Dir>.IRCsource"
+END
+
+DEF FNwkspMemoryManager
+[OPT pass%
+.MAlloc_Claim                   EQUD 0
+.MAlloc_Free                    EQUD 0
+.MAlloc_Realloc                 EQUD 0
+.MAlloc_GetBlockSize            EQUD 0
+.MAlloc_EnumerateBlocks         EQUD 0:EQUD 0:&0:&0:&0:&0
+]
+MAllocHandle = HeapPtr : REM they are equivalant
+HashSize = 211
+=""
+
+DEF FNassembleMemoryManager
+
+MemDebug%       = FALSE
+MemProfile%     = FALSE
+BufferThreshold = 180
+
+[OPT pass%
+
+
+\\      Memory Manager
+
+.MemInit
+STMFD R13!,{R0-R7,R14}
+FNfunction("MemInit")
+SWI "OS_ReadMemMapInfo":STR R0,[R12,#PageSize]
+
+ADR R0,MyDynName:MOV R1,#3
+FNadr(2,TopOfStack%)
+MOV R3,#64*1024
+SWI "MAlloc_Initialise"
+STR R0,[R12,#MAllocHandle]
+
+ADD R0,R12,#MAlloc_Claim
+MOV R1,#9*4
+SWI "MAlloc_Vectors"
+
+]
+IF MemProfile% THEN
+[OPT pass%
+
+MOV R3,#4096:BL Claim:STR R2,MemProfBuffer
+MOV R0,#0
+.lp STR R0,[R2],#4:SUBS R3,R3,#4:BNE lp
+
+]
+ENDIF
+[OPT pass%
+
+MOV r3,#256:BL Claim:STR r2,[r12,#WimpArea]
+MOV r3,#256:BL Claim:STR r2,[r12,#MsgArea]
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.MyDynName EQUS "IRClient heap"+CHR$0:ALIGN
+]
+IF MemProfile% THEN
+[OPT pass%
+.MemProfBuffer EQUD 0
+.memprofthing EQUS "$.memprof"+CHR$0:ALIGN
+]
+ENDIF
+[OPT pass%
+
+.MemFinalise
+STMFD R13!,{R0-R7,R14}
+FNfunction("MemFinalise")
+]
+IF MemProfile% THEN
+[OPT pass%
+MOV R0,#10:ADR R1,memprofthing:MOV R2,#&d:ORR R2,R2,#&FF0
+MOV R3,#0:LDR R4,MemProfBuffer:ADD R5,R4,#4096
+SWI "OS_File"
+]
+ENDIF
+[OPT pass%
+
+LDR R1,[R12,#MAllocHandle]
+SWI "MAlloc_Finalise"
+
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.NewBuffer
+STMFD R13!,{R1-R7,R14}
+FNfunction("NewBuffer")
+MOV R3,#sizeof_Buffer:BL Claim
+MOV R0,R2:MOV R1,#0
+STR R1,[R2,#Buffer_Data]
+STR R1,[R2,#Buffer_Length]
+STR R1,[R2,#Buffer_Size]
+LDR R1,[R12,#BufferHead]:STR R1,[R2]:STR R2,[R12,#BufferHead]
+FNend
+LDMFD R13!,{R1-R7,PC}^
+
+.FreeBuffer
+STMFD R13!,{R0-R7,R14}
+FNfunction("FreeBuffer")
+ADD R7,R12,#BufferHead
+.lp LDR R1,[R7]:MOVS R1,R1:BEQ EndFreeBuffer
+CMP R1,R0:MOVNE R7,R1:BNE lp
+LDR R1,[R1]:STR R1,[R7]
+LDR R2,[R0,#Buffer_Data]:MOVS R2,R2:BLNE Release
+MOV R2,R0:BL Release
+.EndFreeBuffer
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.BufferShrink ; r0->buf, r1=no. of bytes to shrink by
+STMFD R13!,{R0-R7,R14}
+FNfunction("BufferShrink")
+LDR R2,[R0,#Buffer_Length]:CMP R1,R2:MOVGT R1,R2
+MOVS R1,R1:BEQ EndBufferShrink
+LDR R6,[R0,#Buffer_Length]:SUB R3,R6,R1:STR R3,[R0,#Buffer_Length]
+MOVS R3,R3:BEQ EndBufferShrink
+LDR R3,[R0,#Buffer_Data]:ADD R2,R3,R1:SUB R1,R6,R1:BL Bcopy
+.EndBufferShrink
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.Bcopy ; copies r1 bytes from r2 to r3. corrupts r1 upwards
+CMP R2,R3:MOVEQS PC,R14:BLT BcopyBack
+TST R2,#3:TSTEQ R3,#3:BNE SmallerLp
+.BigLp CMP R1,#16:BLT MediumLp
+LDMIA R2!,{R4-R7}:STMIA R3!,{R4-R7}:SUBS R1,R1,#16:BNE BigLp
+MOVS PC,R14
+.MediumLp CMP R1,#4:BLT SmallerLp
+LDR R4,[R2],#4:STR R4,[R3],#4:SUBS R1,R1,#4:BNE MediumLp
+MOVS PC,R14
+.SmallerLp LDRB R4,[R2],#1:STRB R4,[R3],#1:SUBS R1,R1,#1:BNE SmallerLp
+MOVS PC,R14
+.BcopyBack
+ADD R2,R2,R1:ADD R3,R3,R1
+TST R2,#3:TSTEQ R3,#3:BNE SmallerLpB
+.BigLpB CMP R1,#16:BLT MediumLpB
+LDMDB R2!,{R4-R7}:STMDB R3!,{R4-R7}:SUBS R1,R1,#16:BNE BigLpB
+MOVS PC,R14
+.MediumLpB CMP R1,#4:BLT SmallerLpB
+LDR R4,[R2,#-4]!:STR R4,[R3,#-4]!:SUBS R1,R1,#4:BNE MediumLpB
+MOVS PC,R14
+.SmallerLpB LDRB R4,[R2,#-1]!:STRB R4,[R3,#-1]!:SUBS R1,R1,#1:BNE SmallerLpB
+MOVS PC,R14
+
+.BufferAddString ; r0->buf, r1->string
+STMFD R13!,{R0,R1,R14}
+MOV R0,R1:BL GetStrLen:MOV R2,R1:LDMFD R13!,{R0,R1,R14}
+.BufferAdd ; r0->buf, r1->data, r2->number of bytes to push on
+STMFD R13!,{R0-R7,R14}
+FNfunction("BufferAdd")
+MOVS R2,R2:BEQ EndBufferAdd
+LDR R3,[R0,#Buffer_Data]:MOVS R3,R3:BNE GotABuffer
+ADD R3,R2,#BufferThreshold:STR R3,[R0,#Buffer_Size]
+BL Claim:STR R2,[R0,#Buffer_Data]:MOV R3,R2
+.GotABuffer
+LDR R2,[R13,#8]
+LDR R6,[R0,#Buffer_Length]:ADD R4,R6,R2:STR R4,[R0,#Buffer_Length]
+LDR R5,[R0,#Buffer_Size]
+CMP R4,R5:BLT ItllFitInTheBuffer
+ADD R5,R4,#BufferThreshold:STR R5,[R0,#Buffer_Size]
+MOV R2,R3:MOV R3,R5
+BL Realloc:STR R2,[R0,#Buffer_Data]:MOV R3,R2
+.ItllFitInTheBuffer
+LDR R1,[R13,#8]:LDR R2,[R13,#4]:ADD R3,R3,R6:BL Bcopy
+.EndBufferAdd
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.GetLineFromBuffer ; in->r0buf..out r0->static buffer containing string
+STMFD R13!,{R1-R7,R14}
+FNfunction("GetLineFromBuffer")
+MOV R1,#0:STRB R1,GLFBuf
+LDR R1,[R0,#Buffer_Data]:MOVS R1,R1:BEQ EndGetLineFromBuffer
+LDR R2,[R0,#Buffer_Length]:CMP R2,#508:MOVGT R2,#508:MOV R4,#0
+.lp LDRB R3,[R1]:CMP R3,#10:BNE BizNiz
+MOVS R2,R2:BEQ EndGetLineFromBuffer:ADD R4,R4,#1:B BizNiz2
+.BizNiz
+CMP R2,#2:BLT EndGetLineFromBuffer
+LDRB R3,[R1],#1:ADD R4,R4,#1:SUB R2,R2,#1:CMP R3,#13:BNE lp
+LDRB R3,[R1],#1:ADD R4,R4,#1:SUB R2,R2,#1:CMP R3,#10:BNE lp
+.BizNiz2
+MOV R1,R4:LDR R2,[R0,#Buffer_Data]:ADR R3,GLFBuf:STMFD R13!,{R1,R3}:BL Bcopy
+LDMFD R13!,{R1,R3}
+MOV R14,#0:STRB R14,[R3,R1]:BL BufferShrink
+.EndGetLineFromBuffer
+ADR R0,GLFBuf
+FNend
+LDMFD R13!,{R1-R7,PC}^
+.GLFBuf FNres(512)
+
+]
+IF profile% THEN
+[OPT pass%
+
+.InitProfiler
+STMFD R13!,{R0-R7,R14}
+MOV R0,#&80:ADR R1,ProfileFile
+SWI "OS_Find":MOVS R0,R0
+STR R0,ProFile
+LDMFD R13!,{R0-R7,PC}^
+.ProfileFile
+EQUS "$.Profile"+CHR$0:ALIGN
+.ProFile EQUD 0
+
+.EnteringProc
+STMFD R13!,{R0-R7,R14}
+MOV R0,#0:LDR R1,[R11]:STMFD R13!,{R0,R1}
+MOV R0,#2:LDR R1,ProFile:MOVS R1,R1:BEQ _EP
+MOV R2,R13:MOV R3,#8*4+4+4
+SWI "OS_GBPB"
+._EP
+ADD R13,R13,#8
+LDMFD R13!,{R0-R7,PC}^
+
+.LeavingProc
+STMFD R13!,{R0-R7,R14}
+MOV R0,#1:LDR R1,[R11]:STMFD R13!,{R0,R1}
+MOV R0,#2:LDR R1,ProFile:MOVS R1,R1:BEQ _LP
+MOV R2,R13:MOV R3,#8*4+4+4
+SWI "OS_GBPB"
+._LP
+ADD R13,R13,#8
+LDMFD R13!,{R0-R7,PC}^
+
+.FinalProfile
+STMFD R13!,{R0-R7,R14}
+LDR R1,ProFile:MOV R0,#0:SWI "OS_Find"
+LDMFD R13!,{R0-R7,PC}^
+
+]
+ENDIF
+[OPT pass%
+
+.Claim ; in -> r3 bytes to allocate, out r2=heap
+STMFD R13!,{R1,R14}
+TEQ R3,#0:MOVEQ R3,#4
+LDR R1,[R12,#MAllocHandle]
+MOV R14,PC
+LDR PC,[R12,#MAlloc_Claim]
+LDMVCFD R13!,{R1,PC}^
+.CantClaim
+ADR R0,ClaimError:SWI "OS_GenerateError"
+.ClaimError EQUS "FUCKUnable to claim memory!"+CHR$0:ALIGN
+
+.Release
+STMFD R13!,{R1,R14}
+LDR R1,[R12,#MAllocHandle]
+CMP R2,R1
+MOVGE R14,PC
+LDRGE PC,[R12,#MAlloc_Free]
+LDMVCFD R13!,{R1,PC}^
+.CantRelease
+; FNcrash ; Removed by Gerph
+ADR R0,RelError:SWI "OS_GenerateError"
+.RelError EQUS "FUCKUnable to release memory!"+CHR$0:ALIGN
+
+.Realloc ;in -> r2 ptr to thing, r3 new size
+STMFD R13!,{R1,R14}
+LDR R1,[R12,#MAllocHandle]
+CMP R2,R1
+MOV R14,PC
+LDR PC,[R12,#MAlloc_Realloc]
+LDMVCFD R13!,{R1,PC}^
+B CantClaim
+
+.GetBlockSize ;in -> r2 ptr to thing, <- r3 block size
+STMFD R13!,{R1,R14}
+LDR R1,[R12,#MAllocHandle]
+CMP R2,R1
+MOV R14,PC
+LDR PC,[R12,#MAlloc_GetBlockSize]
+LDMVCFD R13!,{R1,PC}^
+SWI "OS_GenerateError"
+
+.EnumerateBlocks ; in -> r2 ptr to thing, <- r0 = free if 0, r2 -> ptr to thing, r3 = size
+STMFD R13!,{R1,R14}
+LDR R1,[R12,#MAllocHandle]
+CMP R2,R1
+MOV R14,PC
+LDR PC,[R12,#MAlloc_EnumerateBlocks]
+LDMVCFD R13!,{R1,PC}^
+SWI "OS_GenerateError"
+
+:
+.PermStrdup    ; allocates a *permanent* string which is shared
+; in r0->string out r1->strdupped string
+STMFD   R13!,{R0-R7,R14}
+BL      GetStrLen               ; get string length
+MOV     R6,R1                   ; r6 = string lnegth
+CMP     R1,#4                   ; too small?
+BLLT    Strdup
+STRLT   R1,[R13,#4]
+BLT     EndPermStrdup           ; little
+MOV     R1,#0                   ; hash value
+.CalcHashLoop
+LDRB    R14,[R0],#1             ; get a byte
+TEQ     R14,#0                  ; EOS?
+BEQ     HashDone
+ADD     R1,R14,R1,LSL #4        ; add in, shifting hash value
+ANDS    R3,R1,#&F0000000        ; check top four bits
+EORNE   R1,R1,R3,LSL #24        ; eor them on the bottom
+BICNE   R1,R1,#&F0000000        ; and clear them
+B       CalcHashLoop
+.HashDone
+; here r1 = hash value..
+MOV     R0,R1
+MOV     R1,#HashSize
+BL      DivMod                  ; r1 = hash % HashSize
+ADR     R3,PermHashBuffers      ; r3+r1*4 is the bucket to look in
+ADD     R7,R3,R1,LSL #2         ; r7 points to head of list
+LDR     R3,[R3,R1,LSL #2]       ; r3 = bucket
+LDR     R1,[R13]                ; r1 points to string in question
+
+.FindPermStrLoop
+TEQ     R3,#0                   ; end of buffer?
+BEQ     MustMakeNewOne
+ADD     R0,R3,#4                ; point at string
+BL      CheckSame
+STREQ   R0,[R13,#4]
+BEQ     EndPermStrdup           ; perm strdup already gotted
+LDR     R3,[R3]
+B       FindPermStrLoop
+
+.MustMakeNewOne
+ADD     R3,R6,#5                ; string length + 4 for ptr + 1 for term
+BL      Claim
+LDR     R0,[R7]                 ; get head
+STR     R0,[R2]                 ; this->next = head
+STR     R2,[R7]                 ; head = this
+ADD     R2,R2,#4
+STR     R2,[R13,#4]             ; store return
+.lp
+LDRB    R14,[R1],#1
+STRB    R14,[R2],#1
+TEQ     R14,#0
+BNE     lp                      ; and copy in
+
+.EndPermStrdup
+LDMFD   R13!,{R0-R7,PC}^
+
+.PermHashBuffers
+FNres(HashSize*4)
+
+.TidyMemory
+STMFD   R13!,{R0-R7,R14}
+LDR     R1,[R12,#MAllocHandle]
+SWI     "MAlloc_Shrink"
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+\\ Other stuff
+
+.Strdup
+STMFD R13!,{R0,R2-R3,R14}
+FNfunction("Strdup")
+BL GetStrLen:CMP R1,#0:ADREQ R1,Blank2
+BEQ EndDup
+ADD R3,R1,#1:BL Claim
+MOV R1,R2
+LDR R0,[R13]:.CopyLoop
+LDRB R3,[R0],#1:CMP R3,#10:CMPNE R3,#13:MOVEQ R3,#0
+STRB R3,[R2],#1:MOVS R3,R3:BNE CopyLoop
+.EndDup
+FNend
+LDMFD R13!,{R0,R2-R3,PC}^
+
+.Str_dup  ; Takes string at R0 and copies it into an area of module workspace
+          ; just big enough to take it.  Returns address of module area in R1
+          ; returns 0 in r1 if there's a problem
+STMFD R13!,{R0,R2-R3,R14}
+FNfunction("Str_dup")
+BL GetStringLen:CMP R1,#0:ADREQ R1,Blank2
+BEQ EndDup
+ADD R3,R1,#1:BL Claim
+MOV R1,R2
+LDR R0,[R13]:.CopyLoop
+LDRB R3,[R0],#1:CMP R3,#10:CMPNE R3,#13:MOVEQ R3,#0
+STRB R3,[R2],#1:MOVS R3,R3:BNE CopyLoop
+.EndDup
+FNend
+LDMFD R13!,{R0,R2-R3,PC}^
+.Blank2 EQUD 0
+
+.Str_free ; Frees the string in r0. Returns 0 in r0 if it could be freed
+STMFD R13!,{R1-R3,R14}
+FNfunction("Str_free")
+MOV R2,R0
+LDR R1,[R12,#MAllocHandle]
+CMP R2,R1
+MOVGE R14,PC
+LDRGE PC,[R12,#MAlloc_Free]
+MOVVC R0,#0
+FNend
+LDMFD R13!,{R1-R3,PC}^
+
+]
+=""

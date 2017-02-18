@@ -1,0 +1,4333 @@
+REM >IRBasic
+REM $Id: IRBasic 1.2 97/07/15 14:57:10 matt Exp $
+CHAIN "<IRClient$Dir>.IRCsource"
+END
+
+DEF FNwkspIRBasic
+[OPT pass%
+.EEStack                                EQUD    0
+.TopOfEEStack                           EQUD    0
+.EEStackPtr                             EQUD    0
+.LastAtAddr                             EQUD    0
+]
+=""
+DEF FNassembleIRBasic
+statesize = 12
+[OPT pass%
+
+                                     \\ irc programs //
+
+.Programs FNres(64*4)
+.ProgVars FNres(64*4)
+
+.GlocalFlag EQUD 0
+.MangleProgram                       ; take a program in BASIC and 'mangle' it into IRClientese
+; r0->program, r1->place to put data, or 0, <-r2 length
+; r7 -> program number
+STMFD R13!,{R0,R1,R3-R7,R14}
+FNfunction("MangleProgram")
+MOV R2,#0:STR R2,GlocalFlag
+.ForEachLine
+MOV R6,R0
+LDRB R3,[R0],#1:CMP R3,#13:BNE EndMangleProgram
+LDRB R14,[R0]:CMP R14,#&FF:BEQ EndMangleProgram
+MOVS R1,R1:BEQ NoWriteTheThingies
+MOV R5,R1       ; where to put the new line length
+STRB R3,[R1,#0]                        ; store CR
+LDRB R3,[R0,#0]:STRB R3,[R1,#1]        ; store line lo
+LDRB R3,[R0,#1]:STRB R3,[R1,#2]        ; store line hi
+MOV R14,#0:STRB R14,[R1,#4]:STRB R14,[R1,#5]
+STRB R14,[R1,#6]:STRB R14,[R1,#7]      ; blank out refs
+STRB R7,[R1,#8]                        ; store program number
+.NoWriteTheThingies
+ADD R0,R0,#3              ; skip line number & line length
+.AcrossTheLineLoop
+BL StripSpaces
+.SergeantColon
+LDRB R14,[R0]                ; get the first byte
+CMP R14,#ASC":":LDREQB R14,[R0,#1]!:BEQ SergeantColon
+CMP R14,#13:CMPNE R14,#244   ; a blank line or a REM statement - ignore
+BEQ MangleNextLine
+
+MOVS R1,R1:BEQ NotCreateGlocal
+LDR R4,GlocalFlag:MOVS R4,R4:BNE NotCreateGlocal
+CMP r14,#&EA                 ; is it a local?
+BNE NotCreateGlocal
+ADD R0,R0,#1
+
+STMFD R13!,{R1}
+.GlocalLoop
+BL StripSpaces:BL GetVarName
+STMFD R13!,{R0}
+FNadr(0,VarBuffer)
+BL GetStringLen:ADD R1,R1,R0:LDRB R1,[R1,#-1]
+CMP R1,#ASC"$":MOVEQ R2,#fptrStr:MOVNE R2,#fptrNum
+ADREQ R3,GlocalBuffa+8:MOVNE R3,#0
+ADR R1,GlocalBuffa:STMIA R1,{R2,R3}
+STMFD R13!,{R6}
+FNadr(6,ProgVars):ADD R6,R6,R7,LSL #2
+BL NewGlocalVariable
+LDMFD R13!,{R6}
+LDMFD R13!,{R0}
+LDRB R14,[R0],#1:CMP R14,#ASC",":BEQ GlocalLoop
+CMP R14,#13:BNE SyntaxError
+LDMFD R13!,{R1}
+B MangleNextLine
+.GlocalBuffa EQUD 0:EQUD 0:EQUD 0
+
+.NotCreateGlocal
+CMP R14,#&DD:MOVEQ R14,#1:STREQ R14,GlocalFlag
+
+MOVS R1,R1:ADDNE R1,R1,#9    ; move r1 on a bit if neccesary
+
+MOV R4,#9                    ; the line is currently 9 bytes long
+
+STMFD R13!,{R5,R6}
+MOV R5,#0 ; quote flag
+.lp LDRB R14,[R0]:TEQ R5,#0:BNE WeseQuoting
+TEQ R14,#32:ADDEQ R0,R0,#1:BEQ lp
+.WeseQuoting TEQ R14,#ASC"""":EOREQ R5,R5,#1
+;BNE Qotdd
+;LDRB R6,[R0,#1]:;TEQ R6,#ASC"""":;EORNE R5,R5,#1
+.Qotdd
+MOVS R1,R1:BEQ NoStorey
+STRB R14,[R1]:CMP R14,#13:ADDNE R1,R1,#1
+.NoStorey CMP R14,#13:ADDNE R0,R0,#1:ADDNE R4,R4,#1:BNE lp
+LDMFD R13!,{R5,R6}
+
+MOVS R1,R1:STRNEB R4,[R5,#3]           ; store the line length in
+ADD R2,R2,R4                           ; and inc number of bytes to store
+
+.MangleNextLine
+LDRB R0,[R6,#3]:ADD R0,R6,R0:B ForEachLine
+
+.EndMangleProgram
+
+MOVS R1,R1:BEQ ReallyEndMP
+MOV R14,#13:STRB R14,[R1],#1:MOV R14,#&FF:STRB R14,[R1],#1
+
+.ReallyEndMP
+ADD R2,R2,#2+16 ; 16 because if a blank line is prepared at the end of the code
+               ; some bytes are written at r1+8 *FUCKING HELL*
+FNend
+LDMFD R13!,{R0,R1,R3-R7,PC}^
+
+\\ Load a program
+
+.LoadProgram ; in r0->filename
+STMFD R13!,{R0-R7,R14}
+FNfunction("LoadProgram")
+
+MOV R1,R0:MOV R0,#23:SWI "OS_File":CMP R0,#1
+ADRNE R0,BadFile:BNE ErrorLoadProgram
+MOV R3,#&F00:ORR R3,R3,#&FB
+CMP R6,R3:ADRNE R0,BadFile:BNE ErrorLoadProgram
+MOV R3,R4
+BL Claim:MOV R7,R2
+MOV R0,#&FF:MOV R3,#0:SWI "XOS_File":BVC LoadedOK
+BL Release
+ADR R0,BadFile:B ErrorLoadProgram
+
+.LoadedOK
+
+; count how long we need to store the program
+MOV R0,R7
+MOV R1,#0
+BL MangleProgram ; r2 is size to store
+ADD R3,R2,#4
+BL Claim
+ADD R1,R2,#4
+MOV R0,R7
+MOV R7,R2
+STMFD R13!,{R0,R7}
+LDR R7,[R12,#ProgNumber]
+FNadr(4,ProgVars):MOV R14,#0:STR R14,[R4,R7,LSL #2]
+BL MangleProgram
+LDMFD R13!,{R0,R7}
+MOV R2,R0
+BL Release ; release memory originally malloced
+
+LDR R0,[R12,#ProgramHead]:STR R0,[R7]:STR R7,[R12,#ProgramHead]
+
+
+LDR R0,[R13]:BL PermStrdup
+LDR R6,[R12,#ProgNumber]:FNadr(3,Programs):STR R1,[R3,R6,LSL #2]
+ADD R6,R6,#1:STR R6,[R12,#ProgNumber]
+
+;righty - time to sort this lot out...
+ADD R6,R7,#4:FNadr(7,fptrs)
+.LoopForEachLine
+MOV R0,R6 ; r0 points to current line
+LDRB R3,[R0],#1 ; check for our favourite return code
+CMP R3,#13:BEQ _beck
+FNadr(0,BrokenProgram):B ErrorLoadProgram
+._beck
+LDRB R3,[R0],#1:CMP R3,#&FF: BEQ EndLoadProgram ; we've done it!
+ADD R0,R0,#7 ; skip rest of line number, and line length
+BL StripSpaces
+LDRB R3,[R0],#1:CMP R3,#&DD ; &DD is DEF
+BNE SkipToEndOfLine:BL StripSpaces
+MOV R8,#fptrProc:LDRB R3,[R0],#1:CMP R3,#&A4 ; &A4 is FN
+CMPNE R3,#&F2 ; &F2 is PROC
+BNE SkipToEndOfLine
+
+LDRB R3,[R0],#1:CMP R3,#ASC"A":BLT InvalidName:CMP R3,#ASC"z":BGT InvalidName
+
+SUB R5,R3,#ASC"A"
+LDR R4,[R12,#WimpArea]:STRB R3,[R4],#1:.CopyProcname
+LDRB R3,[R0]:CMP R3,#ASC"(":CMPNE R3,#13:CMPNE R3,#10:BEQ GotName
+ADD R0,R0,#1:STRB R3,[R4],#1:B CopyProcname
+.GotName MOV R3,#0:STRB R3,[R4]:LDR R4,[R12,#WimpArea]
+MOV R3,#16:BL Claim:LDR R3,[R7,R5,LSL #2]:STR R3,[R2]:STR R2,[R7,R5,LSL #2] ; put in new fptr
+STR R6,[R2,#12]:STR R8,[R2,#8]:MOV R0,R4:BL PermStrdup:STR R1,[R2,#4]
+
+.SkipToEndOfLine
+LDRB R3,[R6,#3]:ADD R6,R6,R3:B LoopForEachLine
+
+.EndLoadProgram
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.BadFile EQUS "!!!!Unable to load file"+CHR$0:ALIGN
+.ErrorLoadProgram
+STR R0,[R13]:LDR R1,[R13,#8*4]:ORR R1,R1,#1<<28:STR R1,[R13,#8*4]:B EndLoadProgram
+
+.InstallRoutine ; r0->name, r1->routine
+STMFD R13!,{R0-R7,R14}
+FNfunction("InstallRoutine")
+FNadr(7,fptrs)
+ORR R1,R1,#1<<31:MOV R6,R0
+LDRB R3,[R0],#1:CMP R3,#ASC"A":BLT InvalidName:CMP R3,#ASC"z":BGT InvalidName
+SUB R5,R3,#ASC"A"
+MOV R3,#16:BL Claim:LDR R3,[R7,R5,LSL #2]:STR R3,[R2]:STR R2,[R7,R5,LSL #2] ; put in new fptr
+STR R1,[R2,#12]:MOV R0,#fptrProc:STR R0,[R2,#8]:STR R6,[R2,#4]
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.InstallRoutines
+STMFD R13!,{R0-R7,R14}
+FNfunction("InstallRoutines")
+ADR R0,RoutineTable
+.FlangeLoop
+LDR R14,[R0]:MOVS R14,R14:BEQ InstalledRoutines
+MOV R2,R0:BL Ffwd:LDR R1,[R0],#4:MOV R3,R0
+MOV R0,R2:BL InstallRoutine
+MOV R0,R3
+B FlangeLoop
+.InstalledRoutines
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.RoutineTable
+
+; ----------------------
+; EndPoint routines - do nothing but act as an endpoint for overloaded callbacks
+; ----------------------
+EQUS "WimpMessage_Received"+CHR$0:ALIGN:EQUD EndPoint
+EQUS "WimpMessage_Bounced"+CHR$0:ALIGN:EQUD EndPoint
+
+FNirbasicWindowManager
+
+; added by Justin
+EQUS "AddMessage"+CHR$0:         ALIGN:EQUD Proc_AddMessage
+EQUS "RemoveMessage"+CHR$0:      ALIGN:EQUD Proc_RemoveMessage
+EQUS "WimpMessage"+CHR$0:        ALIGN:EQUD Fn_WimpMessage
+EQUS "WimpMessageReply"+CHR$0:   ALIGN:EQUD Fn_WimpMessageReply
+EQUS "WimpMessageRecorded"+CHR$0:ALIGN:EQUD Fn_WimpMessageRecorded
+EQUS "WimpMessageReplyRecorded"+CHR$0:ALIGN:EQUD Fn_WimpMessageReplyRecorded
+; end added bit
+
+; Class stuff
+EQUS "RegisterClass"+CHR$0:      ALIGN:EQUD Fn_RegisterClass
+EQUS "RegisterSubclass"+CHR$0:   ALIGN:EQUD Fn_RegisterSubclass
+EQUS "AddField"+CHR$0:           ALIGN:EQUD Proc_AddField
+EQUS "new"+CHR$0:                ALIGN:EQUD Fn_new
+EQUS "GetClassName"+CHR$0:       ALIGN:EQUD Fn_GetClassName
+EQUS "GetRefCount"+CHR$0:        ALIGN:EQUD Fn_GetRefCount
+EQUS "GarbageCollect"+CHR$0:     ALIGN:EQUD Proc_GarbageCollect
+
+EQUS "Menu_OpenMenu"+CHR$0:      ALIGN:EQUD NoSuchMenu
+
+; actual functions
+
+EQUS "Accept"+CHR$0:             ALIGN:EQUD Fn_Accept
+EQUS "AddCallBack"+CHR$0:        ALIGN:EQUD Proc_AddCallBack
+EQUS "AddDottedLine"+CHR$0:      ALIGN:EQUD Proc_AddDottedLine
+EQUS "AddMenuEntry"+CHR$0:       ALIGN:EQUD Proc_AddMenuEntry
+EQUS "Beep"+CHR$0:               ALIGN:EQUD Proc_beep
+EQUS "BufferAdd"+CHR$0:          ALIGN:EQUD Proc_BufferAdd
+
+; Added by Justin
+EQUS "BufferAddr"+CHR$0:         ALIGN:EQUD Fn_BufferAddr
+; End changes
+
+EQUS "BufferAddString"+CHR$0:    ALIGN:EQUD Proc_BufferAddString
+
+; Added by Justin
+EQUS "BufferLength"+CHR$0:       ALIGN:EQUD Fn_BufferLength
+; End changes
+
+EQUS "memcopy"+CHR$0:            ALIGN:EQUD Proc_memcopy
+EQUS "scan"+CHR$0:               ALIGN:EQUD Fn_scan
+
+; key handler stuff
+EQUS "SetInputText"+CHR$0:       ALIGN:EQUD Proc_SetInputText
+EQUS "SetCursorPos"+CHR$0:       ALIGN:EQUD Proc_SetCursorPos
+EQUS "RedrawInputBox"+CHR$0:     ALIGN:EQUD Proc_RedrawInputBox
+EQUS "ProcessKey"+CHR$0:         ALIGN:EQUD Proc_ProcessKey
+
+; Scheduler calls
+EQUS "CallEvery"+CHR$0:          ALIGN:EQUD Proc_CallEvery
+EQUS "AddCallBack"+CHR$0:        ALIGN:EQUD Proc_AddCallBack
+EQUS "RemoveCallBack"+CHR$0:     ALIGN:EQUD Proc_RemoveCallBack
+EQUS "Overload_CallBack"+CHR$0:  ALIGN:EQUD Proc_OCB
+
+; Menu CallbackS
+EQUS "Menu_Quit"+CHR$0:          ALIGN:EQUD QuitFlagOn
+EQUS "Menu_OpenPrefs"+CHR$0:
+                                 ALIGN:EQUD OpenPrefs
+EQUS "Menu_OpenHotlist"+CHR$0:
+                                 ALIGN:EQUD PrefHotlist
+EQUS "Menu_ChooseFont"+CHR$0:    ALIGN:EQUD ChooseFont
+EQUS "Menu_OpenMenu"+CHR$0:      ALIGN:EQUD NoSuchMenu
+EQUS "Menu_HotlistSelectAll"+CHR$0:     ALIGN:EQUD Menu_HotlistSelectAll
+EQUS "Menu_HotlistClearSel"+CHR$0:      ALIGN:EQUD Menu_HotlistClearSel
+EQUS "Menu_HotlistEdit"+CHR$0:          ALIGN:EQUD Menu_HotlistEdit
+EQUS "Menu_HotlistDelete"+CHR$0:        ALIGN:EQUD Menu_HotlistDelete
+EQUS "Menu_HotlistAdd"+CHR$0:           ALIGN:EQUD Menu_HotlistAdd
+EQUS "Menu_HotlistMakeDefault"+CHR$0:   ALIGN:EQUD Menu_HotlistMakeDefault
+
+EQUS "BufferShrink"+CHR$0:       ALIGN:EQUD Proc_BufferShrink
+EQUS "Capitalise"+CHR$0:         ALIGN:EQUD Fn_Capitalise
+EQUS "CopySelection"+CHR$0:      ALIGN:EQUD Proc_CopySelection
+EQUS "ClearSelection"+CHR$0:     ALIGN:EQUD Proc_ClearSelection
+EQUS "PasteSelection"+CHR$0:     ALIGN:EQUD Proc_PasteSelection
+EQUS "CommitMenu"+CHR$0:         ALIGN:EQUD Proc_CommitMenu
+EQUS "ChangeDisplayTitle"+CHR$0: ALIGN:EQUD Proc_ChangeDisplayTitle
+EQUS "ChangeChannelTopic"+CHR$0: ALIGN:EQUD Proc_ChangeChannelTopic
+EQUS "Claim"+CHR$0:              ALIGN:EQUD Fn_Claim
+EQUS "Close"+CHR$0:              ALIGN:EQUD Proc_Close
+EQUS "CloseDisplay"+CHR$0:       ALIGN:EQUD Proc_CloseDisplay
+EQUS "CloseByLocalPort"+CHR$0:   ALIGN:EQUD Proc_CloseByLocalPort
+EQUS "CloseInputBox"+CHR$0:      ALIGN:EQUD Proc_CloseInputBox
+EQUS "Colour"+CHR$0:             ALIGN:EQUD Fn_Colour
+EQUS "Connect"+CHR$0:            ALIGN:EQUD Fn_Connect
+EQUS "CycleFocusForwards"+CHR$0: ALIGN:EQUD Proc_CycleFocusForwards
+EQUS "CycleFocusBackwards"+CHR$0:ALIGN:EQUD Proc_CycleFocusBackwards
+EQUS "DeleteChannel"+CHR$0:      ALIGN:EQUD Proc_DeleteChannel
+EQUS "DeleteUser"+CHR$0:         ALIGN:EQUD Proc_DeleteUser
+EQUS "DestroyAll"+CHR$0:         ALIGN:EQUD Proc_DestroyAll
+EQUS "Display"+CHR$0:            ALIGN:EQUD Proc_display
+EQUS "FreeBuffer"+CHR$0:         ALIGN:EQUD Proc_FreeBuffer
+EQUS "FindDisplay"+CHR$0:        ALIGN:EQUD Fn_FindDisplay
+EQUS "FindUser"+CHR$0:           ALIGN:EQUD Fn_FindUser
+EQUS "FindUserChan"+CHR$0:       ALIGN:EQUD Fn_FindUserChan
+EQUS "GetChannelFlags"+CHR$0:    ALIGN:EQUD Fn_GetChanFlags
+EQUS "GetCTCPColour"+CHR$0:      ALIGN:EQUD Fn_GetCTCPColour
+EQUS "GetLineFromBuffer"+CHR$0:  ALIGN:EQUD Fn_GetLineFromBuffer
+EQUS "GetMyIP"+CHR$0:            ALIGN:EQUD Fn_GetMyIP
+EQUS "GetIRLname"+CHR$0:         ALIGN:EQUD Fn_GetIRLname
+EQUS "GetMenuParameter"+CHR$0:   ALIGN:EQUD Fn_GetMenuParameter
+EQUS "GetMenuChannel"+CHR$0:     ALIGN:EQUD Fn_GetMenuChannel
+EQUS "GetMOTDflag"+CHR$0:        ALIGN:EQUD Fn_GetMOTDflag
+EQUS "GetMeColour"+CHR$0:        ALIGN:EQUD Fn_GetMeColour
+EQUS "GetNickname"+CHR$0:        ALIGN:EQUD Fn_GetNickname
+EQUS "GetUsername"+CHR$0:        ALIGN:EQUD Fn_GetUsername
+EQUS "KillDisplay"+CHR$0:        ALIGN:EQUD Proc_killdisplay
+EQUS "Listen"+CHR$0:             ALIGN:EQUD Fn_Listen
+EQUS "NukeProgram"+CHR$0:        ALIGN:EQUD Proc_NukeProgram
+EQUS "NewBuffer"+CHR$0:          ALIGN:EQUD Fn_NewBuffer
+EQUS "NewChannel"+CHR$0:         ALIGN:EQUD Proc_NewChannel
+EQUS "NewDisplay"+CHR$0:         ALIGN:EQUD Proc_newdisplay
+EQUS "NewMenu"+CHR$0:            ALIGN:EQUD Proc_NewMenu
+EQUS "Notify"+CHR$0:             ALIGN:EQUD Proc_Notify
+EQUS "Offline"+CHR$0:            ALIGN:EQUD Proc_Offline
+EQUS "Online"+CHR$0:             ALIGN:EQUD Proc_Online
+EQUS "OpenConnect"+CHR$0:        ALIGN:EQUD Proc_OpenConnect
+EQUS "OpenInputBox"+CHR$0:       ALIGN:EQUD Proc_OpenInputBox
+EQUS "OpenMenu"+CHR$0:           ALIGN:EQUD Proc_OpenMenu
+EQUS "OpenServerWindow"+CHR$0:   ALIGN:EQUD Proc_OpenServerWindow
+EQUS "PartialDisplay"+CHR$0:     ALIGN:EQUD Proc_partialdisplay
+EQUS "ReadTime"+CHR$0:           ALIGN:EQUD Fn_ReadTime
+EQUS "ReadToStaticBuffer"+CHR$0: ALIGN:EQUD Fn_ReadToBuffer
+EQUS "Release"+CHR$0:            ALIGN:EQUD Proc_Release
+EQUS "SelectChannel"+CHR$0:      ALIGN:EQUD Proc_SelectChannel
+EQUS "SendMemory"+CHR$0:         ALIGN:EQUD Proc_SendMemory
+EQUS "SendString"+CHR$0:         ALIGN:EQUD Proc_SendString
+EQUS "SendWord"+CHR$0:           ALIGN:EQUD Proc_SendWord
+EQUS "SetDisplayForRecall"+CHR$0:ALIGN:EQUD Proc_SetDisplayForRecall
+EQUS "SetFocus"+CHR$0:           ALIGN:EQUD Proc_SetFocus
+EQUS "SetInputTitle"+CHR$0:      ALIGN:EQUD Proc_SetInputTitle
+EQUS "SetNickname"+CHR$0:        ALIGN:EQUD Proc_SetNickname
+EQUS "SetPreInput"+CHR$0:        ALIGN:EQUD Proc_SetPreInput
+EQUS "StartupStatus"+CHR$0:      ALIGN:EQUD Proc_StartupStatus
+; Changed by Justin
+EQUS "StaticBufferAddr"+CHR$0:   ALIGN:EQUD Fn_StaticBufferAddr
+; end changes
+EQUS "Strdup"+CHR$0:             ALIGN:EQUD Fn_Strdup
+EQUS "Strip"+CHR$0:              ALIGN:EQUD Fn_Strip
+EQUS "UpdateChannel"+CHR$0:      ALIGN:EQUD Proc_UpdateChannel
+EQUS "UpdateUser"+CHR$0:         ALIGN:EQUD Proc_UpdateUser
+EQUS "UserFlags"+CHR$0:          ALIGN:EQUD Fn_UserFlags
+EQUS "UserHasOps"+CHR$0:         ALIGN:EQUD Fn_UserHasOps
+EQUS "UserHasVoice"+CHR$0:       ALIGN:EQUD Fn_UserHasVoice
+EQUS "Version"+CHR$0:            ALIGN:EQUD Fn_Version
+EQUS "WildcardMatch"+CHR$0:      ALIGN:EQUD Fn_WildcardMatch
+EQUD 0
+
+.BadProgram ADR R0,BrokenProgram+4:B Error
+.BrokenProgram EQUS "!!!!Bad program"+CHR$0:ALIGN
+
+\\ The support functions \\
+
+.Fn_GetMenuParameter
+CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrStr:LDR R2,[R12,#MenuParameter]
+MOVS R2,R2:ADREQ R2,bbb:MOVS PC,R14
+.bbb EQUD 0
+.Fn_GetMenuChannel
+CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrStr:LDR R2,[R12,#MenuChannel]
+MOVS R2,R2:ADREQ R2,bbb:MOVS PC,R14
+
+.ChooseFont
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R0,[R2]:CMPEQ R0,#fptrStr:BNE CrapParms
+LDR R3,[R2,#4]
+LDR R0,[R12,#EqHandle]:FNadr(1,PrefPane):ADR R2,BitFontName
+SWI "EqWimp_WriteStringToIcon"
+MOV R0,#0:LDMFD R13!,{PC}^
+.BitFontName EQUS "BitFont"+CHR$0:ALIGN
+
+.Menu_HotlistSelectAll
+STMFD   R13!,{R14}
+BL      SelectAllHotlist
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+.Menu_HotlistClearSel
+STMFD   R13!,{R14}
+BL      ClearHotlist
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+.Menu_HotlistEdit
+STMFD   R13!,{R14}
+BL      EditHotlist
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+.Menu_HotlistDelete
+STMFD   R13!,{R14}
+BL      DelHotlist
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+.Menu_HotlistAdd
+STMFD   R13!,{R14}
+BL      NewHotlist
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+.Menu_HotlistMakeDefault
+STMFD   R13!,{R14}
+BL      DefHot
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+; Scheduler routines :
+
+.Proc_CallEvery
+STMFD R13!,{R14}
+CMP R1,#3:LDREQ R1,[R2]:CMPEQ R1,#fptrStr
+LDREQ R1,[R2,#8]  : CMPEQ R1,#fptrNum
+LDREQ R1,[R2,#16] : CMPEQ R1,#fptrNum:BNE CrapParms
+STMFD R13!,{R2}
+MOV R3,#sizeof_Schedule:BL Claim:MOV R7,R2
+LDMFD R13!,{R2}
+SWI "OS_ReadMonotonicTime"
+LDR R1,[R2,#12]:ADD R0,R1,R0 ; r0 is time to call back
+STR R0,[R7,#Schedule_Time]
+STR R1,[R7,#Schedule_TimeAgain]
+LDR R0,[R2,#4]:BL Str_dup:STR R1,[R7,#Schedule_Name]
+LDR R0,[R2,#20]:STR R0,[R7,#Schedule_Private]
+BL Instance_RegisterReference
+BL InsertIntoScheduleList
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_AddCallBack
+STMFD R13!,{R14}
+CMP R1,#3:LDREQ R1,[R2]:CMPEQ R1,#fptrStr
+LDREQ R1,[R2,#8]  : CMPEQ R1,#fptrNum
+LDREQ R1,[R2,#16] : CMPEQ R1,#fptrNum:BNE CrapParms
+STMFD R13!,{R2}
+MOV R3,#sizeof_Schedule:BL Claim:MOV R7,R2
+LDMFD R13!,{R2}
+SWI "OS_ReadMonotonicTime"
+LDR R1,[R2,#12]:ADD R0,R1,R0 ; r0 is time to call back
+STR R0,[R7,#Schedule_Time]
+MOV R1,#0:STR R1,[R7,#Schedule_TimeAgain]
+LDR R0,[R2,#4]:BL Str_dup:STR R1,[R7,#Schedule_Name]
+LDR R0,[R2,#20]:STR R0,[R7,#Schedule_Private]
+BL Instance_RegisterReference
+BL InsertIntoScheduleList
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.InsertIntoScheduleList ; r7->schedule thing not already in llist
+STMFD R13!,{R0-R7,R14}
+FNfunction("InsertIntoScheduleList")
+ADD R0,R12,#SchedList AND &FF
+ADD R0,R0,#SchedList AND &FF00
+LDR R2,[R7,#Schedule_Time]
+.lp
+LDR R6,[R0]
+MOVS R6,R6:BEQ InsertSchedHere
+LDR R1,[R6,#Schedule_Time]:CMP R2,R1:BLT InsertSchedHere
+MOV R0,R6:B lp
+.InsertSchedHere
+STR R7,[R0]:STR R6,[R7]
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.CheckSchedules
+STMFD R13!,{R0-R7,R14}
+FNfunction("CheckSchedules")
+SWI "OS_ReadMonotonicTime"
+LDR R6,[R12,#SchedList]
+.lp
+MOVS R7,R6:BEQ endCheckScheds
+LDR R6,[R7] ; get next field now ;)
+LDR R2,[R7,#Schedule_Time]:CMP R2,R0:BLLT RunSched
+BLT lp
+.endCheckScheds
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.RunSched
+STMFD R13!,{R0-R7,R14}
+FNfunction("RunSched")
+LDR R0,[R7,#Schedule_Name]:STR R0,blkkk+4:LDR R0,[R7,#Schedule_Private]
+STR R0,blkkk+12
+ADR R0,NameOfSchedRout:MOV R1,#2:ADR R2,blkkk
+BL CallRootProcedure
+BL DisconnectSchedule
+LDR R1,[R7,#Schedule_TimeAgain]
+MOVS R1,R1:ldreq r0,[r7,#Schedule_Private]:BLEQ Instance_DeregisterReference
+LDREQ R0,[R7,#Schedule_Name]:BLEQ Str_free:MOVEQ R0,R7:BLEQ Str_free
+BEQ endRunSched
+SWI "OS_ReadMonotonicTime":ADD R0,R0,R1:STR R0,[R7,#Schedule_Time]
+BL InsertIntoScheduleList
+.endRunSched
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.NameOfSchedRout EQUS "Overload_CallBack"+CHR$0:ALIGN
+.blkkk EQUD fptrStr:EQUD 0:EQUD fptrNum:EQUD 0
+
+.DisconnectSchedule ; discos R7 from sched list
+STMFD R13!,{R0-R7,R14}
+FNfunction("DisconnectSchedule")
+ADD R0,R12,#SchedList AND &FF
+ADD R0,R0,#SchedList AND &FF00
+.lp LDR R6,[R0]
+MOVS R6,R6:BEQ discEndSched
+CMP R6,R7:LDREQ R6,[R6]:STREQ R6,[R0]:BEQ discEndSched
+MOV R0,R6:B lp
+.discEndSched
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.Proc_RemoveCallBack
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R1,[R2]:CMP R1,#fptrStr:BNE CrapParms
+LDR R1,[R2,#4]
+LDR R7,[R12,#SchedList]
+.lp
+MOVS R7,R7:BEQ endPRCB
+LDR R0,[R7,#Schedule_Name]:BL CheckSame
+BLEQ DisconnectSchedule:LDREQ R0,[R7,#Schedule_Name]:BLEQ Str_free
+MOVEQ R0,R7:BLEQ Str_free
+LDR R7,[R7]:B lp
+.endPRCB
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_OCB
+LDR R1,[R12,#WimpArea]:LDR R3,[R2,#4]:ADR R2,OCB_Mes:BL String
+MOV R0,R1:B Error
+.OCB_Mes EQUS "CallBack '%s' not recognised by overload"+CHR$0:ALIGN
+
+.NoSuchMenu
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R1,[R2]:CMPEQ R1,#fptrStr:BNE CrapParms
+LDR R1,[R12,#WimpArea]:LDR R3,[R2,#4]:ADR R2,NSM_mes:BL String
+MOV R0,R1:B Error
+.NSM_mes EQUS "No such menu - '%s'"+CHR$0:ALIGN
+
+.EndPoint MOV R0,#0:MOVS PC,R14
+
+; Glue for new menu facilities
+.Proc_NewMenu ; PROCNewMenu(title$)
+STMFD R13!,{R14}
+CMP R1,#2:LDREQ R1,[R2]:CMPEQ R1,#fptrStr:BNE CrapParms
+LDR R1,[R2,#8]:CMP R1,#fptrStr:BNE CrapParms
+LDR R0,[R2,#4]:LDR R1,[R2,#12]:BL NewMenu
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_AddMenuEntry ; PROCAddMenuEntry(entry$,callback$,grey,tick,submenuname$)
+STMFD R13!,{R14}
+CMP R1,#5:BNE CrapParms
+LDR R1,[R2    ]:CMP R1,#fptrStr:BNE CrapParms
+LDR R1,[R2,#8 ]:CMP R1,#fptrStr:BNE CrapParms
+LDR R1,[R2,#16]:CMP R1,#fptrNum:BNE CrapParms
+LDR R1,[R2,#24]:CMP R1,#fptrNum:BNE CrapParms
+LDR R1,[R2,#32]:CMP R1,#fptrStr:BNE CrapParms
+LDR R4,[R2,#36]
+MOV R14,R2
+LDR R0,[R14,#4]:LDR R1,[R14,#12]
+LDR R2,[R14,#20]:LDR R3,[R14,#28]
+BL AddMenuEntry
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_AddDottedLine
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL AddDottedLine
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_CommitMenu
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+;BL CommitMenu
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_OpenMenu
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDR R1,[R2]:CMP R1,#fptrNum:LDREQ R1,[R2,#8]:CMPEQ R1,#fptrNum:BNE CrapParms
+LDR R0,[R2,#4]:LDR R1,[R2,#12]
+BL OpenMenu
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Fn_Strdup
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R1,[R2]:CMP R1,#fptrStr:BNE CrapParms
+LDR R0,[R2,#4]:BL Strdup:MOV R2,R1
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_Capitalise
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R1,[R2]:CMPEQ R1,#fptrStr:BNE CrapParms
+LDR R3,[R2,#4]:MOV R2,R3
+.lp LDRB R14,[R2]:MOVS R14,R14:BEQ EndCapit
+CMP R14,#ASC"a":ADDLT R2,R2,#1:BLT lp:CMP R14,#ASC"z":ADDGT R2,R2,#1:BGT lp
+BIC R14,R14,#32:STRB R14,[R2],#1:B lp
+.EndCapit
+MOV R0,R3:BL DupString:MOV R2,R0
+MOV R0,#1:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+
+.Fn_Strip
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R1,[R2]:CMPEQ R1,#fptrStr:BNE CrapParms
+LDR R2,[R2,#4]
+.lp LDRB R14,[R2]:CMP R14,#32:ADDEQ R2,R2,#1:BEQ lp
+MOV R0,R2:BL DupString:MOV R2,R0
+MOV R0,#1:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+
+.Fn_GetMyIP
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms:MOV R0,#1:MOV R1,#fptrNum
+LDR R2,[R12,#MyIP]:MOVS R2,R2:BLEQ GetMyIP:LDREQ R2,[R12,#MyIP]:MOV R0,#1
+LDMFD R13!,{PC}^
+
+.GetMyIP
+STMFD R13!,{R0-R7,R14}
+FNfunction("GetMyIP")
+LDR R1,[R12,#WimpArea]:ADR R2,Bee1:ADR R3,Bee2:BL String
+LDR R1,[R12,#WimpArea]:MOV R0,#0:SWI &66000 ; internet_gethostbyname
+BVS Fang
+CMP R1,#0:BEQ Fang
+LDR R0,[R1,#16]:LDR R0,[R0]:LDR R0,[R0]:STR R0,[R12,#MyIP]
+.Fang
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.Bee1 EQUS "%$"+CHR$0:ALIGN
+.Bee2 EQUS "Inet$HostName"+CHR$0:ALIGN
+
+.Fn_GetMOTDflag
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms:MOV R0,#1:MOV R1,#fptrNum:FNadr(2,ShowMOTD)
+LDR R2,[R2]:LDMFD R13!,{PC}^
+
+.Fn_ReadTime
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+ADR R1,FooBarBit:MOV R2,#0:STR R2,[R1]:MOV R0,#14:SWI "OS_Word"
+ADR R1,FooBarBit:.lp LDRB R0,[R1],#1:CMP R0,#13:BNE lp
+MOV R0,#0:STRB R0,[R1,#-1]:MOV R0,#1:MOV R1,#fptrStr:ADR R2,FooBarBit
+LDMFD R13!,{PC}^
+.FooBarBit FNres(64)
+
+.Fn_Version
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+FNadr(2,Version):MOV R1,#fptrStr:MOV R0,#1
+LDMFD R13!,{PC}^
+
+.Fn_WildcardMatch
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R0-R3}
+CMP R0,#fptrStr:CMPEQ R2,#fptrStr:BNE CrapParms
+MOV R0,R3 ; ok now r1 = wildcard, r0 = matchee
+BL Wildmatch
+MVNEQ R2,#0:MOVNE R2,#0:MOV R0,#1:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Wildmatch
+   STMFD   R13!,{r0-r3,R14}            ; Stack registers
+.Wildmatch_trythis
+   LDRB    r3,[r0]                       ; get wildcard
+   LDRB    r2,[r1]                       ; get base
+   CMP     r3,#32
+   MOVLT   r3,#0
+   CMP     r2,#32
+   MOVLT   r2,#0
+   CMP     r2,#ASC("a")
+   BLT     Wildmatch_baseless
+   CMP     r2,#ASC("z")
+   SUBLE   r2,r2,#32
+.Wildmatch_baseless
+   CMP     r3,#ASC("a")
+   BLT     Wildmatch_wildless
+   CMP     r3,#ASC("z")
+   SUBLE   r3,r3,#32
+.Wildmatch_wildless
+
+   CMP     r2,#0                         ; is base eol ?
+   BNE     Wildmatch_notbaseeol                   ; if not the skip this
+   CMP     r3,#ASC("*")                  ; is wild * ?
+   ADDEQ   r0,r0,#1                      ; if so, inc wild ptr THEN
+   BEQ     Wildmatch_trythis                      ; THEN and loop around
+   CMP     r3,#0                         ; if wild eol ?
+   B       Wildmatch_exit                         ; return with flags
+.Wildmatch_notbaseeol
+   CMP     r3,#0                         ; is wild eol ?
+   BEQ     Wildmatch_returnFALSE                  ; if so, =FALSE
+   CMP     r2,#ASC("*")                  ; is this a * itself ?
+   BEQ     Wildmatch_iswildcardchar               ; if so, skip check code
+   CMP     r2,r3                         ; are base and wild same ?
+   CMPNE   r3,#ASC("#")                  ; THEN or is wild # ?
+   ADDEQ   r0,r0,#1                      ; if so, inc base THEN
+   ADDEQ   r1,r1,#1                      ; THEN and wild THEN
+   BEQ     Wildmatch_trythis                      ; THEN and try again
+.Wildmatch_iswildcardchar
+   CMP     r3,#ASC("*")                  ; is wild * ?
+   BNE     Wildmatch_returnFALSE                  ; if not, then return
+   ADD     r0,r0,#1                      ; inc wild
+   BL      Wildmatch                     ; try this
+   SUBNE   r0,r0,#1                      ; if not found, reset wild THEN
+   ADDNE   r1,r1,#1                      ; THEN inc base THEN
+   BLNE    Wildmatch                  ; THEN and try this THEN
+.Wildmatch_exit
+   LDMFD   R13!,{r0-r3,pc}              ; Return from call
+.Wildmatch_returnFALSE
+   CMP     pc,#0
+   LDMFD   R13!,{r0-r3,pc}
+
+
+.Fn_NewBuffer
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL NewBuffer:MOV R2,R0
+MOV R0,#1:MOV 1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Fn_BufferLength
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0,R1}
+CMP R0,#fptrNum:BNE CrapParms
+LDR R2,[R1,#Buffer_Length]
+MOV R0,#1:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Fn_BufferAddr
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0,R1}
+CMP R0,#fptrNum:BNE CrapParms
+LDR R2,[R1,#Buffer_Data]
+MOV R0,#1:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Fn_GetLineFromBuffer
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0,R1}
+CMP R0,#fptrNum:BNE CrapParms
+MOV R0,R1:BL GetLineFromBuffer:MOV R2,R0
+MOV R0,#1:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+
+.Proc_BufferShrink
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R0-R3}
+CMP R0,#fptrNum:CMPEQ R2,#fptrNum:BNE CrapParms
+MOV R0,R1:MOV R1,R3:BL BufferShrink
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_BufferAdd
+STMFD R13!,{R14}
+CMP R1,#3:BNE CrapParms:LDMIA R2,{R0-R5}
+CMP R0,#fptrNum:CMPEQ R2,#fptrNum:CMPEQ R4,#fptrNum:BNE CrapParms
+MOV R0,R1:MOV R1,R3:MOV R2,R5:BL BufferAdd
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_BufferAddString
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R0-R3}
+CMP R0,#fptrNum:CMPEQ R2,#fptrStr:BNE CrapParms
+STMFD R13!,{R1}:MOV R0,R3:BL GetStrLen:MOV R2,R1
+LDMFD R13!,{R0}:MOV R1,R3:BL BufferAdd
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_FreeBuffer
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0,R1}
+CMP R0,#fptrNum:BNE CrapParms:MOV R0,R1:BL FreeBuffer
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_Online
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL Online
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_Offline
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL Offline
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_Notify ; PROCNotify("hello")
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0,R1}:CMP R0,#fptrStr:BNE CrapParms
+MOV R0,R1:BL Notify
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_SendString ; PROCSendString(handle,"Hello") -puts crlf on end
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R0-R3}:CMP R0,#fptrNum:CMPEQ R2,#fptrStr:BNE CrapParms
+;r1 = handle, r3 =string
+MOV R7,R1
+MOV R0,R3:BL GetStringLen:MOV R2,R0:MOV R3,R1
+LDR R0,[R12,#EqNetHandle]:MOV R1,R7:SWI "EqNet_Send"
+ADR R2,crlf:MOV R3,#2:SWI "EqNet_Send"
+MOV R0,#0:LDMFD R13!,{PC}^
+.crlf EQUB 13:EQUB 10:ALIGN
+
+.Proc_SendMemory ; PROCSendMemory(handle,start,len)
+STMFD R13!,{R14}
+CMP R1,#3:BNE CrapParms:LDMIA R2,{R0-R5}:CMP R0,#fptrNum:CMPEQ R2,#fptrNum:CMPEQ R4,#fptrNum
+BNE CrapParms
+LDR R0,[R12,#EqNetHandle]:MOV R2,R3:MOV R3,R5
+SWI "XEqNet_Send"
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_SendWord ; PROCSendWord(handle,4byteword)
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R0-R3}:CMP R0,#fptrNum:CMPEQ R2,#fptrNum:BNE CrapParms
+MOV R0,R3:BL hton
+LDR R0,[R12,#EqNetHandle]:ADR R2,SWbuf:MOV R3,#4
+SWI "XEqNet_Send"
+MOV R0,#0:LDMFD R13!,{PC}^
+.SWbuf EQUD 0
+
+.Proc_AddMessage ; PROCAddMessage(number)
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0-R1}
+STR r1,pam_buf:ADR r0,pam_buf:SWI "Wimp_AddMessages"
+MOV R0,#0:LDMFD R13!,{PC}^
+.pam_buf:EQUD 0:EQUD 0
+
+.Proc_RemoveMessage ; PROCRemoveMessage(number)
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0-R1}
+STR r1,pam_buf:ADR r0,pam_buf:SWI "Wimp_RemoveMessages"
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Fn_WimpMessage ; handle=FNWimpMessage(task,message,blockptr,len)
+STMFD R13!,{R14}
+MOV r14,#17 ; reason code
+.fwm_checkparams
+CMP R1,#4:BNE CrapParms:LDMIA R2,{R0-R7}
+CMP R0,#fptrNum:CMPEQ R2,#fptrNum
+CMPEQ R4,#fptrNum:CMPEQ R6,#fptrNum:BNE CrapParms
+LDR r0,[r12,#WimpArea]
+MOV r2,#0:STR r2,[r0,#8]:STR r2,[r0,#12]
+.fwm_sendwithheader
+STR r3,[r0,#16]
+ADD r7,r7,#20+3:BICS r7,r7,#3:STR r7,[r0,#0]
+ADD r0,r0,#20
+BEQ fwm_nodata
+.fwm_loop
+LDR r2,[r5,r7]:STR r2,[r0,r7]:SUBS r7,r7,#4:BPL fwm_loop
+.fwm_nodata
+MOV r2,r1:SUB r1,r0,#20:MOV r0,r14
+SWI "Wimp_SendMessage"
+MOV R0,#1:LDR r2,[r1,#8]:MOV r1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_WimpMessageReply ; handle=FNWimpMessageReply(message,blockptr,len)
+STMFD R13!,{R14}
+MOV r14,#17
+.fwmr_checkparams
+CMP R1,#3:BNE CrapParms:LDMIA R2,{R2-R7}
+CMPEQ R2,#fptrNum:CMPEQ R4,#fptrNum
+CMPEQ R6,#fptrNum:BNE CrapParms
+LDR r4,[r12,#MsgArea]:LDR r0,[r12,#WimpArea]
+LDR r2,[r4,#8]:STR r2,[r0,#12]
+LDR r1,[r4,#4] ; who the last message came from
+B fwm_sendwithheader
+
+.Fn_WimpMessageRecorded ; as FNWimpMessage
+STMFD R13!,{R14}
+MOV r14,#18
+B fwm_checkparams
+
+.Fn_WimpMessageReplyRecorded ; as FNWimpMessageReply
+STMFD R13!,{R14}
+MOV r14,#18
+B fwmr_checkparams
+
+; end added
+
+.Fn_Claim
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R0,[R2]:CMP R0,#fptrNum:BNE CrapParms
+LDR R3,[R2,#4]
+BL Claim:MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Proc_Release
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R0,[R2]:CMP R0,#fptrNum:BNE CrapParms
+LDR R2,[R2,#4]:BL Release:MOV R0,#0:LDMFD R13!,{PC}^
+
+.Fn_ReadToBuffer
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R0,[R2]:CMP R0,#fptrNum:BNE CrapParms
+LDR R1,[R2,#4]:LDR R0,[R12,#EqNetHandle]:LDR R2,[R12,#SharedBuffer]
+MOVS R2,R2:MOV R3,#16384:BLEQ Claim:STREQ R2,[R12,#SharedBuffer]
+SWI "XEqNet_Receive":MOVVS R3,#0:MOV R0,#1:MOV R1,#fptrNum:MOV R2,R3:LDMFD R13!,{PC}^
+
+.Fn_StaticBufferAddr
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms:MOV R0,#1:MOV R1,#fptrNum:LDR R2,[R12,#SharedBuffer]
+LDMFD R13!,{PC}^
+
+.Proc_CloseByLocalPort ; PROCCloseByLocalPort(PortNumber)
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R0,[R2]:CMP R0,#fptrNum:BNE CrapParms
+LDR R6,[R2,#4]:LDR R7,[R12,#ConnectionHead]:.lp
+MOVS R7,R7:BEQ EndCBLP
+LDR R1,[R7,#Connection_Handle]:LDR R0,[R12,#EqNetHandle]
+SWI "EqNet_GetLocalPort":CMP R2,R6:BEQ FoundTheConInQuestion
+LDR R7,[R7]:B lp
+.FoundTheConInQuestion
+MOV R0,R1:BL CloseConnection
+.EndCBLP
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_Close ; PROCClose(handle)
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R0,[R2]:CMP R0,#fptrNum:BNE CrapParms
+LDR R0,[R2,#4]:BL CloseConnection
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Fn_Listen ; port=FNListen(port,incoming$,pword)
+STMFD R13!,{R14}:CMP R1,#3:BNE CrapParms
+LDMIA R2,{R0-R5}:CMP R0,#fptrNum:CMPEQ R2,#fptrStr:CMPEQ R4,#fptrNum:BNE CrapParms
+STMFD R13!,{R3}
+MOV R3,#sizeof_Connection:BL Claim:MOV R7,R2 ; r7 pts to con struct
+LDR R0,[R12,#EqNetHandle]:MOV R2,R1:MOV R3,R7:FNadr(6,BasicIncoming):SWI "XEqNet_Listen"
+MOVVS R1,#0:MOVVS R2,#0
+STR R1,[R7,#Connection_Handle]
+LDR R0,[R12,#ConnectionHead]:STR R0,[R7]:STR R7,[R12,#ConnectionHead]
+LDMFD R13!,{R0}:BL Str_dup:STR R1,[R7,#Connection_Incoming]
+STR R5,[R7,#Connection_Private]
+mov r0,r5:BL Instance_RegisterReference
+MOV R0,#0:STR R0,[R7,#Connection_Connected]:STR R0,[R7,#Connection_Error]
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_Accept ; handle=FNAccept(handle,er$,in$,pword)
+STMFD R13!,{R14}
+CMP R1,#4:BNE CrapParms
+LDR   R0,[R2]     : CMP   R0,#fptrNum
+LDREQ R0,[R2,# 8] : CMPEQ R0,#fptrStr
+LDREQ R0,[R2,#16] : CMPEQ R0,#fptrStr
+LDREQ R0,[R2,#24] : CMPEQ R0,#fptrNum
+BNE CrapParms
+MOV R6,R2:MOV R3,#sizeof_Connection:BL Claim
+MOV R7,R2 ; r2 pts to Connection structure
+LDR R0,[R12,#ConnectionHead]:STR R0,[R7]:STR R7,[R12,#ConnectionHead]
+LDR R0,[R6,#28]:STR R0,[R7,#Connection_Private]:BL Instance_RegisterReference
+MOV R1,#0:STR R1,[R7,#Connection_Connected]
+LDR R0,[R6,#12]:BL GetStringLen:MOVS R1,R1:BLNE Str_dup:STR R1,[R7,#Connection_Error]
+LDR R0,[R6,#20]:BL GetStringLen:MOVS R1,R1:BLNE Str_dup:STR R1,[R7,#Connection_Incoming]
+LDR R0,[R12,#EqNetHandle]:LDR R1,[R6,#4]:LDR R2,[R6,#12]
+MOV R3,R7:ADR R4,BasicCon
+ADR R5,BasicError:ADR R6,BasicIncoming:SWI "EqNet_Accept":MOV R2,R1
+STR R2,[R7,#Connection_Handle]
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_Connect ; handle=FNConnect(host$,port,connected$,error$,incoming$,pword)
+STMFD R13!,{R14}
+CMP R1,#6:BNE CrapParms
+LDR   R0,[R2]     : CMP   R0,#fptrStr
+LDREQ R0,[R2,# 8] : CMPEQ R0,#fptrNum
+LDREQ R0,[R2,#16] : CMPEQ R0,#fptrStr
+LDREQ R0,[R2,#24] : CMPEQ R0,#fptrStr
+LDREQ R0,[R2,#32] : CMPEQ R0,#fptrStr
+LDREQ R0,[R2,#40] : CMPEQ R0,#fptrNum
+BNE CrapParms
+MOV R6,R2:MOV R3,#sizeof_Connection:BL Claim
+MOV R7,R2 ; r2 pts to Connection structure
+LDR R0,[R12,#ConnectionHead]:STR R0,[R7]:STR R7,[R12,#ConnectionHead]
+LDR R0,[R6,#44]:STR R0,[R7,#Connection_Private]:BL Instance_RegisterReference
+LDR R0,[R6,#20]:BL GetStringLen:MOVS R1,R1:BLNE Str_dup:STR R1,[R7,#Connection_Connected]
+LDR R0,[R6,#28]:BL GetStringLen:MOVS R1,R1:BLNE Str_dup:STR R1,[R7,#Connection_Error]
+LDR R0,[R6,#36]:BL GetStringLen:MOVS R1,R1:BLNE Str_dup:STR R1,[R7,#Connection_Incoming]
+LDR R0,[R12,#EqNetHandle]:LDR R1,[R6,#4]:LDR R2,[R6,#12]
+MOV R3,R7:ADR R4,BasicCon
+ADR R5,BasicError:ADR R6,BasicIncoming:SWI "XEqNet_Connect":MOV R2,R1:MOVVS R2,#0
+STR R2,[R7,#Connection_Handle]:MOVS R0,R2:BLEQ CloseConnection ; bad news if this happens
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.BasicCon
+STMFD R13!,{R14}:ADR R2,BasicCon_CalledBack:BL AddCallBack:LDMFD R13!,{PC}^
+.BasicCon_CalledBack
+STMFD R13!,{R0-R7,R14}
+FNfunction("BasicCon_CalledBack")
+MOV R7,R0 ; get handle of incoming data
+LDR R6,[R7,#Connection_Handle] ; get handle
+LDR R0,[R7,#Connection_Connected]:MOV R1,#2:ADR R2,DribbleThwaite:STR R6,[R2,#12]
+LDR R6,[R7,#Connection_Private]:STR R6,[R2,#4]
+BL CallRootProcedure
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.DribbleThwaite EQUD fptrNum:EQUD 0:EQUD fptrNum:EQUD 0:EQUD fptrStr:EQUD 0
+
+.BasicError
+STMFD R13!,{R14}:ADR R2,BasicError_CalledBack:BL AddCallBack:LDMFD R13!,{PC}^
+.BasicError_CalledBack
+STMFD R13!,{R0-R7,R14}
+FNfunction("BasicError_CalledBack")
+MOV R7,R0 ; get handle of incoming data
+LDR R6,[R7,#Connection_Handle] ; get handle
+LDR R0,[R7,#Connection_Error]:MOVS R5,R1:ADREQ R5,ConClo
+MOV R1,#3:ADR R2,DribbleThwaite:STR R6,[R2,#12]
+LDR R6,[R7,#Connection_Private]:STR R6,[R2,#4]:STR R5,[R2,#20]
+BL CallRootProcedure
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.ConClo EQUS "Connection closed by foreign host"+CHR$0:ALIGN
+
+.BasicIncoming
+STMFD R13!,{R14}:ADR R2,BasicIncoming_CalledBack:BL AddCallBack:LDMFD R13!,{PC}^
+.BasicIncoming_CalledBack
+STMFD R13!,{R0-R7,R14}
+FNfunction("BasicIncoming_CalledBack")
+MOV R7,R0 ; get handle of incoming data
+LDR R6,[R7,#Connection_Handle] ; get handle
+LDR R0,[R7,#Connection_Incoming]:MOV R1,#2:ADR R2,DribbleThwaite:STR R6,[R2,#12]
+LDR R6,[R7,#Connection_Private]:STR R6,[R2,#4]
+BL CallRootProcedure
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.FindConByNumber ; r0->number rets r0->construct
+STMFD R13!,{R1-R7,R14}
+FNfunction("FindConByNumber")
+LDR R7,[R12,#ConnectionHead]:.lp
+MOVS R7,R7:BEQ NoFoundConByNum
+LDR R1,[R7,#Connection_Handle]:CMP R0,R1:LDRNE R7,[R7]:BNE lp
+.NoFoundConByNum
+MOV R0,R7
+FNend
+LDMFD R13!,{R1-R7,PC}^
+
+.CloseConnection ; r0->number
+STMFD R13!,{R0-R7,R14}
+FNfunction("CloseConnection")
+BL FindConByNumber:MOVS R7,R0:BEQ EndCloseCon ; r2 points to struct
+LDR R0,[R12,#EqNetHandle]:LDR R1,[R7,#Connection_Handle]
+SWI "XEqNet_Close" ; close the connection itself
+ADD R0,R12,#ConnectionHead
+.lp LDR R1,[R0]:MOVS R1,R1:BEQ EndCloseCon
+CMP R1,R7:MOVNE R0,R1:BNE lp
+LDR R1,[R1]:STR R1,[R0]
+LDR R0,[R7,#Connection_Private]:BL Instance_DeregisterReference
+LDR R2,[R7,#Connection_Connected]:BL Release
+LDR R2,[R7,#Connection_Error]:BL Release
+LDR R2,[R7,#Connection_Incoming]:BL Release
+MOV R2,R7:BL Release
+.EndCloseCon
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.Fn_FindUserChan
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDMIA R2,{R0-R3}:CMP R0,#fptrStr:CMPEQ R2,#fptrStr:BNE CrapParms
+MOV R0,R3:MOV R1,R2:BL FindUser:MOVS R1,R1
+MOVEQ R2,#0:MVNNE R2,#0:MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+:
+.Fn_UserFlags ; FNUserFlags(channel$,user$)
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDMIA R2,{R2-R5}
+CMP R2,#fptrStr:CMPEQ R4,#fptrStr:BNE CrapParms
+MOV R0,R3:MOV R1,R5:BL FindUser:MOVS R0,R0:MOVNES R1,R1:MOVEQ R2,#0
+LDRNE R2,[R1,#User_Flags]
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_UserHasOps ; FNUserHasOps(channel$,user$)
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDMIA R2,{R2-R5}
+CMP R2,#fptrStr:CMPEQ R4,#fptrStr:BNE CrapParms
+MOV R0,R3:MOV R1,R5:BL FindUser:MOVS R0,R0:MOVNES R1,R1:MOVEQ R2,#0
+BEQ NoUserHasOps
+LDR R2,[R1,#User_Flags]:TST R2,#U_HasOps:MVNNE R2,#0:MOVEQ R2,#0
+.NoUserHasOps
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_UserHasVoice ; FNUserHasVoice(channel$,user$)
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDMIA R2,{R2-R5}
+CMP R2,#fptrStr:CMPEQ R4,#fptrStr:BNE CrapParms
+MOV R0,R3:MOV R1,R5:BL FindUser:MOVS R0,R0:MOVNES R1,R1:MOVEQ R2,#0
+BEQ NoUserHasVoice
+LDR R2,[R1,#User_Flags]:TST R2,#U_HasVoice:MVNNE R2,#0:MOVEQ R2,#0
+.NoUserHasVoice
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Fn_FindUser
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms
+LDMIA R2,{R0,R1}:CMP R0,#fptrStr:BNE CrapParms
+MOV R4,R1
+LDR R0,[R12,#SelectedChannel]:MOVS R0,R0:BEQ NoSelChFU
+LDR R2,[R0,#Channel_Name]:MOV R0,R2:BL FindUser:MOVS R1,R1
+BNE FoundYooser
+.NoSelChFU
+MOV R1,R4:LDR R7,[R12,#ChannelHead]:.lp
+MOVS R7,R7:BEQ NoFoundYooser
+LDR R0,[R7,#Channel_Name]:MOV R1,R4:MOV R2,R0:BL FindUser
+MOVS R1,R1:BNE FoundYooser
+LDR R7,[R7]:B lp
+.NoFoundYooser
+FNadr(2,Blank2)
+.FoundYooser
+MOV R0,#1:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+
+.Fn_GetMeColour
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrNum:FNadr(2,MeCol):LDR R2,[R2]
+LDMFD R13!,{PC}^
+
+.Fn_GetChanFlags
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms
+LDMIA R2,{R0,R1}:CMP R0,#fptrStr:BNE CrapParms
+BL GetChannelFlags:MOV R2,R1
+MOV R0,#1:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Fn_GetCTCPColour
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrNum:FNadr(2,CTCPCol):LDR R2,[R2]
+LDMFD R13!,{PC}^
+
+.Fn_Colour
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDMIA R2,{R0,R1}:CMP R0,#fptrNum:BNE CrapParms
+CMP R1,#0:MOVLT R1,#0:CMP R1,#16:MOVGE R1,#15:ADD R1,R1,#64:STRB R1,StatiColBlock+1
+FNadr(1,BackgroundColour):LDR R1,[R1]:ADD R1,R1,#64:STRB R1,StatiColBlock+2
+MOV R0,#1:MOV R1,#fptrStr:ADR R2,StatiColBlock:LDMFD R13!,{PC}^
+.StatiColBlock EQUB 27:EQUB 0:EQUB 0:EQUB 0
+
+.Proc_ChangeDisplayTitle
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R1-R4}:CMP R1,#fptrStr:CMPEQ R3,#fptrStr:BNE CrapParms
+MOV R0,R2:BL FindDisplayByName:MOVS R0,R0:BEQ EndProc_CDT
+LDR R1,[R0,#Display_Wind]:LDR R0,[R12,#EqHandle]:MOV R2,R4:SWI "EqWimp_WriteWindowName"
+.EndProc_CDT
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_DestroyAll
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+.NukeLoop
+LDR R0,[R12,#ChannelHead]
+MOVS R0,R0:LDRNE R0,[R0,#Channel_Name]:BLNE DeleteChannel:BNE NukeLoop
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_UpdateChannel
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R14,[R2,#8]:CMP R14,#fptrNum:BNE CrapParms
+LDR R0,[R2,#4]:BL NewChannel:LDR R0,[R0,#Channel_Name]
+BL GetChannelFlags:AND R1,R1,#128:LDR R2,[R2,#12]:ORR R1,R1,R2:BL SetChannelFlags
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_NewChannel
+STMFD R13!,{R14}
+CMP R1,#5:BNE CrapParms
+LDR R14,[R2]    :CMP R14,#fptrStr:BNE CrapParms
+LDR R14,[R2,#8] :CMP R14,#fptrNum:BNE CrapParms
+LDR R14,[R2,#16]:CMP R14,#fptrStr:BNE CrapParms
+LDR R14,[R2,#24]:CMP R14,#fptrNum:BNE CrapParms
+LDR R14,[R2,#32]:CMP R14,#fptrNum:BNE CrapParms
+LDR R0,[R2,#4]:BL NewChannel
+MOV R7,R0 ; r7 points to channel
+STMFD R13!,{R2}
+LDR R0,[R2,#4]:LDR R1,[R2,#12]:LDR R3,[R2,#28]:LDR R2,[R2,#20]
+BL NewDisplay
+LDMFD R13!,{R2}
+LDR R0,[R2,#4]:BL FindDisplayByName ; r0 points to display structure
+STR R7,[R0,#Display_Channel]
+LDR R0,[R0,#Display_Wind]:LDR R1,[R12,#WimpArea]:STR R0,[R1]:SWI "Wimp_GetWindowState"
+BL Win_Open
+LDR R0,[R2,#4]:BL GetChannelFlags:AND R1,R1,#128:LDR R2,[R2,#36]:ORR R1,R1,R2:BL SetChannelFlags
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_UpdateUser
+STMFD R13!,{R14}
+CMP R1,#3:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R14,[R2,#8]:CMP R14,#fptrStr:BNE CrapParms:LDR R14,[R2,#16]:CMP R14,#fptrNum
+BNE CrapParms
+LDR R1,[R2,#4]:LDR R0,[R2,#12]:BL CreateUser
+LDR R2,[R2,#20]:BL SetUserFlags
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_DeleteUser
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R14,[R2,#8]:CMP R14,#fptrStr:BNE CrapParms
+LDR R1,[R2,#4]:LDR R0,[R2,#12]:BL DeleteUser
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_SetDisplayForRecall
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R0,[R2,#4]:BL FindDisplayByName:MOVS R0,R0:STRNE R0,[R12,#CurrentDisplay]
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_SelectChannel
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+MOV R0,#0:STR R0,[R12,#SelectedChannel]
+LDR R0,[R2,#4]:BL GetStringLen:CMP R1,#0:BEQ BlankChannel
+BL FindChannel:MOVS R0,R0:BEQ EndSel
+.BlankChannel
+.EndSel
+MOV R0,#0:LDMFD R13!,{PC}^
+.A_Number   EQUS "%d"+CHR$0:ALIGN
+.ChanOpList EQUS "ChanOpTopic"+CHR$0:ALIGN
+.NoOutside  EQUS "NoOutside"+CHR$0:ALIGN
+.Invite     EQUS "Invite"+CHR$0:ALIGN
+.Moderated  EQUS "Moderated"+CHR$0:ALIGN
+.Secret     EQUS "Secret"+CHR$0:ALIGN
+.Private    EQUS "Private"+CHR$0:ALIGN
+.Limit      EQUS "Limit"+CHR$0:ALIGN
+.Lnumber    EQUS "LimitNumber"+CHR$0:ALIGN
+.YouHaveOps EQUS "YouHaveOps"+CHR$0:ALIGN
+.UpdateChannelFlags
+STMFD R13!,{R0-R7,R14}
+LDR R7,[R0,#Channel_Flags]:TST R7,#CF_YouHaveOps:MOVNE R3,#0:MOVEQ R3,#1
+LDR R1,[R0,#Channel_Toolbar]:LDR R0,[R12,#EqHandle]
+ADR R2,ChanOpList:TST R7,#CF_Topic:     SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,NoOutside :TST R7,#CF_Msgs:      SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,Invite    :TST R7,#CF_Invite:    SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,Moderated :TST R7,#CF_Moderated: SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,Secret    :TST R7,#CF_Secret:    SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,Private   :TST R7,#CF_Private:   SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,Limit     :TST R7,#CF_Limited:   SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+                                        SWI "EqWimp_Grey"
+ADR R2,YouHaveOps:CMP R3,#1:SWINE "EqWimp_SelectIcon":SWIEQ "EqWimp_DeselectIcon"
+BL RedrawChannelBox
+LDMFD R13!,{R0-R7,PC}^
+
+.Proc_SetFocus
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R0,[R2,#4]:MOV R1,#12:BL SetFocus
+MOV R0,#0:LDMFD R13!,{PC}^
+
+
+.SetFocus
+STMFD R13!,{R0-R7,R14}
+FNfunction("SetFocus")
+MOV R6,#0
+LDRB R14,[R0]:CMP R14,#13:CMPNE R14,#10:CMPNE R14,#0:LDREQ R1,[R12,#InputWind]:BEQ SnookieDookie
+BL FindDisplayByName:MOVS R6,R0:BEQ ESCF
+STR R0,[R12,#DisplayWithFocus]
+LDR R1,[R6,#Display_Wind]
+.SnookieDookie
+MOVS R0,R6:BLNE ReopenDisplay
+LDR R0,[R12,#EqHandle]
+MVN R2,#0:MVN R3,#0:MVN R4,#0:MVN R5,#0:SWI "XEqWimp_SetCaret"
+BLVC ClaimCaret
+.ESCF
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.RedrawChannelBox
+STMFD R13!,{R0-R1,R14}
+LDR R0,[R12,#EqHandle]:FNadr(1,ChanPane):SWI "EqWimp_RedrawWholeWindow"
+LDMFD R13!,{R0-R1,PC}^
+
+.Proc_ChangeChannelTopic
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms:LDMIA R2,{R0-R3}
+CMP R0,#fptrStr:CMPEQ R2,#fptrStr:BNE CrapParms
+MOV R0,R1:BL FindDisplayByName:MOVS R0,R0:BEQ NoChanToTopi
+LDR R0,[R0,#Display_Channel]:MOVS R0,R0:BEQ NoChanToTopi
+LDR R1,[R0,#Channel_Toolbar]:LDR R0,[R12,#EqHandle]
+FNadr(2,Topic):SWI "EqWimp_WriteStringToIcon"
+.NoChanToTopi
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_SetInputTitle
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R0,[R12,#EqHandle]:LDR R1,[R12,#InputWind]:MOVS R1,R1:LDR R2,[R2,#4]
+SWINE "EqWimp_WriteWindowName"
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_SetPreInput
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms:LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R0,[R12,#PreInsert]:MOVS R0,R0:BLNE Release
+LDR R0,[R2,#4]:BL Strdup:STR R1,[R12,#PreInsert]
+BL UpdateInputBuffer
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_CloseInputBox
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms
+ADR R0,InputBox:BL FindDisplayByName:MOVS R0,R0:BEQ EndCloseIB
+LDR R0,[R0,#Display_Wind]
+BL KillDisplay
+MVN R0,#0:SWI "Wimp_SetCaretPosition"
+.EndCloseIB
+MOV R0,#0:STR R0,[R12,#InputWind]:LDMFD R13!,{PC}^
+.Proc_OpenInputBox
+STMFD R13!,{R14}:CMP R1,#1:BNE CrapParms
+LDR R14,[R2]:CMP R14,#fptrNum:BNE CrapParms
+ADR R0,InputBox
+BL FindDisplayByName:CMP R0,#0:BEQ CreateInputBox
+LDR R1,[R2,#4]:STR R1,[R0,#Display_Flags]
+FNborrow(1,64)
+LDR R0,[R0,#Display_Wind]
+STR R0,[R1]
+SWI "Wimp_GetWindowState"
+MVN R0,#0:STR R0,[R1,#28] ; put at front
+SWI "Wimp_OpenWindow"
+FNrepay
+B EndOIB
+.CreateInputBox
+LDR R4,[R2,#4] ; flags
+ADR R0,InputBox
+MOV R3,#sizeof_Display:BL Claim ; r2 is the new Display
+
+LDR R14,[R12,#DisplayHead]:STR R14,[R2,#Display_Next]
+STR R2,[R12,#DisplayHead] ; thread onto linked list of displays
+MOV R7,R2 ; preserve pointer in r7
+
+MOV R1,#3:STMFD R13!,{R1}
+STR R1,[R7,#Display_NumLines] ; number of lines
+
+BL Str_dup:STR R1,[R7,#Display_What] ; keep a copy of the 'what' field
+
+STR R4,[R7,#Display_Flags]
+MOV R14,#0:STR R14,[R7,#Display_Channel]
+MOV R3,#sizeof_ZapArea:BL Claim ; r2 is the new ZapArea
+STR R2,[R7,#Display_ZapArea]    ; new zaparea
+
+FNadr(0,DefaultZapArea):MOV R1,#sizeof_ZapArea:.CopyInLoop
+LDR R14,[R0],#4:STR R14,[R2],#4:SUBS R1,R1,#4:BNE CopyInLoop
+
+LDMFD R13!,{R3}
+MOV R3,R3,LSL #2 ; x4
+BL Claim:STR R2,[R7,#Display_LineAddrs]
+MOV R14,#0:STR R14,[R12,#CursorPos]:STR R14,[R12,#PreInsert]
+.CopyInLoop
+STR R14,[R2],#4:SUBS R3,R3,#4:BNE CopyInLoop ; fill up display with blanks
+
+ADR R1,Input:LDR R0,[R12,#EqHandle]:SWI "EqWimp_CreateWindow"
+STR R0,[R7,#Display_Wind]:STR R0,[R12,#InputWind]:MOV R1,R0:LDR R0,[R12,#EqHandle]
+SWI "EqWimp_GetExtent"
+MOV R3,#36:LDR R6,[R7,#Display_NumLines]:MUL R3,R6,R3:RSB R3,R3,#0
+SWI "EqWimp_SetExtent"
+ADR R2,InputText ; get window title
+SWI "EqWimp_WriteWindowName"
+MVN R2,#0:MVN R3,#0:SWI "EqWimp_PutAtFrontAndAlign"
+MVN R2,#0:MVN R3,#0:MVN R4,#0:MVN R5,#0:SWI "EqWimp_SetCaret"
+BL ClaimCaret
+MOV R0,#0:FNadr(1,InputBuffer):STR R0,[R1]
+BL UpdateInputBuffer
+.EndOIB
+MOV R0,#0:LDMFD R13!,{PC}^
+.Input     EQUS "Input"+CHR$0:ALIGN
+.InputBox  EQUS "##InputBox##"+CHR$0:ALIGN
+.InputText EQUS "(no channel)"+CHR$0:ALIGN
+
+.Proc_OpenServerWindow
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms
+LDR R7,[R12,#DisplayTemplate]
+ADR R0,ServerMsgs:STR R0,[R12,#DisplayTemplate]:STR R0,[R12,#Oflag]
+FNadr(0,SerVa):MOV R1,#28:ADR R2,Servm:MOV R3,#0:BL NewDisplay
+STR R7,[R12,#DisplayTemplate]:MOV R0,#0:STR R0,[R12,#Oflag]
+FNadr(0,SerVa):BL FindDisplayByName:LDR R1,[R0,#Display_Wind]
+LDR R0,[R12,#EqHandle]:MVN R2,#0:MOV R3,#1:SWI "EqWimp_PutAtFrontAndAlign"
+LDR R0,[R12,#WimpArea]:STR R1,[R0]:MOV R1,R0:SWI "Wimp_GetWindowState":BL Win_Open
+MOV R0,#0:LDMFD R13!,{PC}^
+.ServerMsgs EQUS "ServerMsgs"+CHR$0:ALIGN
+.Servm EQUS "Server messages"+CHR$0:ALIGN
+
+.Fn_GetNickname
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrStr:LDR R2,[R12,#IRCNick]:LDMFD R13!,{PC}^
+
+.Proc_SetNickname
+STMFD R13!,{R14}:CMP R1,#1:BNE CrapParms
+LDMIA R2,{R0,R1}:CMP R0,#fptrStr:BNE CrapParms
+LDR R2,[R12,#IRCNick]:BL Release:MOV R0,R1:BL Str_dup:STR R1,[R12,#IRCNick]
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Fn_GetUsername
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrStr:FNadr(2,Username):LDMFD R13!,{PC}^
+
+.Fn_GetIRLname
+STMFD R13!,{R14}:CMP R1,#0:BNE CrapParms
+MOV R0,#1:MOV R1,#fptrStr:FNadr(2,IRLname):LDMFD R13!,{PC}^
+
+.Fn_FindDisplay
+STMFD R13!,{R14}:CMP R1,#1:BNE CrapParms
+LDR R14,[R2]:CMP R14,#fptrStr:BNE CrapParms
+LDR R0,[R2,#4]:BL FindDisplayByName:MOVS R2,R0
+MOV R0,#1:MOV R1,#fptrNum:MVNNE R2,#0:LDMFD R13!,{PC}^
+
+.Proc_beep
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+SWI &107
+MOV R0,#0:LDMFD R13!,{PC}^
+
+.Proc_DeleteChannel
+.Proc_killdisplay
+STMFD R13!,{R14}
+CMP R1,#1:BNE CrapParms
+LDR R14,[R2]:CMP R14,#fptrStr
+BNE CrapParms
+LDR R0,[R2,#4]:BL FindDisplayByName:MOVS R0,R0:BEQ notfoundmister
+LDR R0,[R0,#Display_Wind]:BLNE KillDisplay
+.notfoundmister
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_display
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDR R14,[R2]:CMP R14,#fptrStr:LDREQ R14,[R2,#8]:CMPEQ R14,#fptrStr
+BNE CrapParms
+LDR R0,[R2,#4]
+LDR R1,[R12,#IRCNick]
+LDR R2,[R2,#12]
+MOV R3,#0
+BL DisplayMessage
+MOV R0,#0
+LDMFD R13!,{PC}^
+.Proc_partialdisplay
+STMFD R13!,{R14}
+CMP R1,#2:BNE CrapParms
+LDR R14,[R2]:CMP R14,#fptrStr:LDREQ R14,[R2,#8]:CMPEQ R14,#fptrStr
+BNE CrapParms
+LDR R0,[R2,#4]
+LDR R1,[R12,#IRCNick]
+LDR R2,[R2,#12]
+MOV R3,#DisplayFlag_NoCR
+BL DisplayMessage
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_newdisplay
+STMFD R13!,{R14}
+CMP R1,#4:BNE CrapParms
+LDR R14,[R2]:CMP R14,#fptrStr:LDREQ R14,[R2,#8]:CMPEQ R14,#fptrNum
+LDREQ R14,[R2,#16]:CMPEQ R14,#fptrStr
+LDREQ R14,[R2,#24]:CMPEQ R14,#fptrNum
+BNE CrapParms
+LDR R0,[R2,#4]:LDR R1,[R2,#12]:LDR R3,[R2,#28]:LDR R2,[R2,#20]
+BL NewDisplay
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.PrintString
+STMFD R13!,{R0-R7,R14}
+FNfunction("PrintString")
+LDR R2,[R12,#IRCNick]:ADR R1,DebugDaemon:MOV R3,#0:BL DisplayMessage
+
+; added by Gerph to perhaps make things a bit saner
+LDR r3,[R12,#QuitFlag]:TEQ r3,#0:BEQ NotAboutToExitYet
+MOV r6,r0             ; hang on to message
+MOV r0,#&C0           ; open it if exists
+ADR r1,OutputWhenQuitting ; file to use
+SWI "XOS_Find"
+MOVVS r0,#0           ; if error, didn't open
+TEQ r0,#0             ; did it open ?
+MOVEQ r0,#&80         ; if doesn't exist, create
+SWIEQ "XOS_Find"
+MOVVS r0,#0           ; if error, didn't open
+TEQ r0,#0             ; did it open ?
+BEQ NotAboutToExitYet ; ah shit, seriously cack !
+MOV r5,r0             ; r5 = file handle
+MOV r0,#2             ; read extent
+MOV r1,r5             ; r1 = file handle
+SWI "XOS_Args"
+BVS LetsCloseThatFileCosWeAreBuggered
+MOV r4,r2             ; r4 = extent of file
+MOV r0,r6             ; r0 = string pointer
+BL GetStrLen          ; r1 = string length
+MOV r3,r1             ; r3 = length
+MOV r1,r5             ; r1 = file handle
+MOV r2,r6             ; r2 = string pointer
+MOV r0,#1             ; write to particular place
+SWI "XOS_GBPB"
+MOVVC r0,#10          ; return after line
+SWIVC "XOS_BPut"
+.LetsCloseThatFileCosWeAreBuggered
+MOV r0,#0             ; close file
+MOV r1,r5             ; r1 = file handle
+SWI "XOS_Find"        ; closed
+.NotAboutToExitYet
+; end of added section
+
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.DebugDaemon EQUS "DebugDaemon"+CHR$0:ALIGN
+
+; added by gerph
+.OutputWhenQuitting
+EQUS"<Wimp$ScrapDir>.IRClient"+CHR$0:ALIGN
+; end of added section
+
+FNAlignToCacheBoundary
+.StripSpaces
+STMFD R13!,{R14}
+; FNfunction("StripSpaces")
+.SSloop LDRB R14,[R0]:CMP R14,#32:ADDEQ R0,R0,#1:BEQ SSloop
+; FNend
+LDMFD R13!,{PC}^
+
+.fptrs
+]FOR N%=ASC"A" TO ASC"z":[OPT pass%:EQUD 0:]:NEXT:[OPT pass%
+
+
+.FindVarAddr
+STMFD R13!,{R0-R7,R14}
+FNfunction("FindVarAddr")
+
+MOV R7,R1
+LDRB R1,[R0]
+CMP R1,#ASC"A":BLT InvalidName:CMP R1,#ASC"z":BGT InvalidName
+FNadr(2,fptrs):SUB R1,R1,#ASC"A":LDR R2,[R2,R1,LSL #2]
+; pointer to list of fns beginning with the letter
+
+.FindInLinkedList
+CMP R2,#0:BEQ ProcFound
+LDR R1,[R2,#4] ; name is at offset four
+BL CheckSame:LDRNE R2,[R2]:BNE FindInLinkedList
+LDR R1,[R2,#8] ; type
+CMP R1,R7
+LDRNE R2,[R2]:BNE FindInLinkedList
+
+.ProcFound
+STR R2,[R13]
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.InvalidName ADR R0,InvErr
+LDR R1,[R13,#8*4]:ORR R1,R1,#1<<28:STR R1,[R13,#8*4]:B ProcFound
+.InvErr EQUS "!!!!Invalid name"+CHR$0:ALIGN
+
+.FindVar ; in r0->name, r1=type, out r0->address
+STMFD R13!,{R14}
+FNfunction("FindVar")
+BL FindVarAddr
+MOVS R0,R0:BEQ NSV
+LDR R0,[R0,#12] ; 12 is ptr to thing itself
+FNend
+LDMFD R13!,{PC}^
+
+\\ *gulp* - here's the run bit
+
+.PushLocalVars
+STMFD R13!,{R0-R7,R14}
+FNfunction("PushLocalVars")
+LDR R0,LocalStackPtr:LDR R2,LocalStackLimit:CMP R0,R2
+ADREQ R0,OutOfStack:SWIEQ "OS_GenerateError"
+LDR R1,LocalVars:STMFD R0!,{R1}:STR R0,LocalStackPtr
+MOV R0,#0:STR R0,LocalVars
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.OutOfStack EQUS "!!!!Fatal error - out of local stack space!"+CHR$0:ALIGN
+
+.HoseLocalStack
+STMFD R13!,{R0,R14}
+FNfunction("HoseLocalStack")
+.KeepGoing LDR R0,LocalVars:MOVS R0,R0:BLNE PopLocalVars:BNE KeepGoing
+FNadr(0,TopOfLocalStack):STR R0,LocalStackPtr
+FNend
+LDMFD R13!,{R0,PC}^
+
+.FlushLocals
+STMFD R13!,{R0-R7,R14}
+FNfunction("FlushLocals")
+LDR R7,LocalVars
+.FlushLoop
+MOVS R7,R7:BEQ EndFlush
+LDR R6,[R7]:LDR R0,[R7,#4]:BL Str_free
+LDR R0,[R7,#8]:CMP R0,#fptrStr:LDR R0,[R7,#12]
+BLEQ Str_free:BLNE Instance_DeregisterReference
+MOV R2,R7:BL Release:MOV R7,R6:B FlushLoop
+.EndFlush
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.PopLocalVars
+STMFD R13!,{R0-R7,R14}
+FNfunction("PopLocalVars")
+BL FlushLocals
+LDR R0,LocalStackPtr:LDMFD R0!,{R1}:STR R0,LocalStackPtr:STR R1,LocalVars
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.VarLookup ; IN R0->name, out r1->type, r2=value
+STMFD R13!,{R0,R14}
+FNfunction("VarLookup")
+LDR R2,LocalVars
+.CheckLocals
+MOVS R2,R2:BEQ NotALocal
+LDR R1,[R2,#4]:BL CheckSame:LDRNE R2,[R2]:BNE CheckLocals
+LDR R1,[R2,#8]:LDR R2,[R2,#12]:B EndVarLookup
+
+.NotALocal
+LDR R2,[R12,#CurrentGlocals]
+.CheckGlocals
+MOVS R2,R2:BEQ NotAGlocal
+LDR R1,[R2,#4]:BL CheckSame:LDRNE R2,[R2]:BNE CheckGlocals
+LDR R1,[R2,#8]:LDR R2,[R2,#12]:B EndVarLookup
+.NotAGlocal
+
+BL GetStringLen:ADD R1,R0,R1:SUB R1,R1,#1:LDRB R1,[R1]:CMP R1,#ASC"$"
+MOVEQ R1,#fptrStr
+MOVNE R1,#fptrNum:BL FindVarAddr:MOVS R0,R0:BEQ NSV
+LDR R2,[R0,#12]
+
+.EndVarLookup
+FNend
+LDMFD R13!,{R0,PC}^
+.NSV ADR R0,NoSuchVar:B Error
+.NoSuchVar EQUS "No such variable"+CHR$0:ALIGN
+
+; gerph -
+; local vars moved closed to requiring code
+.LocalStackLimit EQUD BottomOfLocalStack
+.LocalStackPtr EQUD TopOfLocalStack
+.LocalVars EQUD 0
+; - gerph
+
+.GetVarAddr ; r0>name, out r0>addr
+STMFD R13!,{R1-R2,R14}
+FNfunction("GetVarAddr")
+LDR R2,LocalVars
+.CheckLocals2
+MOVS R2,R2:BEQ NotALocal2
+LDR R1,[R2,#4]:BL CheckSame:LDRNE R2,[R2]:BNE CheckLocals2
+MOV R0,R2:B EndVarLookup2
+
+.NotALocal2
+LDR R2,[R12,#CurrentGlocals]
+.CheckGlocals2
+MOVS R2,R2:BEQ NotAGlocal2
+LDR R1,[R2,#4]:BL CheckSame:LDRNE R2,[R2]:BNE CheckGlocals2
+MOV R0,R2:B EndVarLookup2
+.NotAGlocal2
+
+BL GetStringLen:ADD R1,R0,R1:SUB R1,R1,#1:LDRB R1,[R1]:CMP R1,#ASC"$":MOVEQ R1,#fptrStr
+MOVNE R1,#fptrNum:BL FindVarAddr
+.EndVarLookup2
+FNend
+LDMFD R13!,{R1-R2,PC}^
+
+.CallRoot11 EQUD 0
+.CallRoot13 EQUD 0
+
+.CallRootProcedureWithParams
+STMFD R13!,{R0-R7,R14}
+FNfunction("CallRootProcedureWithParms")
+LDR R14,CallRoot11:MOVS R14,R14:BEQ OKToCarryOn2
+ADR R0,P%+8:B Error:EQUS "CallRootProcedure is not re-entrant!"+CHR$0:ALIGN
+.OKToCarryOn2
+BL ResetTheLot
+STR R11,CallRoot11
+STR R13,CallRoot13
+MOV R14,#0:STR R14,LineNumber
+FNadr(4,ProcNameBuffer):MOV R7,R4
+.lp LDRB R14,[R0],#1:CMP R14,#ASC"("
+CMPNE R14,#0:CMPNE R14,#13:MOVEQ R14,#0:STRB R14,[R4],#1:BNE lp
+SUB R0,R0,#1
+.GetTheParms2
+FNborrow(4,256):FNadr(14,StackLimit):CMP R13,R14:BGE MMFOOMBO3
+FNadr(0,OutOfStack):B Error
+.MMFOOMBO3
+MOV R1,#0:MOV R6,R4
+LDRB R14,[R0],#1:CMP R14,#13:CMPNE R14,#0:BEQ RunTheProc2
+CMP R14,#ASC"(":BNE SyntaxError
+.LoopGetTheParms2
+LDRB R14,[R0]:CMP R14,#ASC")":BEQ RunTheProc2
+ADD R1,R1,#1:CMP R1,#32:BGE TooManyParmsToProc
+STMFD R13!,{R1}
+BL ExpressionEvaluate
+STMIA R4!,{R1,R2}:LDMFD R13!,{R1}
+LDRB R14,[R0]:CMP R14,#ASC",":ADDEQ R0,R0,#1:CMPNE R14,#ASC")":BNE SyntaxError
+B LoopGetTheParms2
+.RunTheProc2
+MOV R2,R6:MOV R0,R7
+BL CallProcedure:FNrepay
+MOVS R0,R0:BEQ ReturnFromError
+BL PrintString
+B ReturnFromError
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.ImplicitCallRootProcedure ; implicit procedure call within code, or outside!
+STMFD R13!,{R14}
+LDR   R14,CallRoot11
+TEQ   R14,#0            ; is IRBasic threaded?
+BLEQ  CallRootProcedure
+BLNE  CallProcedure
+LDMFD R13!,{PC}
+
+.CallRootProcedure
+STMFD R13!,{R0-R7,R14}
+FNfunction("CallRootProcedure")
+LDRB R14,[R0]  ; check we aren't being called with a NULL byte
+TEQ R14,#0:TEQNE R14,#32
+BEQ OhShiteNoNoNoNono
+LDR R14,CallRoot11:MOVS R14,R14:BEQ OKToCarryOn
+ADR R0,P%+8:B Error:EQUS "CallRootProcedure is not re-entrant!"+CHR$0:ALIGN
+.OhShiteNoNoNoNono ADR R0,P%+8:B Error:EQUS "Bad procedure name"+CHR$0:ALIGN
+.OKToCarryOn
+BL ResetTheLot
+STR R11,CallRoot11
+STR R13,CallRoot13
+MOV R14,#0:STR R14,LineNumber
+STR R14,VarOfThisProc:STR R14,ObjectOfThisProc:STR R14,MethodName
+STR R14,[R12,#LastAtAddr]
+BL CallProcedure
+MOVS R0,R0:BEQ ReturnFromError
+BL PrintString
+.ReturnFromError
+LDR R11,CallRoot11
+LDR R13,CallRoot13
+MOV R0,#0:STR R0,CallRoot11
+.Bongaje
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.Proc_NukeProgram
+LDR R11,CallRoot11
+LDR R13,CallRoot13
+MOV R0,#0:STR R0,CallRoot11
+BL ReloadPrograms
+B Bongaje
+
+.CallRootMethod
+STMFD R13!,{R0-R7,R14}
+FNfunction("CallRootMethod")
+LDRB R14,[R0]  ; check we aren't being called with a NULL byte
+TEQ R14,#0:TEQNE R14,#32
+BEQ OhShiteNoNoNoNono
+LDR R14,CallRoot11:MOVS R14,R14:BEQ OKToCarryOn3
+ADR R0,P%+8:B Error:EQUS "CallRootMethod is not re-entrant!"+CHR$0:ALIGN
+.OKToCarryOn3
+BL ResetTheLot
+STR R11,CallRoot11
+STR R13,CallRoot13
+MOV R14,#0:STR R14,LineNumber
+STR R14,VarOfThisProc:STR R14,ObjectOfThisProc:STR R14,MethodName
+STR R14,[R12,#LastAtAddr]
+BL _CallMethod
+MOVS R0,R0:BEQ ReturnFromError2
+BL PrintString
+.ReturnFromError2
+LDR R11,CallRoot11
+LDR R13,CallRoot13
+MOV R0,#0:STR R0,CallRoot11
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.GetLineNumber
+STMFD R13!,{R1,R14}
+LDRB R14,[R0,#1]:LDRB R1,[R0]:ORR R14,R14,R1,LSL #8:STR R14,LineNumber
+LDRB R14,[R0,#7]:STR R14,ThisProgNumber
+FNadr(1,ProgVars):LDR R1,[R1,R14,LSL #2]:STR R1,[R12,#CurrentGlocals]
+LDMFD R13!,{R1,PC}^
+.LineNumber EQUD 0:.ThisProgNumber EQUD 0
+.Error
+LDR R1,CallRoot11:MOVS R1,R1:BNE NotInternalError
+ADR R1,StaticErrorBuffer:ADR R2,Ermessy2:BL String:MOV R0,R1
+MOV R1,#1:LDR R2,[R12,#MyName]
+SWI "Wimp_ReportError"
+BL Finalise
+SWI "OS_Exit"
+.NotInternalError
+; gerph -
+; check stack space is ok (?)
+LDR     R1,[R12,#EEStackPtr]
+LDR     R3,[R12,#EEStack]
+CMP     R1,R3
+MOVLE   r1,#1   ; if not, mark as recursion
+LDRGT   R1,IERecursion:ADD r1,r1,#1:STR R1,IERecursion ; gerph
+; - gerph
+ADR R1,StaticErrorBuffer
+MOV R3,R0:ADR R2,Ermessy:LDR R4,LineNumber:LDR R5,ThisProgNumber:FNadr(6,Programs)
+LDR R5,[R6,R5,LSL #2]
+BL String:MOV R0,R1:BL PrintErrorString
+; gerph -
+LDR R7,IERecursion:TEQ r7,#1 ; first call ?
+BNE IERecurseSkip            ; shit, recursion - skip this
+; we call PROCScriptError(err$,line,file$)
+STMFD   r13!,{r0-r5}            ; Stack registers
+ADR r2,IEErrorParams
+STR r3,IEErrorParams+4
+STR r4,IEErrorParams+12
+STR r5,IEErrorParams+20
+ADR r0,IEErrorProc
+MOV r1,#3                        ; 3 params
+BL CallProcedure ; call it
+LDMFD   r13!,{r0-r5}            ; restore
+B  IERecurseSkip
+.IEErrorParams EQUD fptrStr:EQUD 0:EQUD fptrNum:EQUD 0
+               EQUD fptrStr:EQUD 0
+.IEErrorProc   EQUS "ScriptError"+CHR$0
+.IEErrorProcRet  EQUS "ScriptErrorRetrace"+CHR$0
+.IEErrorProcDone EQUS "ScriptErrorDone"+CHR$0:ALIGN
+; variables
+.IERecursion:EQUD0
+.IERecurseSkip
+; - gerph
+ADR R0,StackRet:BL PrintErrorString
+LDR     R0,[R12,#EEStackPtr]
+LDR     R7,[R12,#TopOfEEStack]
+.StackRetLp
+TEQ     R0,R7
+ADREQ   R0,StackRet3
+BLEQ    PrintErrorString
+BEQ     EndStackRetLp
+ADR     R1,StaticErrorBuffer
+ADR     R2,StackRet2
+LDR     R3,[R0,#4]
+ADD     R0,R0,#8
+MOV     R4,R3,LSR #24
+BIC     R3,R3,#&FF000000
+LDR     R4,[R6,R4,LSL #2]
+BL      String
+; gerph -
+LDR R5,IERecursion:TEQ r5,#1 ; first call ?
+BNE IERecurseSkip2           ; shit, recursion - skip this
+; we call PROCScriptErrorRetrace(line,file$)
+STMFD   r13!,{r0-r5}            ; Stack registers
+ADR r2,IEErrorParams+8
+STR r3,IEErrorParams+12
+STR r4,IEErrorParams+20
+ADR r0,IEErrorProcRet
+MOV r1,#2                        ; 2 params
+BL CallProcedure ; call it
+LDMFD   r13!,{r0-r5}            ; restore
+.IERecurseSkip2
+; - gerph
+MOV     R5,R0
+MOV     R0,R1
+BL      PrintErrorString
+
+MOV     R0,R5
+B       StackRetLp
+.EndStackRetLp
+; gerph -
+LDR R5,IERecursion:TEQ r5,#1 ; first call ?
+BNE IERecurseSkip3           ; shit, recursion - skip this
+; we call PROCScriptErrorRetrace(line,file$)
+STMFD   r13!,{r0-r5}            ; Stack registers
+ADR r2,IEErrorParams+8
+ADR r0,IEErrorProcDone
+MOV r1,#0                        ; no params
+BL CallProcedure ; call it
+LDMFD   r13!,{r0-r5}            ; restore
+.IERecurseSkip3
+MOV r0,#0:STR r0,IERecursion ; clear the recursion flag
+; - gerph
+BL ResetTheLot
+BL ResetMenuSystem
+B ReturnFromError
+.Ermessy  EQUS "%s at line %d (file '%s')"+CHR$0:ALIGN
+.Ermessy2 EQUS "!!!!%s - internal error - IRClient must exit now!"+CHR$0:ALIGN
+.StackRet  EQUS "Stack retrace:"+CHR$0:ALIGN
+.StackRet2 EQUS "%d:%s"+CHR$0:ALIGN
+.StackRet3 EQUS "--END--"+CHR$0:ALIGN
+.StaticErrorBuffer FNres(256+64)
+:
+; gerph -
+.PrintErrorString
+STMFD r13!,{r0,r14}         ; Stack registers
+LDR   r0,IERecursion           ; read recursion flags
+TEQ   r0,#1                    ; first call ?
+BNE   DoPrintErrorString       ; we've recursed so we print anyhow
+ADR     r0,PrintErrorStringVar
+BL      GetVarAddr              ; get the address of the variable
+MOVS    R0,R0                   ; if zero, it doesn't exist
+LDRNE   r14,[R0,#8]             ; if not, type is in +8
+TEQNE   r14,#fptrStr            ;         is it a string ?
+BEQ     DoPrintErrorString      ; if either true, print it
+LDR     r14,[R0,#12]            ; value is in +12
+TEQ     r14,#0                  ; is it non-FALSE ?
+BNE     XPrintErrorString       ; if so, jump out
+.DoPrintErrorString
+LDR   r0,[r13]                  ; re-read r0
+BL    PrintString
+.XPrintErrorString
+LDMFD r13!,{r0,pc}^          ; Return from call
+.PrintErrorStringVar:EQUS "SuppressErrors"+CHR$0:ALIGN
+; - gerph
+:
+.ResetTheLot
+STMFD R13!,{R0,R14}
+BL HoseLocalStack
+BL ResetEvaluator
+MOV R0,#0:STR R0,VarOfThisProc:STR R0,ObjectOfThisProc:STR R0,MethodName
+STR R0,[R12,#LastAtAddr]
+LDMFD R13!,{R0,PC}^
+
+
+.CallMethod
+STMFD R13!,{R14}
+LDR   R14,CallRoot11
+TEQ   R14,#0            ; is IRBasic threaded?
+BLEQ  CallRootMethod
+BLNE  _CallMethod
+LDMFD R13!,{PC}
+
+
+._CallMethod
+STMFD   R13!,{R4-R6,R14}
+FNadr(4,LineNumber) ; get line and program
+LDMIA   R4,{R4,R5}
+STMFD   R13!,{R4,R5}
+LDR     R4,[R12,#CurrentGlocals]
+STMFD   R13!,{R4}
+
+BL      __CallMethod
+
+LDMFD   R13!,{R4}
+STR     R4,[R12,#CurrentGlocals]
+LDMFD   R13!,{R4,R5}
+FNadr(6,LineNumber)
+STMIA   R6,{R4,R5}
+LDMFD   R13!,{R4-R6,PC}^
+
+
+.__CallMethod ; r0->method name, r1 = num of parms, r2->parmblock, r3 ptr to instance
+; out r0!=zero = not ok
+STMFD   R13!,{R0-R7,R14}
+BL      PreserveProcState
+BL      Str_dup
+STR     R1,MethodName
+STR     R3,[R12,#LastAtAddr]
+LDR     R0,[R3]
+BL      Instance_GetClass
+TEQ     R0,#0
+BEQ     DoRTE
+STR     R0,ObjectOfThisProc
+LDR     R3,[R0,#Object_Name]
+LDR     R1,[R12,#WimpArea]
+ADR     R2,ps_ps
+LDR     R4,MethodName
+BL      String
+MOV     R0,R1
+LDR     R1,[R13,#4+statesize]
+LDR     R2,[R13,#8+statesize]
+B       StandardProcCall
+
+.PreserveProcState
+STR     R0,_tmp
+
+LDR     R0,[R12,#LastAtAddr]
+STMFD   R13!,{R0}
+LDR     R0,ObjectOfThisProc
+STMFD   R13!,{R0}
+LDR     R0,MethodName
+STMFD   R13!,{R0}
+
+LDR     R0,_tmp
+MOV     PC,R14
+._tmp EQUD 0
+
+.RestoreProcState
+STR     R0,_tmp
+
+LDMFD   R13!,{R0}
+STR     R0,MethodName
+LDMFD   R13!,{R0}
+STR     R0,ObjectOfThisProc
+LDMFD   R13!,{R0}
+STR     R0,[R12,#LastAtAddr]
+LDR     R0,_tmp
+
+MOV     PC,R14
+
+.VarOfThisProc EQUD 0
+.ObjectOfThisProc EQUD 0
+.MethodName EQUD 0
+.CallProcedure ; r0->procedure name, or 0, r1=num of parms, r2->parmblock
+              ; out r0!=zero = not ok
+STMFD R13!,{R0-R7,R14}
+BL      PreserveProcState
+TEQ     R0,#0    ; is this a PROC@ ?
+BNE     NotProcat
+LDR     R0,MethodName
+BL      Str_dup
+STR     R1,MethodName
+MOV     R0,#0
+B       StandardProcCall
+
+.NotProcat
+
+.cplp
+LDRB R14,[R0]  ; check we aren't being called with a NULL byte
+TEQ R14,#0:BEQ OhShiteNoNoNoNono
+TEQ R14,#32:ADDEQ R0,R0,#1:BEQ cplp
+MOV     R3,#0                   ; marker
+MOV     R4,R0                   ; pointer
+.lp
+LDRB    R5,[R4],#1
+TEQ     R5,#ASC"."
+MOVEQ   R3,R4                   ; mark the position of the '.'
+TEQ     R5,#0
+BNE     lp
+
+TEQ     R3,#0
+STREQ   R3,MethodName           ; no method name to free on exit
+STREQ   R3,ObjectOfThisProc     ; no object of this proc
+BEQ     StandardProcCall
+
+MOV     R5,#0
+STRB    R5,[R3,#-1]             ; terminate at the root class
+
+
+BL      GetVarName
+STMFD   R13!,{R0}
+FNadr(0,VarBuffer)
+BL      GetVarAddr
+MOVS    R0,R0 ; if zero, it's broken
+BEQ     NSV
+MOV     R6,R0
+ADD     R14,R6,#12
+STR     R14,[R12,#LastAtAddr]
+LDMFD   R13!,{R0}
+.WombleLoopJedi2
+BL      StripSpaces
+LDRB    R14,[R0],#1
+CMP     R14,#ASC"."
+BNE     NotResolveThisBitOfProcPreamble
+BL      GetVarName
+STMFD   R13!,{R0}
+LDR     R0,[R6,#8]
+TEQ     R0,#fptrNum
+BNE     OhNoTypeMis
+LDR     R0,[R6,#12]
+FNadr(1,VarBuffer)
+BL      Instance_Resolve
+STR     R0,[R12,#LastAtAddr]
+ADR     R6,MoreAssy2:STR R1,[R6,#8]
+LDR     R14,[R0]:STR R14,[R6,#12]
+LDMFD   R13!,{R0}
+B       WombleLoopJedi2
+
+.MoreAssy2 &0:&0:&0:&0
+
+.NotResolveThisBitOfProcPreamble
+MOV     R5,#ASC"."
+STRB    R5,[R3,#-1]             ; put the . back, just in case
+LDR     R1,[R6,#8]
+LDR     R2,[R6,#12]
+TEQ     R1,#fptrNum
+BNE     OhNoTypeMis
+
+MOV     R0,R2
+BL      Instance_GetClass
+TEQ     R0,#0
+ADREQ   R0,NotAnInst:BEQ Error
+STR     R0,ObjectOfThisProc
+LDR     R0,[R0,#Object_Name]    ; get the name of this object
+LDR     R1,[R12,#WimpArea]
+ADR     R2,ps_ps
+STMFD   R13!,{R0,R1}
+MOV     R0,R3
+BL      Str_dup
+STR     R1,MethodName
+LDMFD   R13!,{R0,R1}
+MOV     R4,R3
+MOV     R3,R0
+BL      String
+MOV     R0,R1                   ; r0 now points to Classname_Method
+LDR     R1,[R13,#4+statesize]           ; number of parameters
+LDR     R2,[R13,#8+statesize]           ; parm block
+B       StandardProcCall
+
+.ps_ps EQUS "%s_%s"+CHR$0:ALIGN
+.NotAnInst EQUS "Not an instance"+CHR$0:ALIGN
+
+.StandardProcCall
+LDR R14,VarOfThisProc:STMFD R13!,{R14}
+BL PushLocalVars
+
+FNadr(14,StackLimit):CMP R13,R14:BGE EnoughStack
+ADR R0,P%+8:B Error:EQUS "Out of stack space"+CHR$0:ALIGN
+
+.EnoughStack
+LDR R14,ObjectOfThisProc:TEQ R14,#0:BEQ NoNeedToLocalAt
+; create a local variable, @
+STMFD   R13!,{R0-R2}
+ADR     R0,AnAtSymbol
+ADR     R1,AtValue
+LDR     R2,[R12,#LastAtAddr]
+LDR     R2,[R2]         ; get value
+STR     R2,AtValue+4
+BL      NewLocalVariable
+LDMFD   R13!,{R0-R2}
+.NoNeedToLocalAt
+MOVS R0,R0:BNE NormalName
+LDR R0,VarOfThisProc:MOVS R0,R0:BEQ BadContext
+LDR R1,[R0,#4]
+.SmellLoop
+LDR R0,[R0]:MOVS R0,R0:BNE NotYetNotFound
+.CantFindItError
+; is this an object with a parent class?
+LDR R0,ObjectOfThisProc:TEQ R0,#0:BEQ ReallyCantFindIt
+LDR R0,[R0,#Object_Parent]:STR R0,ObjectOfThisProc
+TEQ R0,#0:BEQ ReallyCantFindIt
+STMFD R13!,{R2}
+LDR R1,[R12,#WimpArea]:ADR R2,ps_ps:LDR R3,[R0,#Object_Name]
+LDR R4,MethodName
+BL String
+LDMFD R13!,{R2}
+MOV R0,R1:STR R0,[R13,#4+statesize]
+B NormalName
+.ReallyCantFindIt
+FNadr(1,Thing%):ADREQ R2,NoSuchFnProc:LDR R3,[R13,#4+statesize]:BL String:MOV R0,R1
+B Error
+.NotYetNotFound
+LDR R14,[R0,#8]:CMP R14,#fptrProc:BNE SmellLoop
+STMFD R13!,{R0}
+LDR R0,[R0,#4]:BL CheckSame:LDMFD R13!,{R0}
+BNE SmellLoop
+B GotProcName
+.BadContext     ADR R0,P%+8:B Error:EQUS "Bad context for FN/PROC@"+CHR$0:ALIGN
+.AnAtSymbol     EQUS    "@"+CHR$0:ALIGN
+.AtValue        EQUD    fptrNum:EQUD    0
+
+.NormalName
+MOV R1,#fptrProc:BL FindVarAddr:MOVS R0,R0:BEQ CantFindItError
+.GotProcName
+STR R0,VarOfThisProc:LDR R0,[R0,#12]
+
+TST R0,#1<<31 ; is it a bit of code?
+BEQ NotCode
+LDR R1,[R13,#8+statesize]:ADR R14,EndFunction:BIC R0,R0,#1<<31:STR R0,JumpToIt
+MOV R0,#0:LDR PC,JumpToIt:.JumpToIt EQUD 0
+
+.NotCode
+MOV R7,R0:LDRB R1,[R0],#1:CMP R1,#13:BEQ AllOkProc
+FNadr(0,BrokenProgram+4):B Error
+.AllOkProc
+BL GetLineNumber
+ADD R0,R0,#8
+.FindTheProc LDRB R1,[R0],#1:CMP R1,#&F2:CMPNE R1,#&A4:BNE FindTheProc
+BL SkipFn:LDRB R1,[R0]:CMP R1,#13:CMPNE R1,#10:BNE HasParameters
+LDR R1,[R13,#8+statesize]:CMP R1,#0:BEQ OkToRun:ADR R0,BadParms:B Error
+.HasParameters
+LDR R4,[R12,#WimpArea]
+.CopItLp LDRB R3,[R0],#1:CMP R3,#13:ADREQ R0,MissingBracket:BEQ Error
+CMP R3,#ASC",":CMPNE R3,#ASC")":MOVEQ R3,#0
+STRB R3,[R4],#1:MOVS R3,R3:BNE CopItLp
+STMFD R13!,{R0}:LDR R0,[R12,#WimpArea]:MOV R1,R2:BL NewLocalVariable
+ADD R2,R2,#8
+MOVS R0,R0:LDMFD R13!,{R0}:ADRNE R0,TypeMis:BNE Error
+LDR R1,[R13,#8+statesize]:SUB R1,R1,#1:STR R1,[R13,#8+statesize]
+LDRB R3,[R0,#-1]:CMP R3,#ASC")":CMPEQ R1,#0:BEQ OkToRun
+CMP R3,#ASC")":ADREQ R0,BadParms:BEQ Error
+BNE HasParameters
+
+.OkToRun
+LDRB R0,[R7,#3]:ADD R0,R7,R0
+BL RunCode
+CMP R0,#0 ; no returned parms
+ADRLT R0,BadRet:BLT Error
+.EndFunction
+LDMFD R13!,{R14}:STR R14,VarOfThisProc
+STMFD R13!,{R0}:LDR R0,MethodName:TEQ R0,#0:BLNE Str_free:LDMFD R13!,{R0}
+BL      RestoreProcState
+STR R0,[R13]:STR R1,[R13,#4]:STR R2,[R13,#8]
+BL PopLocalVars
+LDMFD R13!,{R0-R7,PC}^
+.BRFP ADR R0,BadRet:B Error
+.BadRet EQUS "Bad return from a function/procedure"+CHR$0:ALIGN
+.NoSuchFnProc EQUS "No such function/procedure (%s)"+CHR$0:ALIGN
+.CrapParms
+ADR R0,BadParms:B Error
+.BadParms EQUS "Arguments of function/procedure incorrect"+CHR$0:ALIGN
+.MissingBracket EQUS "Missing ) in FN/PROC"+CHR$0:ALIGN
+.TypeMis EQUS "Type mismatch in FN/PROC"+CHR$0:ALIGN
+
+.BadName ADR R0,BadNameMes:B Error:.BadNameMes EQUS "Invalid variable name"+CHR$0:ALIGN
+
+.NewGlocalVariable ; r0=name, r1->varblock, +0 = number,string, +4=value
+                   ; r6->address of glocal list
+STMFD R13!,{R0-R7,R14}
+FNfunction("NewGlocalVariable")
+LDRB R14,[R0]:CMP R14,#ASC"A":BLT BadName:CMP R14,#ASC"z":BGT BadName
+BL GetStringLen:ADD R1,R0,R1:LDRB R1,[R1,#-1]:CMP R1,#ASC"$":BEQ ItsAString0
+LDR R1,[R13,#4]:LDR R2,[R1]:CMP R2,#fptrNum:BNE NeedInt
+MOV R3,#16:BL Claim:LDR R3,[R6]:STR R3,[R2]:STR R2,[R6]
+BL PermStrdup:STR R1,[R2,#4]:MOV R1,#fptrNum:STR R1,[R2,#8]
+LDR R1,[R13,#4]:LDR R0,[R1,#4]:STR R0,[R2,#12]:MOV R0,#0:B EndNewGlocalVariable
+
+.ItsAString0
+LDR R1,[R13,#4]:LDR R2,[R1]:CMP R2,#fptrStr:BNE NeedStr
+MOV R3,#16:BL Claim:LDR R3,[R6]:STR R3,[R2]:STR R2,[R6]
+BL PermStrdup:STR R1,[R2,#4]:MOV R1,#fptrStr:STR R1,[R2,#8]
+LDR R1,[R13,#4]:LDR R0,[R1,#4]:BL Strdup:STR R1,[R2,#12]:MOV R0,#0
+B EndNewGlocalVariable
+
+MOV R0,#0
+.EndNewGlocalVariable
+STR R0,[R13]
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.NewLocalVariable ; r0=name, r1->varblock, +0 = number,string, +4=value
+STMFD R13!,{R0-R7,R14}
+FNfunction("NewLocalVariable")
+LDRB R14,[R0]:CMP R14,#ASC"@":BLT BadName:CMP R14,#ASC"z":BGT BadName
+BL GetStringLen:ADD R1,R0,R1:LDRB R1,[R1,#-1]:CMP R1,#ASC"$":BEQ ItsAString
+LDR R1,[R13,#4]:LDR R2,[R1]:CMP R2,#fptrNum:BNE NeedInt
+MOV R3,#16:BL Claim:LDR R3,LocalVars:STR R3,[R2]:STR R2,LocalVars
+BL Strdup:STR R1,[R2,#4]:MOV R1,#fptrNum:STR R1,[R2,#8]
+LDR R1,[R13,#4]:LDR R0,[R1,#4]:BL Instance_RegisterReference
+STR R0,[R2,#12]:MOV R0,#0:B EndNewLocalVariable
+
+.ItsAString
+LDR R1,[R13,#4]:LDR R2,[R1]:CMP R2,#fptrStr:BNE NeedStr
+MOV R3,#16:BL Claim:LDR R3,LocalVars:STR R3,[R2]:STR R2,LocalVars
+BL Strdup:STR R1,[R2,#4]:MOV R1,#fptrStr:STR R1,[R2,#8]
+LDR R1,[R13,#4]:LDR R0,[R1,#4]:BL Strdup:STR R1,[R2,#12]:MOV R0,#0:B EndNewLocalVariable
+
+MOV R0,#0
+.EndNewLocalVariable
+STR R0,[R13]
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+.NewGlobalVariable ; r0=name
+STMFD R13!,{R0-R7,R14}
+FNfunction("NewGlobalVariable")
+LDRB R14,[R0]:CMP R14,#ASC"A":BLT BadName:CMP R14,#ASC"z":BGT BadName
+BL GetStringLen:ADD R1,R0,R1:LDRB R1,[R1,#-1]:CMP R1,#ASC"$":BEQ ItsAString2
+LDRB R5,[R0]:SUB R5,R5,#ASC"A":FNadr(7,fptrs)
+MOV R3,#16:BL Claim:LDR R6,[R7,R5,LSL #2]:STR R6,[R2]:STR R2,[R7,R5,LSL #2]
+BL PermStrdup:STR R1,[R2,#4]:MOV R14,#fptrNum:STR R14,[R2,#8]:MOV R1,#0:STR R1,[R2,#12]
+B EndNewGlobalVariable
+.ItsAString2
+LDRB R5,[R0]:SUB R5,R5,#ASC"A":FNadr(7,fptrs)
+MOV R3,#16:BL Claim:LDR R6,[R7,R5,LSL #2]:STR R6,[R2]:STR R2,[R7,R5,LSL #2]
+BL PermStrdup:STR R1,[R2,#4]:MOV R14,#fptrStr:STR R14,[R2,#8]:ADR R1,Gigole
+MOV R0,R1:BL Strdup:STR R1,[R2,#12]
+
+.EndNewGlobalVariable
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.Gigole EQUD 0
+
+.Escaped ADR R0,P%+8:B Error:EQUS "Escape"+CHR$0:ALIGN
+.ECheck EQUD 0
+.RunCode ; in r0->line to run, out r0=num of parms ret'd (0 or 1 or -ve for WHEN,etc), r1->pblk
+STMFD R13!,{R0-R7,R14}
+.RunMainLoop
+LDR R7,ECheck:ADD R7,R7,#1:CMP R7,#100:MOVGT R7,#0:STR R7,ECheck:BLT NoCheckForEscape
+STMFD R13!,{R0}
+MOV R0,#129:MOV R1,#256-3:MOV R2,#255:SWI "OS_Byte":CMP R2,#255:BNE NoEscape
+MOV R0,#129:MOV R1,#256-113:MOV R2,#255:SWI "OS_Byte":CMP R2,#255:BNE NoEscape
+ADR R0,Escape:B Error
+.Escape EQUS "ALT-Escape detected - stopping"+CHR$0:ALIGN
+.NoEscape LDMFD R13!,{R0}
+.NoCheckForEscape
+MOV R7,R0
+LDRB R1,[R0],#1:CMP R1,#13:BNE BadProgram ; check for bad program
+LDRB R1,[R0]:CMP R1,#&FF: BEQ HitEnd
+BL GetLineNumber
+BL StackEEBuffer
+ADD R0,R0,#8
+.RunTheLineAtR0
+;BL StripSpaces no whtsp::LDRB R1,[R0]
+;BL PrintString
+CMP R1,#13:BEQ RunNextLine
+CMP R1,#ASC"=":BEQ RetFromFn
+CMP R1,#ASC"!":BEQ PlingAss
+CMP R1,#ASC"?":BEQ QueryAss
+CMP R1,#ASC"$":BEQ StrAss
+CMP R1,#ASC"@":BLT SyntaxError
+CMP R1,#ASC"z":BLT Assignation
+CMP R1,#&7F:BEQ Token_Endcase
+SUBS R1,R1,#128:BMI RunNextLine
+ADR R14,RunNextLine
+ADD R0,R0,#1
+ADD PC,PC,R1,LSL #2 ; dispatch ahoy
+EQUS "Poo:"
+.TokenDispatchTable
+]FOR N%=0TO127:[OPT pass%:B UnkToken:]:NEXT:[OPT pass%
+
+.RunNextLine
+BL UnstackEEBuffer
+LDRB R0,[R7,#3]:ADD R0,R7,R0:B RunMainLoop
+
+.EndRunCode
+BL UnstackEEBuffer
+LDMFD R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          IncrementalResolve
+; Function      Resolve a variable path along a bit
+; On Entry      r0 -> string to incrementally resolve
+;               r1 =  previous value
+;               r2 =  previous type (ie must be integer)
+; On Exit       r0 -> continuation (after '.' or at '[')
+;               r1 =  new value
+;               r2 =  new type
+; Notes         Calls the necessary 'get' function, if the
+;               resolver can't resolve internally
+; ***************************************************************
+
+.IncrementalResolve
+STMFD   R13!,{R3-R7,R14}
+FNfunction("IncrementalResolve")
+
+TEQ     R2,#fptrNum                     ; must be a number
+BNE     IncrementalResolve_Error
+
+BL      GetVarName                      ; get the field name
+MOV     R7,R0                           ; r7 is the value of r0 to return
+MOV     R3,R1                           ; r3 is the instance handle, for later
+
+MOV     R0,R1                           ; r0 is now instance handle
+FNadr(1,VarBuffer)                      ; point r1 at the field name
+BL      XInstance_Resolve               ; and resolve!
+
+TEQ     R0,#0                           ; could we resolve ok?
+BEQ     IncrementalResolve_Dynamic      ; if not, this could be a dynamic variable
+
+MOV     R2,R1                           ; get the type to return
+LDR     R1,[R0]                         ; get new value
+MOV     R0,R7                           ; get r0 return value
+B       IncrementalResolve_End
+
+.IncrementalResolve_Dynamic
+                                        ; r3 is the instance handle
+STR     R3,IR_InstanceHandle            ; this is where @ will point to during this call
+ADR     R3,IR_InstanceHandle
+
+ADR     R2,IRParmBlock                  ; r2 points to parms
+MOV     R1,#1                           ; 1 parm
+ADR     R0,GUnkVV                       ; UnkVV
+BL      CallMethod                      ; call it
+CMP     R0,#1
+BNE     BRFP                            ; make sure we returned ok
+
+CMP     R1,#fptrNum                     ; if it was a number, it has one too many refs
+MOVEQ   R0,R2
+BLEQ    Instance_DecrementReference     ; so dec
+
+EOR     R1,R1,R2
+EOR     R2,R2,R1
+EOR     R1,R1,R2                        ; swap r1 and r2, for return purposes
+
+MOV     R0,R7                           ; put r0 past everything
+
+.IncrementalResolve_End
+FNend
+LDMFD   R13!,{R3-R7,PC}^
+.IncrementalResolve_Error
+ADR     R0,IncrementalResolve_Error_Message
+B       Error
+.IncrementalResolve_Error_Message
+EQUS    "Worm tablets"+CHR$0:ALIGN
+.GUnkVV
+        EQUS    "GetUnknownVar"+CHR$0:ALIGN
+.IRParmBlock
+        EQUD    fptrStr
+        EQUD    VarBuffer
+.IR_InstanceHandle      ; @ points here
+        EQUD    0
+:
+
+; ***************************************************************
+; Name          GetVarVal
+; Function      Get the value of a variable
+; On Entry      r0 -> variable name
+; On Exit       r0 preserved
+;               r1 =  value if ok
+;               r2 =  type if ok
+;               r3 -> after variable
+; Notes
+; ***************************************************************
+.GetVarVal
+STMFD   R13!,{R0,R4-R7,R14}
+FNfunction("GetVarVal")
+
+BL      GetVarName              ; get the name of the root of this variable
+MOV     R7,R0                   ; preserve r0
+
+FNadr(0,VarBuffer)              ; point r0 at the variable name
+BL      GetVarAddr              ; get the address of the root variable
+TEQ     R0,#0                   ; error?
+BEQ     NSV                     ; no such variable
+
+LDR     R1,[R0,#12]             ; value is in +12
+LDR     R2,[R0,#8]              ; type is in +8
+
+MOV     R0,R7                   ; get r0 back
+
+.GetVarVal_ResolveLoop
+LDRB    R14,[R0]                ; check the next character
+TEQ     R14,#ASC"."             ; a dot?
+; XXX bracket check
+ADDEQ   R0,R0,#1                ; move past dot
+BLEQ    IncrementalResolve      ; resolve a bit
+BEQ     GetVarVal_ResolveLoop
+
+MOV     R3,R0                   ; r3 points to after variable
+
+FNend
+LDMFD   R13!,{R0,R4-R7,PC}^
+
+; ***************************************************************
+; Name          SetVarVal
+; Function      Set the value of a variable
+; On Entry      r0 -> variable name
+;               r1 =  new value
+;               r2 =  new type
+; On Exit       -
+; Notes         Will call PROC<Class>_SetUnknownVarInt(name$,val) or
+;               PROC<Class>_SetUnknownVarStr(name$,val$) if can't find
+;               the given member.  These must pass on using PROC@
+;               if they don't know about the thing - Object_ will
+;               deal with these errors
+; ***************************************************************
+.SetVarVal
+STMFD   R13!,{R0-R7,R14}
+FNfunction("SetVarVal")
+
+; First we have to see if this is a 'normal' variable, as opposed to a
+; structure or dynamic member or whatever
+BL      GetVarName              ; get the variable name
+MOV     R7,R0                   ; preserve r0
+LDRB    R14,[R0]                ; check that byte - if it's not '.' or '[' then
+                                ; this is a 'normal' variable
+TEQ     R14,#ASC"."
+; XXX bracket check
+BEQ     SetVarVal_NotNormal
+
+FNadr(0,VarBuffer)              ; point r0 at the variable name
+BL      GetVarAddr
+
+TEQ     R0,#0                   ; check - is this a new variable?
+BNE     SetVarVal_NotNewGlobal
+FNadr(0,VarBuffer)              ; point back at name
+BL      NewGlobalVariable       ; create the variable
+BL      GetVarAddr              ; get the variable address
+TEQ     R0,#0
+BEQ     DoRTE                   ; run time error...
+
+.SetVarVal_NotNewGlobal
+LDR     R14,[R0,#8]             ; get the type
+TEQ     R2,R14                  ; is this the right type?
+BNE     SetVarVal_TypeWrong
+
+.SetVarVal_TypeOK
+TEQ     R14,#fptrNum
+BNE     SetVarVal_AsString
+
+MOV     R6,R0                   ; preserve r0 temporarily
+
+MOV     R0,R1                   ; get value
+BL      Instance_RegisterReference
+                                ; add a ref
+LDR     R0,[R6,#12]             ; get old value
+BL      Instance_DeregisterReference
+                                ; remove that reference
+STR     R1,[R6,#12]             ; store the new value in
+B       SetVarVal_End           ; and return
+
+.SetVarVal_AsString
+MOV     R6,R0                   ; preserve r0
+LDR     R0,[R6,#12]             ; get old value
+BL      Str_free                ; free the string associated
+MOV     R0,R1
+BL      Strdup                  ; dupe this one
+STR     R1,[R6,#12]             ; and put it in
+B       SetVarVal_End
+
+.SetVarVal_TypeWrong
+TEQ     R14,#fptrNum
+BEQ     NeedInt
+B       NeedStr                 ; print appropriate error
+
+.SetVarVal_NotNormal            ; this is called on a structure '.' ... being found
+FNadr(0,VarBuffer)
+BL      GetVarAddr              ; get the root address
+TEQ     R0,#0
+BEQ     NSV                     ; make sure the root exists
+
+LDR     R2,[R0,#8]              ; get type
+LDR     R1,[R0,#12]             ; get value
+
+.SetVarVal_Loop
+ADD     R0,R7,#1                ; get the pointer to the field name (missing the '.' or [)
+BL      GetVarName              ; get the name
+MOV     R7,R0                   ; preserve r0 for later
+
+LDRB    R14,[R7]                ; is this the terminal value?
+TEQ     R14,#ASC"."             ; more to come?
+; XXX [ check
+BNE     SetVarVal_TerminalValue
+
+FNadr(0,VarBuffer)
+BL      IncrementalResolve      ; resolve along a bit
+B       SetVarVal_Loop          ; and loop around a bit
+
+.SetVarVal_TerminalValue
+LDR     R6,[R13,#4]             ; get new value
+MOV     R0,R1                   ; get instance in r0
+MOV     R3,R0                   ; keep instance in r3, too
+FNadr(1,VarBuffer)              ; bit to find
+BL      XInstance_Resolve       ; can we resolve this?
+
+TEQ     R0,#0
+BEQ     SetVarVal_Dynamic       ; it's a dynamic variable
+
+LDR     R2,[R13,#8]             ; get the type out
+TEQ     R1,R2                   ; check type
+BNE     SetVarVal_NotQuite
+
+TEQ     R1,#fptrStr             ; is it a string?
+BEQ     SetVarVal_NotDynamic_String
+
+MOV     R5,R0                   ; preserve r0
+MOV     R0,R6                   ; register a reference
+BL      Instance_RegisterReference
+LDR     R0,[R5]                 ; get previous value
+BL      Instance_DeregisterReference
+STR     R6,[R5]                 ; store in our value
+B       SetVarVal_End           ; and finish!
+
+.SetVarVal_NotDynamic_String
+MOV     R5,R0                   ; preserve r0
+LDR     R0,[R5]                 ; get old value
+BL      Str_free                ; free it
+MOV     R0,R6
+BL      Strdup                  ; dupe the new one
+STR     R1,[R5]                 ; store it in
+B       SetVarVal_End           ; and done!
+
+.SetVarVal_NotQuite
+TEQ     R2,#fptrNum
+BEQ     NeedInt
+B       NeedStr
+
+.SetVarVal_Dynamic
+STR     R3,SVV_InstancePointer
+ADR     R3,SVV_InstancePointer
+LDRB    R0,[R7,#-1]             ; get last char of variable
+TEQ     R0,#ASC"$"              ; was it a string?
+ADREQ   R0,SUnkVarStr
+MOVEQ   R14,#fptrStr
+ADRNE   R0,SUnkVarStr           ; string or otherwise
+MOVNE   R14,#fptrNum
+STR     R14,SVVParmBlock+8      ; store in parameter type
+MOV     R1,#2                   ; two parameters
+ADR     R2,SVVParmBlock         ; parameter block
+STR     R6,SVVParmBlock+12      ; store in parameter
+BL      CallMethod
+
+.SetVarVal_End
+
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.SVVParmBlock   EQUD    fptrStr :EQUD   VarBuffer
+                EQUD    0       :EQUD   0
+.SUnkVarStr
+        EQUS    "SetUnknownVarStr"+CHR$0:ALIGN
+.SUnkVarInt
+        EQUS    "SetUnknownVarInt"+CHR$0:ALIGN
+.SVV_InstancePointer
+        EQUD    0 ; @ points here
+
+; ***************************************************************
+; Assignation
+.Assignation
+MOV     R1,R0
+.lpFindEqualOrOtherThing
+LDRB    R14,[R1],#1             ; get a byte
+TEQ     R14,#ASC"+"
+TEQNE   R14,#ASC"-"
+TEQNE   R14,#ASC"="
+BEQ     gotEqualOrOtherThing
+TEQ     R14,#13
+TEQNE   R14,#0
+BEQ     SyntaxError
+B       lpFindEqualOrOtherThing
+.gotEqualOrOtherThing
+TEQ     R14,#ASC"="             ; most frequent check first
+BNE     NotSimpleAssign
+MOV     R4,R0                   ; preserve r0
+MOV     R0,R1                   ; point at expression
+BL      ExpressionEvaluate      ; and get new value and so-forth into r1(type)
+                                ; and r2 (value)
+MOV     R6,R0                   ; preserve r0, for later perusal
+MOV     R0,R4                   ; get r0 back
+EOR     R1,R1,R2
+EOR     R2,R2,R1
+EOR     R1,R1,R2                ; swap type and value
+BL      SetVarVal
+MOV     R0,R6                   ; point r0 at terminator
+B       EndAssign
+
+.NotSimpleAssign
+TEQ     R14,#ASC"+"
+BNE     NotPlusEquals
+LDRB    R14,[R1],#1
+TEQ     R14,#ASC"="
+BNE     SyntaxError
+MOV     R4,R0                   ; preserve r0
+MOV     R0,R1
+BL      ExpressionEvaluate
+MOV     R6,R0                   ; preserve r0
+MOV     R0,R4                   ; get r0 back
+MOV     R4,R2                   ; get the value to add on
+MOV     R5,R1                   ; get type to add on
+BL      GetVarVal               ; get the current variable's value
+TEQ     R0,#0                   ; is it 0?
+BEQ     NSV
+TEQ     R2,#fptrNum
+BNE     PlusEqualsString
+ADD     R1,R1,R4                ; add on r4
+MOV     R2,#fptrNum             ; it's a number
+BL      SetVarVal               ; and set the variable
+MOV     R0,R6                   ; point r0 at terminator
+B       EndAssign
+
+.PlusEqualsString
+TEQ     R5,#fptrStr
+BNE     NeedStr
+STMFD   R13!,{R6}               ; need to preserve terminator pointer now
+MOV     R5,R4                   ; preserve r4 - which is the value to add on
+MOV     R4,R0                   ; preserve r0 - which is the variable name
+MOV     R3,R1                   ; preserve old r1, which is the current value
+MOV     R0,R1
+BL      GetStrLen               ; get length of old string
+MOV     R6,R1                   ; keep length
+MOV     R0,R5                   ; get new string
+BL      GetStrLen               ; get length of it
+MOV     R0,R3                   ; r0 points to old string
+ADD     R3,R1,R6                ; length of both strings
+ADD     R3,R3,#1                ; +1 for terminator
+BL      Claim                   ; claim memory for new string
+MOV     R6,R2                   ; r6 will be our final value
+.lp
+LDRB    R14,[R0],#1             ; copy old string
+TEQ     R14,#0                  ; done?
+STRNEB  R14,[R2],#1
+BNE     lp
+.lp
+LDRB    R14,[R5],#1             ; copy new string
+TEQ     R14,#0                  ; done?
+STRB    R14,[R2],#1
+BNE     lp
+MOV     R0,R4                   ; get original r0 back
+MOV     R1,R6                   ; point at r6
+MOV     R2,#fptrStr
+BL      SetVarVal               ; set the variable
+MOV     R2,R6
+BL      Release                 ; and free the temp area
+LDMFD   R13!,{R0}               ; get r0 back from stack
+B       EndAssign
+
+.NotPlusEquals
+TEQ     R14,#ASC"-"
+BNE     SyntaxError
+LDRB    R14,[R1],#1
+TEQ     R14,#ASC"="
+BNE     SyntaxError
+MOV     R4,R0                   ; preserve r0
+MOV     R0,R1
+BL      ExpressionEvaluate
+MOV     R6,R0                   ; preserve r0
+MOV     R0,R4                   ; get r0 back
+MOV     R4,R2                   ; get the value to add on
+MOV     R5,R1                   ; get type to add on
+BL      GetVarVal               ; get the current variable's value
+TEQ     R0,#0                   ; is it 0?
+BEQ     NSV
+TEQ     R2,#fptrNum
+BNE     NeedInt
+SUB     R1,R1,R4                ; add on r4
+MOV     R2,#fptrNum             ; it's a number
+BL      SetVarVal               ; and set the variable
+MOV     R0,R6                   ; get r0 back
+
+.EndAssign
+LDRB    R14,[R0],#1             ; see if we have a colon-type thang
+TEQ     R14,#13
+BEQ     RunNextLine
+TEQ     R14,#ASC":"
+BNE     SyntaxError
+B       RunTheLineAtR0
+.RTE EQUS "Urk! Someone's been fiddling"+CHR$0:ALIGN
+
+.HitEnd
+ADR R0,HitEndMes:BL PrintString
+MOV R0,#0:STR R0,[R13]
+B EndRunCode
+.HitEndMes EQUS "Program execution reached end of file"+CHR$0:ALIGN
+
+.UnkToken
+ADD R3,R1,#128:MOV R4,R0
+LDR R1,[R12,#WimpArea]:ADR R2,UnkT:BL String:MOV R0,R1
+BL PrintString
+MOV R0,#0:STR R0,[R13]
+B EndRunCode
+.UnkT EQUS "Unknown token %d (%s)"+CHR$0:ALIGN
+
+.SkipFn
+STMFD R13!,{R14}
+.SkipFn2
+LDRB R14,[R0]:CMP R14,#ASC"(":ADDEQ R0,R0,#1:CMPNE R14,#13:CMPNE R14,#10:ADDNE R0,R0,#1
+BNE SkipFn2
+LDMFD R13!,{PC}^
+
+.SyntaxError
+ADR R0,SyntaxErr:B Error
+.SyntaxErr EQUS "Syntax error"+CHR$0:ALIGN
+
+.Token_Print
+STMFD R13!,{R14}
+.LoopDePrint
+;BL StripSpaces no whtsp::LDRB R14,[R0]:CMP R14,#13:BNE OnwardPrint
+ADR R0,Nowt:BL PrintString:B EndPrint
+.Nowt EQUD 0
+.OnwardPrint
+BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE PrNumeric
+STMFD R13!,{R0}:MOV R0,R2:BL PrintString:LDMFD R13!,{R0}
+.ContPrint
+;BL StripSpaces no whtsp:
+LDRB R14,[R0]:CMP R14,#13:CMPNE R14,#0:BEQ EndPrint
+CMP R14,#ASC",":BEQ LoopDePrint
+ADD R13,R13,#4:B SyntaxError
+.PrNumeric
+STMFD R13!,{R0}
+MOV R0,R2:LDR R1,[R12,#WimpArea]:MOV R2,#16:SWI "OS_ConvertInteger4"
+LDR R0,[R12,#WimpArea]:BL PrintString
+LDMFD R13!,{R0}:B ContPrint
+.EndPrint
+LDMFD R13!,{PC}^
+FNtoken(&f1,Token_Print)
+
+.Token_BasicV2
+STMFD   R13!,{R14}
+LDRB    R14,[R0],#1
+TEQ     R14,#&95:BEQ Token_Load
+B       UnkToken
+.Token_Load
+BL ExpressionEvaluate:CMP R1,#fptrStr:BNE NeedStr
+LDRB R14,[R0]:CMP R14,#13:BNE SyntaxError
+MOV R0,R2
+BL LoadProgram
+LDMFD R13!,{PC}^
+FNtoken(&c7,Token_BasicV2)
+
+.Eval_Function ; R8 AND R9 corrupt
+STMFD R13!,{R3-R7}
+ADD R0,R0,#1
+;BL StripSpaces no whtsp:
+LDRB R14,[R0]:CMP R14,#ASC"@":BNE NotUpALevelFunction
+LDRB R14,[R0,#1]!:CMP R14,#ASC".":SUBEQ R0,R0,#1:BEQ NotUpALevelFunction
+CMP R14,#13:CMPNE R14,#ASC"(":BNE SyntaxError
+MOV R7,#0:B GetTheFunctionParms
+.NotUpALevelFunction
+FNadr(3,EEBuffer)
+LDR R4,[R3]:MOV R7,R4
+LDRB R14,[R0]:TEQ R14,#ASC"(":BNE NotIndirCallFunny
+
+BL ExpressionEvaluate
+TEQ R1,#fptrStr:ADRNE R0,BadIndyFun:BNE Error
+FNadr(1,ProcNameBuffer):BL String
+STMFD R13!,{R0}
+MOV R0,R1:BL Strdup:MOV R7,R1:LDMFD R13!,{R0}
+B GetTheFunctionParms
+.BadIndyFun EQUS "Bad indirected PROC call"+CHR$0:ALIGN
+
+.NotIndirCallFunny
+.lp LDRB R14,[R0],#1:CMP R14,#ASC".":BEQ okokokok
+CMP r14,#ASC"0":MOVLT r14,#0:BLT okokokok ; gerphy's change
+CMP r14,#ASC"9":BLE okokokok              ; gerphy's change
+CMP R14,#ASC"@":MOVLT R14,#0
+CMP R14,#ASC"z":MOVGT R14,#0
+.okokokok STRB R14,[R4],#1:MOVS R14,R14:BNE lp
+SUB R0,R0,#1:STR R4,[R3]
+.GetTheFunctionParms
+FNborrow(4,128):FNadr(14,StackLimit):CMP R13,R14:BGE MMFOOMB
+FNadr(0,OutOfStack):B Error
+.MMFOOMB
+MOV R1,#0:MOV R6,R4
+LDRB R14,[R0]
+CMP R14,#ASC"(":BNE RunTheFunc
+ADD R0,R0,#1
+.LoopGetTheFuncParms
+LDRB R14,[R0]:CMP R14,#ASC")":ADDEQ R0,R0,#1:BEQ RunTheFunc
+ADD R1,R1,#1:CMP R1,#16:BGT TooManyParmsToFunc
+STMFD R13!,{R1}
+BL ExpressionEvaluate
+STMIA R4!,{R1,R2}:LDMFD R13!,{R1}
+LDRB R14,[R0]:CMP R14,#ASC",":ADDEQ R0,R0,#1:CMPNE R14,#ASC")":BNE SyntaxError
+B LoopGetTheFuncParms
+.RunTheFunc
+STMFD R13!,{R0}
+MOV R2,R6:MOV R0,R7
+FNadr(8,LineNumber) ; get line and program
+LDMIA   R8,{R8,R9}
+STMFD   R13!,{R8,R9}
+LDR R8,[R12,#CurrentGlocals]
+STMFD R13!,{R8}
+BL CallProcedure
+LDMFD R13!,{R8}:STR R8,[R12,#CurrentGlocals]
+LDMFD R13!,{R8,R9}
+FNadr(12,LineNumber)
+STMIA R12,{R8,R9}
+MOV R12,#&8000
+CMP R0,#1:BNE BRFP
+CMP R1,#fptrNum:BNE notsettozero
+; if we were given a number, then it has one more reference than is strictly necessary
+MOV R0,R2:BL Instance_DecrementReference
+.notsettozero
+MOV     R0,R7:BL Str_free ; I hope
+LDMFD R13!,{R0}
+FNrepay
+LDMFD R13!,{R3-R7,PC}^
+.TooManyParmsToFunc ADR R0,P%+8:B Error:EQUS "Sorry, the maximum amount of parameters passable to a function is 16"+CHR$0:ALIGN
+
+.Token_Proc
+STMFD R13!,{R1-R7,R14}
+;BL StripSpaces no whtsp:
+LDRB R14,[R0]:CMP R14,#ASC"@":BNE NotUpALevel
+LDRB R14,[R0,#1]!:CMP R14,#ASC".":SUBEQ R0,R0,#1:BEQ NotUpALevel
+CMP R14,#13:CMPNE R14,#ASC"(":BNE SyntaxError
+MOV R7,#0:B GetTheParms
+.NotUpALevel
+LDRB R14,[R0]:TEQ R14,#ASC"(":BNE NotIndirCall
+BL ExpressionEvaluate
+TEQ R1,#fptrStr:ADRNE R0,BadIndy:BNE Error
+FNadr(1,ProcNameBuffer):BL String
+STMFD R13!,{R0}
+MOV R0,R1:BL Strdup:MOV R7,R1:LDMFD R13!,{R0}
+B GetTheParms
+.BadIndy EQUS "Bad indirected PROC call"+CHR$0:ALIGN
+.NotIndirCall
+FNadr(4,ProcNameBuffer)
+.lp LDRB R14,[R0],#1:CMP R14,#ASC"("
+CMPNE R14,#13:CMPNE R14,#0:MOVEQ R14,#0:STRB R14,[R4],#1:BNE lp
+SUB R0,R0,#1
+STMFD R13!,{R0}
+ADR R0,ProcNameBuffer
+BL Strdup:MOV R7,R1:LDMFD R13!,{R0}
+.GetTheParms
+FNborrow(4,256):FNadr(14,StackLimit):CMP R13,R14:BGE MMFOOMBO2
+FNadr(0,OutOfStack):B Error
+.MMFOOMBO2
+MOV R1,#0:MOV R6,R4
+LDRB R14,[R0],#1:CMP R14,#13:BEQ RunTheProc
+CMP R14,#ASC"(":BNE SyntaxError
+.LoopGetTheParms
+LDRB R14,[R0]:CMP R14,#ASC")":BEQ RunTheProc
+ADD R1,R1,#1:CMP R1,#32:BGE TooManyParmsToProc
+STMFD R13!,{R1}
+BL ExpressionEvaluate
+STMIA R4!,{R1,R2}:LDMFD R13!,{R1}
+LDRB R14,[R0]:CMP R14,#ASC",":ADDEQ R0,R0,#1:CMPNE R14,#ASC")":BNE SyntaxError
+B LoopGetTheParms
+.RunTheProc
+
+MOV R2,R6:MOV R0,R7:BL CallProcedure
+FNrepay
+MOV R2,R7:BL Release
+CMP R0,#0:BNE BRFP
+LDMFD R13!,{R1-R7,PC}^
+FNtoken(&f2,Token_Proc)
+.TooManyParmsToProc ADR R0,P%+8:B Error:EQUS "Sorry, the maximum amount of parameters passable to a procedure is 32"+CHR$0:ALIGN
+;.ProcBuffer FNres(512)
+.ProcNameBuffer FNres(256)
+
+.Token_Ptr
+STMFD R13!,{R3,R14}
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt:MOV R3,R2
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#ASC"=":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+MOV R1,R3:MOV R0,#1:SWI "XOS_Args":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R3,PC}^
+FNtoken(&cf,Token_Ptr)
+
+.Token_Ext
+STMFD R13!,{R3,R14}
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt:MOV R3,R2
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#ASC"=":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+MOV R1,R3:MOV R0,#3:SWI "XOS_Args":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R3,PC}^
+FNtoken(&a2,Token_Ext)
+
+.Token_While
+STMFD R13!,{R0-R7}
+MOV R6,R0 ; points to expression
+LDRB R1,[R7,#3]:ADD R7,R7,R1 ; move r7 on
+MOV R0,#&ce:BL FindLine:BVS MissingEndWhile
+STR R0,[R13,#7*4] ; store in return address
+.WhileLoop
+MOV R0,R6:BL ExpressionEvaluate:CMP R1,#fptrNum:BNE NeedInt
+MOVS R2,R2:BEQ EndWhileLoop
+MOV R0,R7:BL RunCode:CMP R0,#0:BGE PremRet
+CMN R0,#6 ; endwhile
+BNE SyntaxError
+B WhileLoop
+.EndWhileLoop
+LDMFD R13!,{R0-R7}
+B RunNextLine
+.MissingEndWhile ADR R0,P%+8:B Error:EQUS "Missing ENDWHILE in WHILE statement"+CHR$0:ALIGN
+
+.Token_Oscli
+STMFD R13!,{R14}
+BL ExpressionEvaluate:CMP R1,#fptrStr:BNE NeedStr
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#13:BNE SyntaxError
+MOV R0,R2:SWI "XWimp_StartTask":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{PC}^
+FNtoken(&ff,Token_Oscli)
+
+.Token_Local
+STMFD R13!,{R14}
+.LocalLoop
+BL GetVarName
+STMFD R13!,{R0}
+FNadr(0,VarBuffer)
+BL GetStringLen:ADD R1,R1,R0:LDRB R1,[R1,#-1]:CMP R1,#ASC"$":MOVEQ R2,#fptrStr:MOVNE R2,#fptrNum
+ADREQ R3,LocalBuffa+8:MOVNE R3,#0
+ADR R1,LocalBuffa:STMIA R1,{R2,R3}
+BL NewLocalVariable
+LDMFD R13!,{R0}
+LDRB R14,[R0],#1:CMP R14,#ASC",":BEQ LocalLoop
+CMP R14,#13:BNE SyntaxError
+LDMFD R13!,{PC}^
+FNtoken(&EA,Token_Local)
+.LocalBuffa EQUD 0:EQUD 0:EQUD 0 ; last 0 is blank string
+
+.Token_Error
+BL ExpressionEvaluate:CMP R1,#fptrStr:BNE NeedStr:;BL StripSpaces no whtsp::LDRB R14,[R0],#1
+CMP R14,#13:BNE SyntaxError
+MOV R0,R2:B Error
+FNtoken(&85,Token_Error)
+
+.Token_Repeat
+STMFD R13!,{R0-R7,R14}
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#13:BNE SyntaxError
+LDRB R0,[R7,#3]:ADD R7,R0,R7
+MOV R0,#&fd:BL FindLine:BVS MissingUntil:STR R0,[R13,#7*4]
+.RepeatIt
+MOV R0,R7:BL RunCode ; run the repeat
+MOVS R0,R0:BGE PremRetIf
+CMN R0,#4 ; -4 is TRUE until
+BEQ RepeatIt
+CMN R0,#5 ; -5 is FALSE until
+BNE SyntaxError
+LDMFD R13!,{R0-R7,PC}^
+B RunNextLine
+FNtoken(&f5,Token_Repeat)
+.MissingUntil ADR R0,P%+8:B Error:EQUS "Missing UNTIL in REPEAT"+CHR$0:ALIGN
+
+.Token_For
+STMFD R13!,{R0-R7,R14}
+BL GetVarName
+STMFD R13!,{R0}
+FNadr(0,VarBuffer)
+BL GetVarAddr:MOVS R0,R0 ; if zero, its a new variable
+BNE Womble2
+FNadr(0,VarBuffer)
+BL NewGlobalVariable
+BL GetVarAddr:MOVS R0,R0:BNE Womble2:FNadr(0,RTE):B Error
+.Womble2
+MOV R6,R0
+LDMFD R13!,{R0}
+LDR R14,[R6,#8]:CMP R14,#fptrNum:BNE SyntaxError
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"=":BNE SyntaxError
+BL ExpressionEvaluate:MOV R5,R2:MOV R3,#1 ; R5 is starting value, r3 is step
+CMP R1,#fptrNum:BNE NeedInt
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#&B8:BNE MissingTo
+BL ExpressionEvaluate:MOV R4,R2 ; r4 is end point
+CMP R1,#fptrNum:BNE NeedInt
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#&88:BNE NotStep
+BL ExpressionEvaluate:;BL StripSpaces no whtsp::MOV R3,R2
+CMP R1,#fptrNum:BNE NeedInt:MOV R14,#13
+.NotStep
+CMP R14,#13:BNE SyntaxError
+LDRB R0,[R7,#3]:ADD R7,R7,R0 ; move line on
+STR R5,[R6,#12] ; store in variable
+MOV R0,#&ed:BL FindLine:BVS MissingNext:MOV R1,R0 ; r1 points to next
+MOVS R3,R3:BEQ InvStep
+BMI Negg:CMP R5,R4:BGT SkipToNext:B DoTheForLoop
+.Negg
+CMP R4,R5:BGT SkipToNext
+.DoTheForLoop
+MOV R0,R7
+STMFD R13!,{R7}
+BL RunCode:LDMFD R13!,{R7}:CMP R0,#0:BGE PremRetIf
+CMN R0,#2 ; minus 2 is next exit
+BNE SyntaxError
+ADD R5,R5,R3
+STR R5,[R6,#12] ; store in variable
+MOVS R3,R3
+BMI Negg2:CMP R5,R4:BGT SkipToNext:B DoTheForLoop
+.Negg2
+CMP R4,R5:BLE DoTheForLoop
+.SkipToNext
+STR R1,[R13,#7*4]
+LDMFD R13!,{R0-R7,PC}^
+B RunNextLine
+FNtoken(&e3,Token_For)
+.MissingTo   ADR R0,P%+8:B Error:EQUS "Missing TO in FOR statement"+CHR$0:ALIGN
+.MissingNext ADR R0,P%+8:B Error:EQUS "Missing NEXT in FOR statement"+CHR$0:ALIGN
+.InvStep     ADR R0,P%+8:B Error:EQUS "STEP size of zero"+CHR$0:ALIGN
+
+.Token_If
+STMFD R13!,{R0-R7,R14}
+BL ExpressionEvaluate:CMP R1,#fptrNum:BNE NeedInt
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#&8C:BNE MissingThen
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#13:BNE NoMultiIf
+LDRB R0,[R7,#3]:ADD R7,R7,R0 ; move along, now
+MOV R0,#&CD:BL FindLine:BVS MissingEndIf:STR R0,[R13,#7*4] ; put return address in
+MOVS R2,R2:BEQ SkipToElse
+MOV R0,R7:BL RunCode:CMP R0,#0:BGE PremRetIf
+CMN R0,#3; -3 is else, endif
+BNE SyntaxError
+.EndTheIf
+LDMFD R13!,{R0-R7,PC}^
+B RunNextLine
+.SkipToElse
+MOV R0,#&CC:BL FindLine:BVS EndTheIf
+LDRB R1,[R0,#3]:ADD R0,R0,R1:BL RunCode:CMP R0,#0
+BGE PremRetIf
+CMN R0,#3:BNE SyntaxError
+B EndTheIf
+.PremRetIf ADD R13,R13,#4*3:LDMFD R13!,{R3-R7,R14}:STMIA R13,{R0-R2}:B EndRunCode
+FNtoken(&e7,Token_If)
+.MissingThen  ADR R0,P%+8:B Error:EQUS "Missing THEN in IF statement"+CHR$0:ALIGN
+.MissingEndIf ADR R0,P%+8:B Error:EQUS "Missing ENDIF in IF statement"+CHR$0:ALIGN
+.NoMultiIf
+MOVS R2,R2:BEQ EndTheIf
+ADD R13,R13,#4:LDMFD R13!,{R1-R7,R14}
+SUB R0,R0,#1:B RunTheLineAtR0
+ADR R0,P%+8:B Error:EQUS "Single-line IFs not supported"+CHR$0:ALIGN
+
+
+.Token_BasicV ; NB DONT DO MOVS PC,LR FROM HERE!!!
+LDRB R14,[R0],#1
+CMP R14,#&8E:BEQ Token_Case
+CMP R14,#&95:BEQ Token_While
+CMP R14,#&94:BEQ Token_Swap
+CMP R14,#&99:BEQ Token_Sys
+B SyntaxError
+FNtoken(&c8,Token_BasicV)
+
+.Token_Swap
+STMFD R13!,{R5,R6}
+BL GetVarName
+STMFD R13!,{R0}
+FNadr(0,VarBuffer)
+BL GetVarAddr:MOVS R0,R0:BEQ NSV
+MOV R6,R0
+LDMFD R13!,{R0}
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1:CMP R14,#ASC",":BNE SyntaxError
+BL GetVarName
+FNadr(0,VarBuffer)
+BL GetVarAddr:MOVS R0,R0:BEQ NSV
+LDR R1,[R6,#8]:LDR R2,[R0,#8]:CMP R1,R2:BNE UrkSwap
+LDR R1,[R6,#12]:LDR R2,[R0,#12]
+STR R2,[R6,#12]:STR R1,[R0,#12]
+LDMFD R13!,{R5,R6}
+B RunNextLine
+.UrkSwap ADR R0,P%+8:B Error:EQUS "Mismatched type in SWAP"+CHR$0:ALIGN
+
+.Token_Sys
+STMFD R13!,{R1-R7}
+BL ExpressionEvaluate:MOV R6,R0
+CMP R1,#fptrStr:MOVNE R0,R2:BNE GotSWINum
+MOV R1,R2:SWI "XOS_SWINumberFromString":ADDVS R0,R0,#4:BVS Error
+.GotSWINum
+MOV R4,R0
+ORR R0,R0,#&EF000000 ; make it into a SWI
+ORR R0,R0,#&20000    ; make it into XSWI
+STR R0,SWI_Instruction
+; BL SynchCodeAreas XXX so there
+ADR R3,SWIBlock:MOV R0,R6:MOV R5,#0
+]FOR N%=0TO7:[OPT pass%:STR R5,[R3,#N%*4]:]:NEXT:[OPT pass%
+.GetParmsLp
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC",":BNE NotAnotherEntry
+LDRB R14,[R0]:TEQ R14,#ASC",":MOVEQ R2,#0
+BLNE ExpressionEvaluate:ADD R5,R5,#1:CMP R5,#8:ADRGT R0,FoomBar:BGT Error:STR R2,[R3],#4
+B GetParmsLp
+.NotAnotherEntry CMP R14,#13:CMPNE R14,#&B8
+BNE SyntaxError
+STMFD R13!,{R0,R4,R14}
+ADR R0,SWIBlock:LDMIA R0,{R0-R7}
+.SWI_Instruction SWI 0 ; self-modifying code
+ADR R14,SWIBlock:STMIA R14,{R0-R7}
+MOV R7,PC:AND R7,R7,#&FC000003 ; get flags
+STR R7,SWIFlags ; store them for later (ADDED)
+LDMFD R13!,{R0,R4,R14}
+BVC AllInTheClear
+; an error happened? Does the user care?
+TST R4,#&20000:LDREQ R0,SWIBlock:ADDEQ R0,R0,#4:BEQ Error
+.AllInTheClear
+CMP R14,#13:BEQ SWI_End
+ADR R3,SWIBlock:MOV R5,#0
+.PutTheResultsIn
+;BL StripSpaces no whtsp::LDRB R14,[R0]:CMP R14,#ASC";":ADDEQ R0,R0,#1:BEQ DoSemiColon
+CMP R14,#ASC",":BNE NotSkipANum
+ADD R0,R0,#1:ADD R5,R5,#1:CMP R5,#8:ADRGE R0,FoomBar2:BGE Error
+ADD R3,R3,#4:B PutTheResultsIn
+.NotSkipANum
+MOV R7,R0
+.lp
+LDRB R14,[R7],#1:CMP R14,#ASC",":CMPNE R14,#13:CMPNE R14,#ASC";":BNE lp
+LDRB R14,[R7,#-2] ; get last byte
+TEQ R14,#ASC"$":BEQ SWItoString
+LDR     R1,[R3],#4
+MOV     R2,#fptrNum
+BL      SetVarVal
+SUB     R0,R7,#1
+B       MoreMagnificent
+.SWItoString
+LDR     R1,[R3],#4
+TEQ     R1,#0
+ADREQ   R1,NullString
+STMFD   R13!,{R0}
+MOV     R0,R1
+ADD     R1,R1,#1
+SWI     "OS_ValidateAddress"
+BCS     BadStringRet
+LDMFD   R13!,{R0}
+SUB     R1,R1,#1
+MOV     R2,#fptrStr
+BL      SetVarVal
+SUB     R0,R7,#1
+.MoreMagnificent
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#13:BEQ SWI_End
+CMP R14,#ASC",":BEQ PutTheResultsIn
+CMP R14,#ASC";":BNE SyntaxError
+.DoSemiColon
+;BL StripSpaces no whtsp::BL GetVarName
+STMFD R13!,{R0}
+FNadr(0,VarBuffer)
+BL GetVarAddr:MOVS R0,R0:BNE AlreadyKnowThatOne2
+FNadr(0,VarBuffer)
+BL NewGlobalVariable:BL GetVarAddr:MOVS R0,R0:BNE AlreadyKnowThatOne2
+.DoRTE FNadr(0,RTE):B Error
+.AlreadyKnowThatOne2
+LDR R1,[R0,#8]:CMP R1,#fptrNum:BNE NeedInt
+LDR R7,SWIFlags ; re-read flags (ADDED)
+STR R7,[R0,#12]
+LDMFD R13!,{R0}:;BL StripSpaces no whtsp::LDRB R14,[R0]:CMP R14,#13:BNE SyntaxError
+.SWI_End
+LDMFD R13!,{R1-R7}:B RunNextLine
+.FoomBar  EQUS "Too many entry parameters to a SWI"+CHR$0:ALIGN
+.FoomBar2 EQUS "Too many exit parameters to a SWI"+CHR$0:ALIGN
+.NullString EQUD 0
+.SWIBlock FNres(8*4)
+.SWIFlags EQUD 0
+.BadStringRet ADR R0,P%+8:B Error:EQUS "Bad string returned in SWI"+CHR$0:ALIGN
+
+.Token_Case
+STMFD R13!,{R0-R7}
+BL ExpressionEvaluate
+MOV R5,R1:MOV R6,R2 ; r5 is type, r6 is actual thing
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#&CA:BNE MissingOf
+LDRB R0,[R7,#3]:ADD R7,R7,R0 ; move on to next line
+MOV R0,#&CB ; endcase
+BL FindLine:BVS MissingeCase
+MOV R4,R0 ; r4 points to place to carry on from
+.LoopFindTheWhen
+MOV R0,#&C9 ; When
+BL FindLine:BVS CheckOtherwise
+LDRB R7,[R0,#3]:ADD R7,R0,R7 ; move r7 so next findline gets next when
+LDRB R14,[R0],#1:CMP R14,#13:BNE BadProgram:BL GetLineNumber
+ADD R0,R0,#8
+;BL StripSpaces no whtsp::ADD R0,R0,#1:BL ExpressionEvaluate
+.CaseItCheck
+CMP R1,R5:BNE CaseNope:CMP R1,#fptrNum:BNE WhenString
+CMP R2,R6:BEQ ExecWhen
+.CheckRestOfLineForWhen
+LDRB R14,[R0],#1:CMP R14,#13:CMPNE R14,#ASC":":BEQ LoopFindTheWhen
+CMP R14,#ASC",":BNE SyntaxError:BL ExpressionEvaluate
+B CaseItCheck
+.WhenString
+STMFD R13!,{R0}:MOV R0,R2:MOV R1,R6:BL CheckSame:
+LDMFD R13!,{R0}
+BEQ ExecWhen:B CheckRestOfLineForWhen
+.ExecWhen
+MOV R0,R7:BL RunCode ; eek re-entrancy
+MOVS R0,R0:BGE PremRet:CMN R0,#1 ; -1 is endcase,otherwise or when
+BNE SyntaxError
+.CarryonCase
+STR R4,[R13,#7*4] ; put back continuation point
+LDMFD R13!,{R0-R7}:B RunNextLine; and return
+.CheckOtherwise
+TEQP PC,#0 ; cyear the fyags
+MOV R0,#&7F:BL FindLine:BVS CarryonCase
+LDRB R7,[R0,#3]:ADD R7,R0,R7 ; move r7 so we can carry on happily
+LDRB R14,[R0],#1:CMP R14,#13:BNE BadProgram:BL GetLineNumber
+MOV R0,R7:BL RunCode ; eek re-entrancy again
+MOVS R0,R0:BGE PremRet:CMN R0,#1 ; -1 is endcase,otherwise or when
+BNE SyntaxError
+B CarryonCase
+.PremRet ADD R13,R13,#4*3:LDMFD R13!,{R3-R7}:STMIA R13,{R0-R2}
+B EndRunCode
+.MissingOf    ADR R0,P%+8:B Error:EQUS "Missing OF in CASE statement"+CHR$0:ALIGN
+.MissingeCase ADR R0,P%+8:B Error:EQUS "Missing ENDCASE for CASE statement"+CHR$0:ALIGN
+.CaseNope     ADR R0,P%+8:B Error:EQUS "Type mismatch in CASE statement"+CHR$0:ALIGN
+
+.FindLine ; searches on from r7 for r0 at start of line, keeping track of level
+STMFD R13!,{R0-R3,R14}
+MOV R1,R7 ; line ptr
+MOV R3,R0 ; byte to find
+
+; first check the cached lines, if any
+LDRB R2,[R1,#4]:LDRB R14,[R1,#5]:ORRS R2,R2,R14,LSL #8:BEQ FindLoop ; not in first cache
+ADD R14,R7,R2 ; calc addr of line
+LDRB R2,[R14,#9]:CMP R2,R3:STREQ R14,[R13]:BEQ EndFL ; woo!
+LDRB R2,[R1,#6]:LDRB R14,[R1,#7]:ORRS R2,R2,R14,LSL #8:BEQ FindLoop ; not in first cache
+ADD R14,R7,R2 ; calc addr of line
+LDRB R2,[R14,#9]:CMP R2,R3:STREQ R14,[R13]:BEQ EndFL ; woo!
+
+.FindLoop
+LDRB R2,[R1,#1]:CMP R2,#&FF:BEQ NotFL
+ADD R0,R1,#9
+;BL StripSpaces no whtsp:
+LDRB R2,[R0]:CMP R2,R3:BEQ FoundItFL
+;CMP    R2,#&e1 ; endproc
+;CMPNE  R2,#ASC"="
+CMP    R2,#&DD ; def
+CMPNE  R2,#&ce ; endwhile
+CMPNE  R2,#&cb ; endcase
+CMPNE  R2,#&cd ; endif
+CMPNE  R2,#&ed ; next
+CMPNE  R2,#&fd ; until
+BEQ NotFL
+CMP R2,#&f5 ; rep
+BNE NotRepeat
+STMFD R13!,{R7}:MOV R7,R1:LDRB R14,[R7,#3]:ADD R7,R7,R14
+MOV R0,#&fd:BL FindLine:LDMFD R13!,{R7}
+BVS NotFL
+MOV R1,R0:LDRB R0,[R1,#3]:ADD R1,R1,R0
+B FindLoop ; and go round again
+.NotRepeat
+CMP R2,#&e7 ; IF?
+BNE NotIf
+; check if it is a single line IF, if so ignore it
+.lp
+LDRB R2,[R0,#1]!:TEQ R2,#&0d:BEQ NotSingleIf
+TEQ R2,#&8C ; is it a then?
+BNE lp
+LDRB R2,[R0,#1]:TEQ R2,#&0d:BNE NotIncLevel ; don't inc level if single line IF
+.NotSingleIf
+STMFD R13!,{R7}:MOV R7,R1:LDRB R14,[R7,#3]:ADD R7,R7,R14
+MOV R0,#&cd:BL FindLine:LDMFD R13!,{R7}
+BVS NotFL
+MOV R1,R0:LDRB R0,[R1,#3]:ADD R1,R1,R0
+B FindLoop ; and go round again
+.NotIf
+CMP R2,#&e3 ; is it a FOR?
+BNE NotFor
+STMFD R13!,{R7}:MOV R7,R1:LDRB R14,[R7,#3]:ADD R7,R7,R14
+MOV R0,#&ed:BL FindLine:LDMFD R13!,{R7}
+BVS NotFL
+MOV R1,R0:LDRB R0,[R1,#3]:ADD R1,R1,R0
+B FindLoop ; and go round again
+.NotFor
+CMP R2,#&c8 ; it could be a case or while
+BNE NotIncLevel:LDRB R2,[R0,#1]
+CMP R2,#&95:BNE NotWhile
+; we now have to skip to the corresponding EndCase
+STMFD R13!,{R7}:MOV R7,R1:LDRB R14,[R7,#3]:ADD R7,R7,R14
+MOV R0,#&ce:BL FindLine:LDMFD R13!,{R7}
+BVS NotFL
+MOV R1,R0:LDRB R0,[R1,#3]:ADD R1,R1,R0
+B FindLoop ; and go round again
+.NotWhile
+CMP R2,#&8e:BNE NotIncLevel
+; we now have to skip to the corresponding EndCase
+STMFD R13!,{R7}:MOV R7,R1:LDRB R14,[R7,#3]:ADD R7,R7,R14
+MOV R0,#&CB:BL FindLine:LDMFD R13!,{R7}
+BVS NotFL
+MOV R1,R0:LDRB R0,[R1,#3]:ADD R1,R1,R0
+B FindLoop ; and go round again
+.NotIncLevel
+LDRB R2,[R1,#3]:ADD R1,R1,R2:B FindLoop
+.FoundItFL
+STR R1,[R13] ; kewlio
+
+; now check to see if we can cache this new found place
+SUB R1,R1,R7:CMP R1,#&10000:BGE EndFL ; can't cache this as it's too far a jump to code
+LDRB R14,[R7,#4]:MOVS R14,R14:BNE TryNextCacheToStoreIn
+LDRB R14,[R7,#5]:MOVS R14,R14:BNE TryNextCacheToStoreIn
+STRB R1,[R7,#4]:MOV R1,R1,LSR #8:STRB R1,[R7,#5]:B EndFL
+.TryNextCacheToStoreIn
+LDRB R14,[R7,#6]:MOVS R14,R14:BNE EndFL
+LDRB R14,[R7,#7]:MOVS R14,R14:BNE EndFL
+STRB R1,[R7,#4]:MOV R1,R1,LSR #8:STRB R1,[R7,#5]
+.EndFL
+LDMFD R13!,{R0-R3,PC}^
+.NotFL LDR R0,[R13,#4*4]:ORR R0,R0,#1<<28:STR R0,[R13,#4*4]:B EndFL
+
+.RetFromFn
+ADD R0,R0,#1
+BL ExpressionEvaluate
+LDRB R14,[R0]:CMP R14,#13:BNE SyntaxError
+MOV R0,#1:STR R0,[R13]:STR R1,[R13,#4]:STR R2,[R13,#8]
+; is it an int?
+CMP R1,#fptrNum:BNE EndRunCode
+MOV R0,R2:BL Instance_RegisterReference   ; numeric return values have been referenced!!!!!
+B EndRunCode
+
+.Token_EndProc
+MOV R0,#0:STR R0,[R13]:B EndRunCode
+FNtoken(&e1,Token_EndProc)
+
+.Token_EndWhile
+MVN R0,#5:STR R0,[R13]:B EndRunCode
+FNtoken(&CE,Token_EndWhile)
+
+.Token_Endcase
+MVN R0,#0:STR R0,[R13]:B EndRunCode
+FNtoken(&cb,Token_Endcase)
+FNtoken(&c9,Token_Endcase)
+
+.Token_Next
+MVN R0,#1:STR R0,[R13]:B EndRunCode
+FNtoken(&ed,Token_Next)
+
+.Token_Else
+MVN R0,#2:STR R0,[R13]:B EndRunCode
+FNtoken(&CC,Token_Else)
+FNtoken(&CD,Token_Else)
+
+.Token_Until
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+MOVS R2,R2:MVNNE R0,#4:MVNEQ R0,#3:STR R0,[R13]:B EndRunCode
+FNtoken(&fd,Token_Until)
+
+.Token_Close
+STMFD R13!,{R14}
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"#":BNE SyntaxError
+BL ExpressionEvaluate:CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}:MOV R0,#0:MOV R1,R2:SWI "XOS_Find":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R0,PC}^
+FNtoken(&d9,Token_Close)
+
+.Token_Bput
+STMFD R13!,{R3,R14}
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"#":BNE SyntaxError
+BL ExpressionEvaluate:CMP R1,#fptrNum:BNE NeedInt
+MOV R3,R2 ; r3 is fh
+LDRB R14,[R0],#1:CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate
+LDRB R14,[R0],#1:CMP R14,#13:BNE SyntaxError
+STMFD R13!,{R0}:CMP R1,#fptrStr:BEQ BputString
+MOV R1,R3:MOV R0,R2:SWI "XOS_BPut":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R0,R3,PC}^
+.BputString
+MOV R0,R2:BL GetStrLen:EOR R1,R1,R3:EOR R3,R3,R1:EOR R1,R1,R3 ; 1=fh, 3=numtowrite
+MOV R0,#2:SWI "XOS_GBPB":ADDVS R0,R0,#4:BVS Error
+MOV R0,#10:SWI "XOS_BPut":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R0,R3,PC}^
+FNtoken(&D5,Token_Bput)
+
+FNtoken(&F4,RunNextLine)
+
+FNtoken(&80,SyntaxError)
+FNtoken(&81,SyntaxError)
+FNtoken(&82,SyntaxError)
+FNtoken(&83,SyntaxError)
+FNtoken(&84,SyntaxError)
+FNtoken(&8e,SyntaxError)
+FNtoken(&94,SyntaxError)
+FNtoken(&97,SyntaxError)
+FNtoken(&9a,SyntaxError)
+FNtoken(&a0,SyntaxError)
+FNtoken(&a7,SyntaxError)
+FNtoken(&a9,SyntaxError)
+FNtoken(&ac,SyntaxError)
+FNtoken(&ad,SyntaxError)
+FNtoken(&ae,SyntaxError)
+FNtoken(&b4,SyntaxError)
+FNtoken(&bb,SyntaxError)
+FNtoken(&bd,SyntaxError)
+FNtoken(&c0,SyntaxError)
+FNtoken(&c1,SyntaxError)
+FNtoken(&c2,SyntaxError)
+FNtoken(&c3,SyntaxError)
+FNtoken(&c5,SyntaxError)
+
+.ResetEvaluator
+STMFD R13!,{R14}
+FNmov(14,ExpressionEvaluateBuffer):STR R14,EEBuffer
+LDR R14,[R12,#TopOfEEStack]:STR R14,[R12,#EEStackPtr]
+LDMFD R13!,{PC}^
+
+.StackEEBuffer
+STMFD R13!,{R0,R1,R2,R3,R14}
+LDR     R0,[R12,#EEStackPtr]
+LDR     R1,[R12,#EEStack]
+CMP     R0,R1
+BGT     EnoughStackSpace
+TEQ     R1,#0
+BNE     ExtendStack
+MOV     R3,#1024
+BL      Claim
+STR     R2,[R12,#EEStack]
+ADD     R2,R2,#1024
+STR     R2,[R12,#TopOfEEStack]
+STR     R2,[R12,#EEStackPtr]
+B       EnoughStackSpace
+.ExtendStack
+FNDebug("Extending stack")
+LDR     R3,[R12,#TopOfEEStack]
+SUB     R3,R3,R1                        ; get current size
+ADD     R3,R3,#1024                     ; 1k more
+BL      Claim
+STR     R2,[R12,#EEStack]
+ADD     R14,R2,R3
+STR     R3,[R12,#TopOfEEStack]
+SUB     R0,R0,R1                        ; get stack pointer offset
+ADD     R0,R0,R2                        ; new stack pointer
+ADD     R0,R0,#1024                     ; has 1k more underneath it
+STR     R0,[R12,#EEStackPtr]
+MOV     R0,#1024
+ADD     R2,R2,#1024                     ; where the old stack has to be copied to
+.lp
+LDR     R3,[R1],#4                      ; get the old stack
+STR     R3,[R2],#4                      ; put in the new stack
+SUBS    R0,R0,#4
+BNE     lp
+.EnoughStackSpace
+LDR R0,EEBuffer:FNadr(1,LineNumber):LDR R1,[R1]
+FNadr(2,ThisProgNumber):LDR R2,[R2]:ORR R1,R1,R2,LSL #24
+LDR R14,[R12,#EEStackPtr]:STMFD R14!,{R0,R1}:STR R14,[R12,#EEStackPtr]
+LDMFD R13!,{R0,R1,R2,R3,PC}^
+
+.UnstackEEBuffer
+STMFD R13!,{R0,R1,R14}
+LDR R14,[R12,#EEStackPtr]:LDMFD R14!,{R0,R1}:STR R0,EEBuffer:STR R14,[R12,#EEStackPtr]
+LDR R0,[R12,#TopOfEEStack]:CMP R14,R0:LDMLEFD R13!,{R0,R1,PC}^
+ADR R0,P%+8:B Error:EQUS "Attempted to pop off top of EEBuffer stack"+CHR$0:ALIGN
+
+.EEBuffer EQUD 0
+
+.ExpressionEvaluate ; evaluate 'R0', return r0=newptr, r1=type, r2=value
+STMFD R13!,{R0-R7,R14}
+MOV R6,#0 ; type 0 = none
+MOV R7,#0 ; value = 0 initially
+BL GetValue
+CMP R1,#fptrStr:BEQ ExpString
+MOV R6,R1:MOV R7,R2
+.GotInitVal
+;BL StripSpaces no whtsp:
+LDRB R14,[R0],#1
+CMP R14,#ASC".":BEQ ExpDotLookup
+CMP R14,#ASC"+":BEQ ExpAdd
+CMP R14,#ASC"-":BEQ ExpSub
+CMP R14,#ASC"*":BEQ ExpMul
+CMP R14,#ASC"/":CMPNE R14,#&81:BEQ ExpDiv
+CMP R14,#&80   :BEQ ExpAnd
+CMP R14,#&82   :BEQ ExpEor
+CMP R14,#&83   :BEQ ExpMod
+CMP R14,#&84   :BEQ ExpOr
+CMP R14,#ASC"=":BEQ ExpEq
+CMP R14,#ASC"<":BEQ ExpLt
+CMP R14,#ASC">":BEQ ExpGt
+CMP R14,#32:BEQ GotInitVal
+SUB R0,R0,#1
+B EndExpEval
+.ExpAdd
+CMP R6,#fptrStr:BEQ AddString
+BL GetValue
+CMP R1,#fptrStr:BEQ OhNoTypeMis
+ADD R7,R7,R2:B GotInitVal
+.AddString
+BL GetValue
+CMP R1,#fptrNum:BEQ OhNoTypeMis
+STMFD R13!,{R0}
+MOV R0,R2:BL GetStrLen
+LDR R3,EEBuffer:ADD R14,R3,R1:ADD R14,R14,#1:STR R14,EEBuffer
+FNadr(4,EELimit):CMP R14,R4:BGT OOS
+MOV R3,R1:MOV R0,R7
+BL GetStrLen:ADD R3,R1,R3:CMP R3,#512:BGT STL
+ADD R0,R0,R1
+.lp LDRB R14,[R2],#1:STRB R14,[R0],#1:MOVS R14,R14:BNE lp
+LDMFD R13!,{R0}
+B GotInitVal
+.OhNoTypeMis FNadr(0,TypeMisInt):B Error
+
+.NotAClass ADR R0,NotAClassMes:B Error
+.NotAClassMes EQUS "Not a class instance"+CHR$0:ALIGN
+
+.ExpDotLookup
+CMP R6,#fptrNum:BNE OhNoTypeMis
+AND R14,R7,#&FC000003:CMP R14,#&FC000003:BNE NotAClass
+BL GetVarName
+STMFD R13!,{R0-R1}
+FNadr(1,VarBuffer):MOV R0,R7:BL Instance_Resolve
+MOV R6,R1:LDR R7,[R0]
+LDMFD R13!,{R0-R1}
+B GotInitVal
+
+.ExpEq
+CMP R6,#fptrStr:BEQ CompString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+CMP R7,R2:MVNEQ R7,#0:MOVNE R7,#0:B GotInitVal
+.CompString
+BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R2:MOV R1,R7:BL CheckSame:MOV R6,#fptrNum:MVNEQ R7,#0:MOVNE R7,#0
+LDMFD R13!,{R0}:B GotInitVal
+
+.ExpLt
+LDRB R14,[R0]:CMP R14,#ASC">":BEQ ExpNe
+CMP R14,#ASC"<":BEQ ExpShftl
+CMP R14,#ASC"=":BEQ ExpLe
+CMP R6,#fptrStr:BEQ ExpLtString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+CMP R7,R2:MVNLT R7,#0:MOVGE R7,#0:B GotInitVal
+.ExpLtString
+BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R7:MOV R1,R2:BL CheckSame:MVNLT R7,#0:MOVGE R7,#0:LDMFD R13!,{R0}
+MOV R6,#fptrNum
+B GotInitVal
+.ExpShftl
+ADD R0,R0,#1
+CMP R6,#fptrNum:BNE NeedInt
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+MOV R7,R7,ASL R2:B GotInitVal
+
+.ExpLe
+ADD R0,R0,#1
+CMP R6,#fptrStr:BEQ ExpLeString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+CMP R7,R2:MVNLE R7,#0:MOVGT R7,#0:B GotInitVal
+.ExpLeString
+BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R7:MOV R1,R2:BL CheckSame:MVNLE R7,#0:MOVGT R7,#0:LDMFD R13!,{R0}
+MOV R6,#fptrNum
+B GotInitVal
+
+.ExpGt
+LDRB R14,[R0]:CMP R14,#ASC"=":BEQ ExpGe
+CMP R14,#ASC">":BEQ ExpShftr
+CMP R6,#fptrStr:BEQ ExpGtString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+CMP R7,R2:MVNGT R7,#0:MOVLE R7,#0:B GotInitVal
+.ExpGtString
+BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R7:MOV R1,R2:BL CheckSame:MVNGT R7,#0:MOVLE R7,#0:LDMFD R13!,{R0}
+MOV R6,#fptrNum
+B GotInitVal
+.ExpShftr
+ADD R0,R0,#1
+CMP R6,#fptrNum:BNE NeedInt
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+MOV R7,R7,ASR R2:B GotInitVal
+
+.ExpGe
+ADD R0,R0,#1
+CMP R6,#fptrStr:BEQ ExpGeString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+CMP R7,R2:MVNGE R7,#0:MOVLT R7,#0:B GotInitVal
+.ExpGeString
+BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R7:MOV R1,R2:BL CheckSame:MVNGE R7,#0:MOVLT R7,#0:LDMFD R13!,{R0}
+MOV R6,#fptrNum
+B GotInitVal
+
+.ExpNe
+ADD R0,R0,#1:CMP R6,#fptrStr:BEQ ExpNeString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+CMP R7,R2:MVNNE R7,#0:MOVEQ R7,#0:B GotInitVal
+.ExpNeString
+BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R7:MOV R1,R2:BL CheckSame:MVNNE R7,#0:MOVEQ R7,#0:LDMFD R13!,{R0}
+MOV R6,#fptrNum
+B GotInitVal
+
+.ExpSub
+BL GetValue
+CMP R1,#fptrStr:ADREQ R0,TypeMisInt:BEQ Error
+SUB R7,R7,R2:B GotInitVal
+
+.ExpAnd
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt:AND R7,R7,R2:B GotInitVal
+
+.ExpOr
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt:ORR R7,R7,R2:B GotInitVal
+
+.ExpEor
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt:EOR R7,R7,R2:B GotInitVal
+
+.ExpMod
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0,R1}
+MOV R0,R7:MOV R1,R2:BL DivMod:MOV R7,R1
+LDMFD R13!,{R0,R1}
+B GotInitVal
+
+.ExpMul
+BL GetValue
+CMP R1,#fptrStr:ADREQ R0,TypeMisInt:BEQ Error
+MUL R7,R2,R7:B GotInitVal
+
+.ExpDiv
+BL GetValue
+CMP R1,#fptrStr:ADREQ R0,TypeMisInt:BEQ Error
+STMFD R13!,{R0,R1}
+MOV R0,R7:MOV R1,R2:BL DivMod:MOV R7,R0
+LDMFD R13!,{R0,R1}
+B GotInitVal
+
+.DivMod ; r0=r0/r1, r1=r0%r1
+STMFD R13!,{R2-R3,R14}
+CMP R1,#0:ADREQ R0,DivByZero:BEQ Error
+
+MOV     R2,R1              ; Put the divisor in R2
+CMP     R2,R0,LSR #1       ; Then double it until
+.DivMod90
+MOVLS   R2,R2,LSL #1       ; 2 * R2 > R0.
+CMP     R2,R0,LSR #1
+BLS     DivMod90
+MOV     R3,#0              ; Initialise the quotient.
+.DivMod91
+CMP     R0,R2              ; Can we subtract R2?
+SUBCS   R0,R0,R2           ; If we can, do so.
+ADC     R3,R3,R3           ; Double R3 & add new bit
+MOV     R2,R2,LSR #1       ; Halve R2,
+CMP     R2,R1              ; and loop until we've gone
+BHS     DivMod91           ; past the original divisor.
+
+MOV R1,R0:MOV R0,R3
+LDMFD R13!,{R2-R3,PC}^
+.DivByZero EQUS "Division by zero"+CHR$0:ALIGN
+
+.EndExpEval
+STR R6,[R13,#4]:STR R7,[R13,#8]:STR R0,[R13]
+LDMFD R13!,{R0-R7,PC}^
+.TypeMisInt EQUS "Type mismatch: integer needed"+CHR$0:ALIGN
+.TypeMisStr EQUS "Type mismatch: string needed"+CHR$0:ALIGN
+.ExpString
+STMFD R13!,{R0}
+MOV R0,R2:BL GetStrLen:CMP R1,#512:BGT STL
+LDR R3,EEBuffer:ADD R14,R3,R1:ADD R14,R14,#1:STR R14,EEBuffer
+FNadr(4,EELimit):CMP R14,R4:ADRGT R0,OutOfString:BGT Error
+LDMFD R13!,{R0}:MOV R7,R3
+.CopLp LDRB R14,[R2],#1:STRB R14,[R3],#1:MOVS R14,R14:BNE CopLp
+MOV R6,#fptrStr:B GotInitVal
+.OOS ADR R0,OutOfString:B Error
+.OutOfString EQUS "Out of string stack space"+CHR$0:ALIGN
+
+.DupString ; r0->string, out r0->buffer
+STMFD R13!,{R1-R7,R14}
+FNfunction("DupString")
+BL GetStrLen:CMP R1,#512:BGT STL:MOV R2,R0
+LDR R3,EEBuffer:ADD R14,R3,R1:ADD R14,R14,#1:STR R14,EEBuffer
+FNadr(4,EELimit):CMP R14,R4:ADRGT R0,OutOfString:BGT Error
+MOV R0,R3
+.CopLp LDRB R14,[R2],#1:STRB R14,[R3],#1:MOVS R14,R14:BNE CopLp
+FNend
+LDMFD R13!,{R1-R7,PC}^
+
+.STL ADR R0,StringTooLong:B Error
+.StringTooLong EQUS "String too long (>512bytes)"+CHR$0:ALIGN
+
+.GetValue
+STMFD R13!,{R14}
+;BL StripSpaces no whtsp:
+.whtspceingv
+LDRB R14,[R0]
+CMP R14,#&80:BLT NotAThingy
+SUBS R14,R14,#&80
+LDR PC,[PC,R14,LSL #2]
+EQUD 0
+.JumpTableForGetValue
+FNres(&80*4)
+]:FOR N%=&80TO&FF:[OPT pass%:FNexp(N%,NotAThingy):]:NEXT
+[OPT pass%
+FNexp(&8e,Openin)
+FNexp(&8f,Ptr)
+FNexp(&91,Time)
+FNexp(&94,Abs)
+FNexp(&97,Asc)
+FNexp(&9a,Bget)
+FNexp(&a0,Eval)
+FNexp(&a2,Ext)
+FNexp(&a3,RetFalse)
+FNexp(&a4,Eval_Function)
+FNexp(&a7,Instr)
+FNexp(&a9,Len)
+FNexp(&ac,Not)
+FNexp(&ad,Openup)
+FNexp(&ae,Openout)
+FNexp(&b3,Rnd)
+FNexp(&b4,Sgn)
+FNexp(&b9,RetTrue)
+FNexp(&bb,Val)
+FNexp(&bd,ChrString)
+FNexp(&be,GetStringHash)
+FNexp(&c0,LeftString)
+FNexp(&c1,MidString)
+FNexp(&c2,RightString)
+FNexp(&c3,StrString)
+FNexp(&c4,StringString)
+FNexp(&c5,Eof)
+FNexp(&c7,InlineNew)
+.NotAThingy
+CMP R14,#ASC".":BEQ ExpDotLookup ; xxx hmm
+CMP R14,#ASC"!":BEQ Pling
+CMP R14,#ASC"?":BEQ Query
+CMP R14,#ASC"$":BEQ Strig
+CMP R14,#32:ADDEQ R0,R0,#1:BEQ whtspceingv
+CMP R14,#ASC"(":BNE NotBracketed
+ADD R0,R0,#1:BL ExpressionEvaluate
+LDRB R14,[R0],#1:CMP R14,#ASC")":ADRNE R0,MissingBrack:BNE Error
+LDMFD R13!,{PC}^
+.MissingBrack EQUS "Missing )"+CHR$0:ALIGN
+.NotBracketed
+CMP R14,#ASC"-":CMPNE R14,#ASC"&":BEQ Numeric
+CMP R14,#ASC"0":BLT NotNumeric:CMP R14,#ASC"9":BGT NotNumeric
+.Numeric
+CMP R14,#ASC"-":ADDEQ R0,R0,#1
+MOV R1,R0:MOV R0,#10:SWI "XOS_ReadUnsigned":MOVVS R2,#0:RSBEQ R2,R2,#0:MOV R0,R1:MOV R1,#fptrNum
+;BL StripSpaces no whtsp:
+.MoreNumerics
+LDRB R14,[R0]:CMP R14,#ASC"*":BEQ ValMul
+CMP R14,#ASC"/":CMPNE R14,#&81:BEQ ValDiv
+LDMFD R13!,{PC}^
+.ValMul
+STMFD R13!,{R2}
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+LDMFD R13!,{R1}:MUL R2,R1,R2:MOV R1,#fptrNum
+B MoreNumerics
+.ValDiv
+STMFD R13!,{R2}
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+
+STMFD R13!,{R0,R1}
+MOV R0,R7:MOV R1,R2:BL DivMod:MOV R2,R0
+LDMFD R13!,{R0,R1}
+LDMFD R13!,{R1}
+MOV R1,#fptrNum
+B MoreNumerics
+.NeedInt FNadr(0,TypeMisInt):B Error
+.NeedStr FNadr(0,TypeMisStr):B Error
+
+
+.Instr
+STMFD R13!,{R3-R6}
+MOV R6,#0 ; default check from start
+ADD R0,R0,#1:BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+MOV R4,R2 ; r4 points to string
+LDRB R14,[R0],#1:CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+MOV R5,R2 ; r5 points to substring
+LDRB R14,[R0],#1:CMP R14,#ASC")":BEQ EndInstr
+CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+LDRB R14,[R0],#1:CMP R14,#ASC")":ADRNE R0,MissingBrack:BNE Error
+SUBS R6,R2,#1:MOVLT R6,#0
+STMFD R13!,{R0}:MOV R0,R4:BL GetStrLen:CMP R6,R1:MOVGE R6,R1:LDMFD R13!,{R0} ; clip r6
+.EndInstr
+ADD R2,R6,#1 ; r2 is return value
+ADD R4,R4,R6 ; point r4 to bit of string
+MOV R6,R5 ; take copy of substring
+MOV R3,R4 ; take copy of string
+.LoopCheckInstr
+LDRB R14,[R4],#1:LDRB R1,[R5],#1:MOVS R1,R1:BEQ FoundTheSubstring
+MOVS R14,R14:MOVEQ R2,#0:BEQ FoundTheSubstring
+CMP R1,R14:BEQ LoopCheckInstr
+MOV R5,R6:ADD R3,R3,#1:MOV R4,R3:ADD R2,R2,#1:B LoopCheckInstr
+.FoundTheSubstring
+MOV R1,#fptrNum
+LDMFD R13!,{R3-R6,PC}^
+
+.MidString
+STMFD R13!,{R3-R6}
+ADD R0,R0,#1:BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+MOV R4,R2           ; r4 is string to chungle
+LDRB R14,[R0],#1:CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt:SUBS R5,R2,#1:MOVLE R5,#0  ; r5 is lhs point
+LDRB R14,[R0],#1:CMP R14,#ASC",":BEQ GetEndPoint
+CMP R14,#ASC")":BNE SyntaxError
+MOV R3,R0:MOV R0,R4:BL GetStrLen:CMP R5,R1:MOVGT R5,R1:SUB R6,R1,R5
+MOV R0,R3
+B GotTheMidLen
+.GetEndPoint
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt:MOV R6,R2
+LDRB R14,[R0],#1:CMP R14,#ASC")":ADRNE R0,MissingBrack:BNE Error
+.GotTheMidLen
+MOVS R6,R6:MOVLE R6,#0
+ADR R3,GetStringBuf:ADD R4,R4,R5
+.lp MOVS R6,R6:BEQ EndMidLoop:LDRB R14,[R4],#1:STRB R14,[R3],#1
+MOVS R14,R14:SUBNE R6,R6,#1:BNE lp
+.EndMidLoop MOV R14,#0:STRB R14,[R3],#1
+MOV R1,#fptrStr:ADR R2,GetStringBuf
+LDMFD R13!,{R3-R6}
+LDMFD R13!,{PC}^
+
+.RightString
+ADD R0,R0,#1:BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R2}
+LDRB R14,[R0],#1:CMP R14,#ASC")":MOVEQ R2,#1:BEQ GotTheRightLen
+CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+LDRB R14,[R0],#1:CMP R14,#ASC")":ADRNE R0,MissingBrack:BNE Error
+.GotTheRightLen
+LDMFD R13,{R1}
+STMFD R13!,{R0}:MOV R0,R1:BL GetStrLen:SUBS R2,R1,R2:MOVLT R2,#0:LDMFD R13!,{R0}
+LDMFD R13!,{R1}
+CMP R2,#0:MOVEQ R2,R1:MOVEQ R1,#fptrStr:LDMEQFD R13!,{PC}^
+ADD R2,R2,R1
+STMFD R13!,{R1}:.lp LDRB R14,[R2],#1:STRB R14,[R1],#1:MOVS R14,R14:BNE lp
+LDMFD R13!,{R2}:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+
+.LeftString
+ADD R0,R0,#1:BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R2}
+LDRB R14,[R0],#1:CMP R14,#ASC")":BNE NotLenMinus1
+STMFD R13!,{R0}:LDR R0,[R13,#4]:BL GetStrLen:SUB R2,R1,#1
+LDMFD R13!,{R0}:B GotTheLeftLen
+.NotLenMinus1
+CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+LDRB R14,[R0],#1:CMP R14,#ASC")":ADRNE R0,MissingBrack:BNE Error
+.GotTheLeftLen
+LDMFD R13!,{R1}
+MOV R14,#0:CMP R2,#512:STRLOB R14,[R1,R2]:MOV R2,R1:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+
+.StringString
+STMFD R13!,{R3}
+ADD R0,R0,#1:BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+MOVS R3,R2:MOVMI R3,#0
+LDRB R14,[R0],#1:CMP R14,#ASC",":BNE SyntaxError
+BL ExpressionEvaluate:CMP R1,#fptrStr:BNE NeedStr
+LDRB R14,[R0],#1:CMP R14,#ASC")":BNE SyntaxError
+STMFD R13!,{R0}
+MOV R0,R2:BL GetStrLen:MUL R1,R3,R1:CMP R1,#512:BGE STL
+FNadr(1,GetStringBuf):MOVS R3,R3:STREQB R3,[R1]:BEQ StrDone
+.CopyItLoop LDRB R14,[R0],#1:STRB R14,[R1],#1:MOVS R14,R14:BNE CopyItLoop
+SUB R1,R1,#1:MOV R0,R2:SUBS R3,R3,#1:BNE CopyItLoop
+.StrDone
+MOV R1,#fptrStr:FNadr(2,GetStringBuf)
+LDMFD R13!,{R0,R3,PC}^
+
+.StrString
+ADD R0,R0,#1:;BL StripSpaces no whtsp::LDRB R14,[R0]:CMP R14,#ASC"~":BNE NormalStrString
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}
+MOV R0,R2:ADR R1,GetStringBuf:MOV R2,#512:SWI "OS_ConvertHex8"
+MOV R1,#fptrStr:LDMFD R13!,{R0}:ADR R2,GetStringBuf
+LDMFD R13!,{PC}^
+.NormalStrString
+BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}
+MOV R0,R2:ADR R1,GetStringBuf:MOV R2,#512:SWI "OS_ConvertInteger4"
+MOV R1,#fptrStr:LDMFD R13!,{R0}:ADR R2,GetStringBuf
+LDMFD R13!,{PC}^
+
+.NotNumeric
+CMP R14,#ASC"""":BEQ GetString
+CMP R14,#&80:BLLT GetVar
+LDMFD R13!,{PC}^
+.GetString
+ADD R0,R0,#1:MOV R14,#512
+ADR R1,GetStringBuf:.lp MOVS R14,R14:BLE StringTooLong
+LDRB R2,[R0],#1:CMP R2,#13:ADDEQ R13,R13,#4:BEQ SyntaxError
+CMP R2,#ASC"""":STRNEB R2,[R1],#1:SUBNE R14,R14,#1:BNE lp
+LDRB R2,[R0]:CMP R2,#ASC"""":STREQB R2,[R1],#1:ADDEQ R0,R0,#1:SUBEQ R14,R14,#1:BEQ lp
+MOV R2,#0:STRB R2,[R1],#1:ADR R2,GetStringBuf:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+.GetStringBuf FNres(516)
+
+.RetTrue
+ADD R0,R0,#1:MOV R1,#fptrNum:MVN R2,#0:LDMFD R13!,{PC}^
+.RetFalse
+ADD R0,R0,#1:MOV R1,#fptrNum:MOV R2,#0:LDMFD R13!,{PC}^
+
+.Not
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+MVN R2,R2:LDMFD R13!,{PC}^
+
+.Len
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R2:BL GetStrLen:MOV R2,R1:LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Sgn
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+MOVS R2,R2:MVNMI R2,#0:MOVGT R2,#1:LDMFD R13!,{PC}^
+
+.Time
+ADD R0,R0,#1
+STMFD R13!,{R0}
+SWI "OS_ReadMonotonicTime"
+MOV R1,#fptrNum:MOV R2,R0:LDMFD R13!,{R0,PC}^
+
+.Rnd
+ADD R0,R0,#1
+STMFD R13!,{R0}
+BL RandomNumber
+MOV R1,#fptrNum:MOV R2,R0:LDMFD R13!,{R0,PC}^
+
+.RandomNumber
+STMFD R13!,{R1,R2,R14}
+ADR R0,RandomNumData:LDMIA R0,{R0-R2}
+MLA R0,R1,R0,R2:MLA R14,R1,R0,R2
+STR R14,RandomNumData
+EOR R0,R0,R14,ROR #16
+LDMFD R13!,{R1,R2,PC}^
+.RandomNumData
+EQUD TIME
+EQUD 1664525
+EQUD 907633393
+.InitRndGenerator
+SWI "OS_ReadMonotonicTime"
+STR R0,RandomNumData
+MOVS PC,R14
+
+.Val
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,R2:;BL StripSpaces no whtsp::LDRB R6,[R0]:CMP R6,#ASC"-":ADDEQ R0,R0,#1
+MOV R1,R0:MOV R0,#10:SWI "XOS_ReadUnsigned":MOVVS R2,#0:CMP R6,#ASC"-":RSBEQ R2,R2,#0
+LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Eval
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+FNadr(14,EEBuffer):LDR R14,[R14]
+STMFD R13!,{R0,R14}
+MOV R0,R2:BL ExpressionEvaluate
+FNadr(0,EEBuffer):LDR R14,[R13,#4]:STR R14,[R0]
+LDMFD R13!,{R0,R14,PC}^
+
+.ChrString
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+STRB R2,TheChar:ADR R2,TheChar:MOV R1,#fptrStr
+LDMFD R13!,{PC}^
+.TheChar EQUD 0
+
+.Abs
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+MOVS R2,R2:RSBMI R2,R2,#0:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Asc
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrStr:BNE NeedStr
+LDRB R2,[R2]:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Openout
+ADD R0,R0,#1:;BL StripSpaces no whtsp::BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,#&80:MOV R1,R2:SWI "XOS_Find"
+MOV R2,R0:MOVVS R2,#0:LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Openin
+ADD R0,R0,#1:;BL StripSpaces no whtsp::BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,#&40:MOV R1,R2:SWI "XOS_Find"
+MOV R2,R0:MOVVS R2,#0:LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Openup
+ADD R0,R0,#1:;BL StripSpaces no whtsp::BL ExpressionEvaluate
+CMP R1,#fptrStr:BNE NeedStr
+STMFD R13!,{R0}
+MOV R0,#&C0:MOV R1,R2:SWI "XOS_Find"
+MOV R2,R0:MOVVS R2,#0:LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.PlingAss
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+MOV R6,R2
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"=":BNE SyntaxError
+BL ExpressionEvaluate:;BL StripSpaces no whtsp:
+CMP R1,#fptrNum:BNE NeedInt
+LDRB R14,[R0]:CMP R14,#13:BNE SyntaxError
+LDR R1,[R12,#HeapPtr]:CMP R6,R1:ADRLT R0,POOR:BLT Error
+MOV R0,R6
+ADD R1,R0,#4:SWI "OS_ValidateAddress":ADRCS R0,POOR:BCS Error
+STR R2,[R6]
+B RunNextLine
+
+.QueryAss
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+MOV R6,R2
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"=":BNE SyntaxError
+BL ExpressionEvaluate:;BL StripSpaces no whtsp:
+CMP R1,#fptrNum:BNE NeedInt
+LDRB R14,[R0]:CMP R14,#13:BNE SyntaxError
+LDR R1,[R12,#HeapPtr]:CMP R6,R1:ADRLT R0,POOR:BLT Error
+MOV R0,R6
+ADD R1,R0,#4:SWI "OS_ValidateAddress":ADRCS R0,POOR:BCS Error
+STRB R2,[R6]
+B RunNextLine
+
+.StrAss
+ADD R0,R0,#1:BL GetValue
+CMP R1,#fptrNum:BNE NeedInt
+MOV R6,R2
+;BL StripSpaces no whtsp::LDRB R14,[R0],#1:CMP R14,#ASC"=":BNE SyntaxError
+BL ExpressionEvaluate:;BL StripSpaces no whtsp:
+CMP R1,#fptrStr:BNE NeedStr
+LDRB R14,[R0]:CMP R14,#13:BNE SyntaxError
+LDR R1,[R12,#HeapPtr]:CMP R6,R1:ADRLT R0,POOR:BLT Error
+MOV R0,R2:BL GetStrLen
+MOV R0,R6
+ADD R1,R0,R1:SWI "OS_ValidateAddress":ADRCS R0,POOR:BCS Error
+.lp LDRB R14,[R2],#1:STRB R14,[R6],#1:MOVS R14,R14:BNE lp
+B RunNextLine
+
+.Strig
+ADD R0,R0,#1:;BL StripSpaces no whtsp::BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}
+MOV R0,R2:BL GetStrLen:ADD R1,R1,R0:SWI "OS_ValidateAddress":ADRCS R0,POOR:BCS Error
+MOV R1,#fptrStr
+LDMFD R13!,{R0}
+LDMFD R13!,{PC}^
+
+.Pling
+ADD R0,R0,#1:;BL StripSpaces no whtsp::BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}
+LDR R1,[R12,#HeapPtr]:CMP R2,R1:ADRLT R0,POOR:BLT Error
+MOV R0,R2
+ADD R1,R0,#4:SWI "OS_ValidateAddress":ADRCS R0,POOR:BCS Error
+LDR R2,[R0]:MOV R1,#fptrNum
+LDMFD R13!,{R0}
+LDMFD R13!,{PC}^
+.POOR EQUS "!/$/? operator out of range"+CHR$0:ALIGN
+
+.Query
+ADD R0,R0,#1:;BL StripSpaces no whtsp::BL ExpressionEvaluate
+CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}
+LDR R1,[R12,#HeapPtr]:CMP R2,R1:ADRLT R0,POOR:BLT Error
+MOV R0,R2
+ADD R1,R0,#4:SWI "OS_ValidateAddress":ADRCS R0,POOR:BCS Error
+LDRB R2,[R0]:MOV R1,#fptrNum
+LDMFD R13!,{R0}
+LDMFD R13!,{PC}^
+
+.InlineNew ; c7 xx
+ADD R0,R0,#2:BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}
+MOV R0,R2:BL Object_Instantiate
+MOV R2,R0:MOV R1,#fptrNum
+LDMFD R13!,{R0,PC}^
+
+.Eof
+ADD R0,R0,#1:;BL StripSpaces no whtsp::LDRB R14,[R0],#1
+CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}:MOV R0,#5:MOV R1,R2:SWI "XOS_Args":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R0}:MOV R1,#fptrNum:MOVS R2,R2:MVNNE R2,#0
+LDMFD R13!,{PC}^
+
+.Ext
+ADD R0,R0,#1:;BL StripSpaces no whtsp::LDRB R14,[R0],#1
+CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}:MOV R0,#2:MOV R1,R2:SWI "XOS_Args":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.Ptr
+ADD R0,R0,#1:;BL StripSpaces no whtsp::LDRB R14,[R0],#1
+CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}:MOV R0,#0:MOV R1,R2:SWI "XOS_Args":ADDVS R0,R0,#4:BVS Error
+LDMFD R13!,{R0}:MOV R1,#fptrNum
+LDMFD R13!,{PC}^
+
+.GetStringHash
+ADD R0,R0,#1:;BL StripSpaces no whtsp::LDRB R14,[R0],#1
+CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+FNadr(5,Thing%):ADD R5,R5,#1024   ; move on a bit
+STMFD R13!,{R0}:MOV R1,R2
+.lp
+SWI "XOS_BGet":ADDVS R0,R0,#4:BVS Error
+MOVCS R0,#0:CMP R0,#10:MOVEQ R0,#0:STRB R0,[R5],#1:MOVS R0,R0:BNE lp
+MOV R1,#fptrStr:FNadr(2,Thing%):ADD R2,R2,#1024:LDMFD R13!,{R0}
+LDMFD R13!,{PC}^
+
+.Bget
+ADD R0,R0,#1:;BL StripSpaces no whtsp::LDRB R14,[R0],#1
+CMP R14,#ASC"#":BNE SyntaxError
+BL GetValue:CMP R1,#fptrNum:BNE NeedInt
+STMFD R13!,{R0}:MOV R1,R2:SWI "XOS_BGet":ADDVS R0,R0,#4:BVS Error
+MOV R2,R0:MOVCS R2,#0:MOV R1,#fptrNum:LDMFD R13!,{R0}
+LDMFD R13!,{PC}^
+
+.GetVar
+STMFD R13!,{R3-R5,R14}
+FNfunction("GetVar")
+BL      GetVarVal
+TEQ     R0,#0
+BEQ     NSV
+EOR     R1,R1,R2
+EOR     R2,R2,R1
+EOR     R1,R1,R2
+MOV     R0,R3
+.EndGetVar
+FNend
+LDMFD R13!,{R3-R5,PC}^
+
+.VarBuffer FNres(68)
+
+.GetVarName
+STMFD R13!,{R2-R5,R14}
+FNfunction("GetVarName")
+;BL StripSpaces no whtsp:
+ADR R2,VarBuffer:MOV R5,R2
+MOV R3,#64:.coplp
+LDRB R4,[R0]:CMP R4,#ASC"$":CMPNE R4,#ASC"%":BEQ VarOK
+CMP R3,#64:BEQ SkipNumberBits
+CMP R4,#ASC"0":BLT SkipNumberBits:CMP R4,#ASC"9":BLE VarOK
+.SkipNumberBits
+CMP R4,#ASC"@":BLT EndVar:CMP R4,#ASC"z":BGT EndVar
+.VarOK
+ADD R0,R0,#1:STRB R4,[R2],#1:SUBS R3,R3,#1:BNE coplp
+SUB R2,R2,#1
+.EndVar
+MOV R4,#0:STRB R4,[R2],#1
+FNend
+LDMFD R13!,{R2-R5,PC}^
+
+.Fn_scan
+STMFD R13!,{R14}
+CMP R1,#3:LDREQ R1,[R2]:CMPEQ R1,#fptrNum
+LDREQ R1,[R2,#8]  : CMPEQ R1,#fptrNum
+LDREQ R1,[R2,#16] : CMPEQ R1,#fptrNum:BNE CrapParms
+LDR R0,[R2,#4]
+LDR R1,[R2,#12]
+LDR R2,[R2,#20]
+TEQ R2,#0:BEQ nooooopepe
+MOV R3,R0
+.lp
+LDRB R4,[R3]
+TEQ  R4,R1
+BEQ Fn_scan_doobry
+ADD R3,R3,#1
+SUBS R2,R2,#1
+BNE lp
+.nooooopepe
+MOV R0,#1:MOV R1,#fptrNum:MVN R2,#0:LDMFD R13!,{PC}^
+.Fn_scan_doobry
+SUBS R2,R3,R0
+MOV R0,#1:MOV R1,#fptrNum:LDMFD R13!,{PC}^
+
+.Proc_memcopy; memcopy(to,from,bytes)
+STMFD R13!,{R14}
+CMP R1,#3:LDREQ R1,[R2]:CMPEQ R1,#fptrNum
+LDREQ R1,[R2,#8]  : CMPEQ R1,#fptrNum
+LDREQ R1,[R2,#16] : CMPEQ R1,#fptrNum:BNE CrapParms
+LDR R1,[R2,#20]
+LDR R3,[R2,#4]
+LDR R2,[R2,#12]
+TEQ R1,#0
+BLNE Bcopy
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_CycleFocusForwards
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL CycleFocusForwards
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_CycleFocusBackwards
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL CycleFocusBackwards
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_CloseDisplay
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R14,[R2]:TEQEQ R14,#fptrStr:BNE CrapParms
+LDR R0,[R2,#4]
+BL FindDisplayByName:LDR R1,[R12,#WimpArea]
+MOVS R0,R0:LDRNE R0,[R0,#Display_Wind]:STRNE R0,[R1]:BLNE Win_Close
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_CopySelection
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL CopyToClipboard
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_PasteSelection
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL PasteFromClipboard
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_ClearSelection
+STMFD R13!,{R14}
+CMP R1,#0:BNE CrapParms
+BL ClearDisplaySelection
+MOV R0,#0
+LDMFD R13!,{PC}^
+
+.Proc_StartupStatus
+STMFD R13!,{R14}
+CMP R1,#1:LDREQ R14,[R2]:TEQEQ R14,#fptrStr:BNE CrapParms
+LDR R3,[R2,#4]
+LDR R0,[R12,#EqHandle]:FNadr(1,Startup):ADR R2,SmeagolsMum
+SWI "EqWimp_WriteStringToIcon"
+SWI "EqWimp_DeselectIcon"
+SWI "OS_ReadMonotonicTime":ADD R2,R0,#1
+LDR R0,MaskEverything
+LDR R1,[R12,#WimpArea]
+SWI "Wimp_PollIdle"
+MOV R0,#0
+LDMFD R13!,{PC}^
+.SmeagolsMum EQUS "Status"+CHR$0:ALIGN
+.MaskEverything EQUD (1<<1)+(7<<4)+(1<<8)+(7<<11)+(7<<17)
+
+]
+=""
