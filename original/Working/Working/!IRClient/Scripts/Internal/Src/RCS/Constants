@@ -1,0 +1,70 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @@;
+
+
+1.1
+date     97.04.13.12.38.30;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@IRClient's internal constants
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >Internal.Constants
+REM LEN 1996 M Richard G
+REM Useful constants
+REM 04 Jan 1997 : MG - Started                              v1.00
+REM 02 Feb 1997 : JF - Added U_HasVoice                     v1.01
+REM 04 Feb 1996 : MG - Added eof$                           v1.02
+REM 09 Mar 1997 : JF - Added flags                          v1.03
+END
+
+DEF PROCConstants_Initialise
+ REM Display flags
+ DisplayFlag_NoCR      = 1
+ REM DisplayFlag_Halfway   = 2 ; internal use only
+ DisplayFlag_NoIndent  = 4
+ DisplayFlag_ANSI      = 8
+
+ REM User flags
+ U_HasOps       =  1
+ REM User is being ignored due to flooding
+ U_Ignored      =  2
+ REM User has been selected by the client
+ U_Selected     =  4
+ REM User has been been granted permission to speak
+ U_HasVoice     =  8
+
+ REM Channel flags
+ CF_Topic       =   1
+ CF_Msgs        =   2
+ CF_Invite      =   4
+ CF_Moderated   =   8
+ CF_Secret      =  16
+ CF_Private     =  32
+ CF_Limited     =  64
+ CF_YouHaveOps  = 128
+
+ REM File constants
+ eof$           = "\\EOF//"
+
+ REM Flag constants
+ vbit=1<<28
+ cbit=1<<29
+ zbit=1<<30
+ nbit=1<<31
+ENDPROC
+@

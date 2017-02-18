@@ -1,0 +1,10 @@
+Ideas
+-----
+Overload_ScriptInfo should become a linked list of scripts.
+
+Buffers should become class instances everywhere.
+
+FTP should be a class that you can communicate with to read the
+directory contents out and transfer files to streams and vice-
+versa. Then the actual visualisation of the thing can be made
+into something handled by a seperate module.

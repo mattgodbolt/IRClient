@@ -1,0 +1,13 @@
+     *Statto* when was that fixed?
+   *IRClient* when was what fixed ?
+     *Statto* the double scripts thingy.
+   *IRClient* what double scripts things ?
+     *Statto* if u send scripts twice in short sucession it crashes 0.45 of irclient with excess flood..
+     *Statto* 0.43 even.
+   *IRClient* That should be fixed in the floodprot module - if it kills your client then you've not configured it properly.
+     *Statto* we'll most ppl haven't configured it properly want an example?
+   *IRClient* Not really; if people don't use the facilities I add, then that isn't exactly my fault - the 'bug' isn't there, it's just that users don't bother to use the client properly
+     *Statto* yes..
+*** Ident received for '1119, 25'
+*** Ident received for '1121, 25'
+*** Ident received for '1123, 25'

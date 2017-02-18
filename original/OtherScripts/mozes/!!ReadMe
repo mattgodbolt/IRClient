@@ -1,0 +1,56 @@
+IRClient v.22
+
+This is a modified version of IRClient 0.22 by Matthew Godbolt.
+
+The only files that have been changed are
+
+Templates (of which the old ones are still included - Templates2)
+IRClib
+
+This version of IRClib is a modified version of Vince Hudd's version
+- which can be obtained from
+http://www.argonet.co.uk/softrock/
+Which also has the instructions for the new commands that he has
+added.
+
+
+
+There is another piece of code by myself called "r_incode"
+which is just another piece of code to do with the Remote actions
+part of the script.
+
+
+The main modifications are the ability to use another user remotely
+who is using the same script, or who has modified their script to
+read the CTCP commands send out by this one.
+
+There are also a few other commands added which are documented in the
+"newcomms" file.  The remote commands are documented in the file
+"rcomms".
+
+
+*****
+This version of the script will now also work with v.22 :-)
+
+******
+
+
+
+
+ALSO, I am NOT to be held responsible for any Remote actions from any
+other user, for instance, joining you onto a "non-desirable" channel.
+
+
+*****
+
+
+If you have any comments/non major improvment ideas then mail me at
+Stuart.Winter.MoZ@BigFoot.Com
+
+
+Have fun!!
+
+
+
+Stuart Winter
+

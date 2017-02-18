@@ -1,0 +1,72 @@
+REM > Buffer
+REM Buffer class (so that we always free them)
+REM (c) Justin Fletcher
+REM ---
+REM $Id: Buffer 1.1 98/02/01 23:48:32 gerph Exp $
+REM $Log:	Buffer $
+REM Revision 1.1  98/02/01  23:48:32  gerph
+REM Initial revision
+REM 
+REM ---
+PRINT "$Id: Buffer 1.1 98/02/01 23:48:32 gerph Exp $"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM A class to handle buffers
+Class_Buffer=FNRegisterClass("Buffer")
+PROCAddField(Class_Buffer,"buffer")
+:
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEFFNnewBuffer
+=NEW Class_Buffer
+:
+DEFPROCBuffer_Construct
+@.buffer=FNNewBuffer
+ENDPROC
+:
+DEFPROCBuffer_Destruct
+PROCFreeBuffer(@.buffer)
+ENDPROC
+:
+DEFFNBuffer_Copy
+LOCAL new
+new=FNnewBuffer
+PROCnew.Add(FNBufferAddr(@.buffer),FNBufferLength(@.buffer))
+=new
+:
+REM Adds data from memory to the buffer
+DEFPROCBuffer_Add(addr,length)
+PROCBufferAdd(@.buffer,addr,length)
+ENDPROC
+:
+REM Adds data from a Block to the buffer
+DEFPROCBuffer_AddBlock(block,length)
+PROCBufferAdd(@.buffer,block.data,length)
+ENDPROC
+:
+REM Adds data from /another/ buffer to the buffer
+DEFPROCBuffer_AddBuffer(buffer)
+PROCBufferAdd(@.buffer,FNBufferAddr(buffer.buffer),FNBufferLength(buffer.buffer))
+ENDPROC
+:
+DEFFNBuffer_Length
+=FNBufferLength(@.buffer)
+:
+DEFFNBuffer_ReadAll
+LOCAL new
+new=FNnewBlock(FN@.Length)
+PROCmemcopy(new.data,FNBufferAddr(@.buffer),FNBufferLength(@.buffer))
+PROCBufferShrink(FN@.Length)
+=new
+:
+DEFFNBuffer_ReadToMemory(addr,length)
+PROCmemcopy(addr,FNBufferAddr(@.buffer),length)
+PROCBufferShrink(FN@.Length)
+=new
+:
+DEFPROCBuffer_Save(file$,type)
+SYS "OS_File",10,file$,type,,FNBufferAddr(@.buffer),FNBufferAddr(@.buffer)+FN@.Length
+ENDPROC

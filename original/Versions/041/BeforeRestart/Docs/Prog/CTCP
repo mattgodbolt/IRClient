@@ -1,0 +1,40 @@
+Adding CTCP commands
+====================
+
+Requests
+--------
+CTCP Requests (from other users) will come through :
+  PROCOverload_UnknownCTCPRequest(from$,to$,command$,str$)
+You should recognise the command (already capitalised) and pass on unless you
+do something with it. from$ is provided so that you know which channel it was
+broadcast to (if applicable)
+
+Enumerate
+---------
+You will be asked to give a list of any CTCP commands you provide for the
+CLIENTINFO command through :
+  FNOverload_ListCTCP(num)
+You should use code like :
+  DEFFNOverload_ListCTCP(count)
+  LOCAL ret$
+  IF count=0 THEN
+   ret$="<command>"
+  ELSE
+   ret$=FN@(count-1)
+  ENDIF
+  =ret$
+where <command> may be a space seperated list of commands if more than one is
+provided. 
+
+Replies
+-------
+Replies to CTCP commands will come through :
+  PROCOverload_UnknownCTCPReply(from$,command$,str$)
+You should recognise the command (already capitalised) and pass on unless you
+do something with it.
+
+Other
+-----
+There is currently no means to catch user use of /CTCP <command>. If this is
+required then you should contact me (gerph@essex.ac.uk) for details and I'll
+add the hooks in.

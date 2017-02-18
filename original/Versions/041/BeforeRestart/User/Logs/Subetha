@@ -1,0 +1,27 @@
+    *TheMoog* OP TflEHsKT
+* Subetha is away:  (Auto-Away after 10 mins) [*BX*-MsgLog On]
+    *TheMoog* OP TflEHsKT
+    *TheMoog* OP TFlEHsKT
+    *TheMoog* OP TflEHsKT
+    *TheMoog* lastseen Gerph
+    -Subetha- LastSeen v0.09 by zarni for #acorn
+    -Subetha- I last saw Gerph ..
+    -Subetha- Sat Mar 15 22:17:14 1997 zarni time
+    -Subetha- Sat Mar 15 14:17:14 1997 avey time
+    -Subetha- Sat Mar 15 23:17:14 1997 indy911 time
+    -Subetha- Sun Mar 16 10:17:14 1997 Chocky time
+    -Subetha- Sun Mar 16 10:17:14 1997 Orfey time
+    -Subetha- (0 days, 15 hours, 48 minutes and 6 seconds ago)
+    *TheMoog* HELP
+    -Subetha- MSG commands for Subetha:
+    -Subetha- For help on a command, /MSG Subetha HELP <command>
+    -Subetha- Admin: zarni (zarni@weirdness.com)
+    *TheMoog* help op
+    -Subetha- /MSG Subetha OP <password> [channel]
+    -Subetha-    This will tell me to op you on any channel where I have
+    *TheMoog* help lastseen
+    -Subetha-    ops and you don't.  If you give a channel name, I'll just
+    -Subetha-    op you on that channel.
+    -Subetha- /MSG Subetha LASTSEEN <nick>
+    -Subetha-    Returns the last time that <nick> was seen on the channel.
+    -Subetha-    Times are shown in various timezones and in time elapsed.

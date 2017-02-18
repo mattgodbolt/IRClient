@@ -1,0 +1,420 @@
+head     1.2;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.2
+date     97.12.29.14.48.00;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.12.42.21;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Dependency Class
+Calculates a 'correct' order for things which depend on others.
+@
+
+
+1.2
+log
+@Minor change to use FNList.First instead
+of assuming (ListItem style).
+@
+text
+@REM >Dependency
+REM Dependency class for IRClientEVAL(Wide)
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+DEF PROCOverload_Classes_Initialise
+Class_Dependency=FNRegisterClass("Dependency")
+PROCAddField(Class_Dependency,"next")
+PROCAddField(Class_Dependency,"data")
+PROCAddField(Class_Dependency,"name$")
+PROCAddField(Class_Dependency,"processed")
+PROCAddField(Class_Dependency,"dependson")
+REM Pass on
+PROC@@
+ENDPROC
+:
+DEF PROCDependency_Construct
+@@.dependson=FNnewList
+@@.next=-1
+PROC@@
+ENDPROC
+:
+DEFPROCDependency_Destruct
+REM Pass on
+PROC@@
+ENDPROC
+:
+DEF FNnewDependency
+=FNnew(Class_Dependency)
+:
+REM Resets the list to that given, or 0's it if 0 passed
+DEF PROCDependency_ResetList(old)
+LOCAL ret
+ret=modules
+IF old=0 THEN
+ modules=FNnewList
+ELSE
+ modules=old
+ENDIF
+=ret
+:
+DEF FNDependency_Add(name$,data)
+LOCAL this
+IF @@.next<>-1 THEN
+ LOCAL new,last
+ new=FNnew(Class_Dependency)
+ this=@@
+ WHILE this.next<>0
+  this=this.next
+ ENDWHILE
+ this.next=new
+ this=new
+ELSE
+ this=@@
+ENDIF
+this.next=0
+this.name$=name$
+this.data=data
+=this
+:
+DEF FNDependency_ReadOne
+IF @@.next=-1 THEN=0
+LOCAL this,req,done
+this=@@
+done=FALSE
+IF this<>0 THEN done=this.processed=FALSE
+IF this=0 THEN done=TRUE
+WHILE NOT done
+ this=this.next
+ IF this<>0 THEN done=this.processed=FALSE
+ IF this=0 THEN done=TRUE
+ENDWHILE
+IF this<>0 THEN
+ REM We've found an entry which hasn't been looked at yet
+ req=FN@@.Requires(this)
+ IF req<>0 AND req<>-1 THEN this=req
+ IF req=-1 THEN
+  this.processed=TRUE*2
+  this=FN@@.ReadOne
+ ENDIF
+ IF this<>0 AND this<>-1 THEN this.processed=TRUE
+ENDIF
+=this
+:
+REM Find the named entry, or return 0 if none
+DEF FNDependency_Find(name$)
+LOCAL ret,this
+IF @@.next=-1 THEN=0
+this=@@
+WHILE this<>0 AND ret=0
+ IF this.name$=name$ THEN ret=this
+ this=this.next
+ENDWHILE
+=ret
+:
+REM Returns -1 if there is an error (ie loops)
+REM Returns 0 if nothing is required
+REM Returns entry if something is required
+DEF FNDependency_Requires(entry)
+LOCAL ret,req,this
+IF entry.processed=(TRUE*2) THEN=-1
+entry.processed=TRUE*2
+req=FNentry.dependson.First
+WHILE req<>0 AND ret=0
+ this=FN@@.Find(req.data.data$)
+ IF this=0 THEN
+  ret=-1
+ ELSE
+  IF this.processed=(TRUE*2) THEN ret=-1
+  IF this.processed=0 THEN ret=FN@@.Requires(this)
+  req=req.next
+ ENDIF
+ENDWHILE
+IF ret<>-1 THEN
+ entry.processed=FALSE
+ELSE
+ entry.processed=TRUE*2
+ENDIF
+=ret
+:
+REM Return the instance of any 'errors'
+DEF FNDependency_ReadError
+IF @@.next=-1 THEN=0
+LOCAL this,done
+this=@@
+IF this<>0 THEN done=this.processed=(TRUE*2)
+IF this=0 THEN done=TRUE
+WHILE NOT done
+ this=this.next
+ IF this<>0 THEN done=this.processed=(TRUE*2)
+ IF this=0 THEN done=TRUE
+ENDWHILE
+IF this<>0 THEN this.processed=TRUE*3
+=this
+:
+DEF PROCDependency_DependsOn(name$)
+PROC@@.dependson.Add(FNnewString(name$))
+ENDPROC
+:
+REM *******************************************************************
+REM **                    Module dependency code                     **
+REM *******************************************************************
+:
+REM Load a group of modules
+REM flags should be :
+REM  b0 set if you want statistics to be shown
+DEF FNDependency_LoadModules(path$,excludes$,flags)
+LOCAL filelist,depends,file,line$,entry,f,fl,excludes,modules
+REM Our list of modules that are loaded
+modules=FNnewList
+IF (flags AND 1)=1 THEN
+ PROCNewDisplay("##Depend-Stats##",100,"Dependency statistics",0)
+ENDIF
+REM Read in the excludes file (if any)
+excludes=FNnewList
+file=FNnewFile(excludes$,"<")
+IF file<>0 THEN
+ PROCDisplay(FNColour(15)+"* Reading exclusions :","##Depend-Stats##")
+ REPEAT
+  line$=FNfile.ReadLine
+  IF line$<>eof$ THEN
+   PROCexcludes.Add(FNnewString(FNCapitalise(line$)))
+   PROCDisplay("  "+line$,"##Depend-Stats##")
+  ENDIF
+ UNTIL line$=eof$
+ENDIF
+REM Now some 'real' stuff
+PROCDisplay(FNColour(15)+"* Checking installed modules","##Depend-Stats##")
+filelist=FNnewFileList(path$,"*",0)
+filelist=FNfilelist.First
+depends=FNnewDependency
+WHILE filelist<>0
+ IF filelist.data.filetype=&FFB THEN
+  REM It's a BASIC program
+  IF FNexcludes.Find(FNnewString(FNCapitalise(filelist.data.filename$))) THEN
+   PROCmodules.Add(FNnewString("e"+filelist.data.filename$))
+   PROCDisplay("  Excluded "+filelist.data.filename$,"##Depend-Stats##")
+  ELSE
+   PROCmodules.Add(FNnewString("i"+filelist.data.filename$))
+   entry=FNdepends.Add(FNCapitalise(filelist.data.filename$),filelist.data)
+   PROCDisplay("  Including "+filelist.data.filename$,"##Depend-Stats##")
+  ENDIF
+ ELSE
+  IF filelist.data.objtype=2 THEN
+   REM It's a directory
+   SYS "XOS_File",23,filelist.data.parent.data$+"."+filelist.data.filename$+".!Module" TO ,,,,,,f ;fl
+   IF f=&FFB AND (fl AND vbit)=0 THEN
+    IF FNexcludes.Find(FNnewString(FNCapitalise(filelist.data.filename$))) THEN
+     PROCmodules.Add(FNnewString("e"+filelist.data.filename$))
+     PROCDisplay("  Excluded "+filelist.data.filename$,"##Depend-Stats##")
+    ELSE
+     PROCDisplay("  Including "+filelist.data.filename$+" as "+filelist.data.filename$+".!Module","##Depend-Stats##")
+     PROCmodules.Add(FNnewString("i"+filelist.data.filename$))
+     entry=FNdepends.Add(FNCapitalise(filelist.data.filename$),filelist.data)
+     file=FNnewFile(filelist.data.parent.data$+"."+filelist.data.filename$+".!Depend","<")
+     IF file<>0 THEN
+      REPEAT
+       line$=FNfile.ReadLine
+       IF line$<>eof$ THEN
+        PROCentry.DependsOn(FNCapitalise(line$))
+        PROCDisplay("    Depends on "+line$,"##Depend-Stats##")
+       ENDIF
+      UNTIL line$=eof$
+     ENDIF
+    ENDIF
+   ENDIF
+  ENDIF
+ ENDIF
+ filelist=filelist.next
+ENDWHILE
+:
+LOCAL entry,file$,error,second,found
+PROCDisplay(FNColour(15)+"* Parsing dependency tree","##Depend-Stats##")
+REPEAT
+ entry=FNdepends.ReadOne
+ IF entry<>0 THEN
+  IF entry.data.objtype=2 THEN
+   file$=entry.data.filename$+".!Module"
+  ELSE
+   file$=entry.data.filename$
+  ENDIF
+  PROCDisplay("  Loading "+entry.data.filename$,"##Depend-Stats##")
+   entry.data.parent.data$+"."+file$
+ ENDIF
+UNTIL entry=0
+:
+error=FNdepends.ReadError
+IF error<>0 THEN
+ PROCNewDisplay("##Dependency##",40,"Dependency check failure",0)
+ PROCDisplay("","##Dependency##")
+ PROCDisplay(FNColour(11)+"Whilst scanning "+path$+", errors were found :","##Dependency##")
+ REPEAT
+  PROCDisplay(FNColour(15)+"Module '"+error.data.filename$+"'","##Dependency##")
+  entry=FNerror.dependson.First
+  found=FALSE
+  IF entry<>0 THEN
+   WHILE entry<>0
+    second=FNdepends.Find(entry.data.data$)
+    IF second=0 THEN
+     PROCDisplay("  Reference to non-existant module '"+entry.data.data$+"'","##Dependency##")
+     found=TRUE
+    ELSE
+     IF second.processed=(TRUE*2) THEN
+      PROCDisplay("  Cyclic reference to module '"+entry.data.data$+"'","##Dependency##")
+      found=TRUE
+     ENDIF
+    ENDIF
+    entry=entry.next
+   ENDWHILE
+  ELSE
+   PROCDisplay("  Unknown error whilst scanning chain","##Dependency##")
+   found=TRUE
+  ENDIF
+  IF NOT found THEN
+   PROCDisplay("  Cyclicly referenced by a module listed above","##Dependency##")
+  ENDIF
+  error=FNdepends.ReadError
+ UNTIL error=0
+ENDIF
+=modules
+:
+REM (In|Ex)clude files from the dependency list
+REM inex=0 to exclude
+DEF PROCDependency_fooclude(inex,str$,modules,excfile$)
+LOCAL out,list
+out=FNnewFile(excfile$,">")
+PROCout.WriteLine("# Exclude file for Dependencies")
+PROCout.WriteLine("# Use # to comment mark comments")
+PROCout.WriteLine("# Note: This is a change from v1.19")
+list=FNmodules.First
+WHILE list<>0
+ IF MID$(list.data.data$,2)=str$ THEN
+  IF inex=0 THEN
+   list.data.data$="e"+MID$(list.data.data$,2)
+  ELSE
+   list.data.data$="i"+MID$(list.data.data$,2)
+  ENDIF
+ ENDIF
+ IF LEFT$(list.data.data$,1)="e" THEN
+  PROCout.WriteLine(MID$(list.data.data$,2))
+ ELSE
+  PROCout.WriteLine("# "+MID$(list.data.data$,2))
+ ENDIF
+ list=list.next
+ENDWHILE
+ENDPROC
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 6
+a7 12
+REM (Wide)
+REM Dependency class for IRClient
+REM 27 Sep 1996 - JF: Started                               v1.00
+REM 28 Sep 1996 - JF: Spent hours working and playing STG   v1.01
+REM 03 Oct 1996 - JF: Renamed to Dependency (thanks DT)     v1.02
+REM 08 Oct 1996 - JF: Added 'Excludes' file                 v1.03
+REM 27 Dec 1996 - JF: Fixed bugs in debug output            v1.04
+REM 27 Dec 1996 - JF: Added statistics window for debug use v1.05
+REM 27 Dec 1996 - JF: Added configuration of excludes       v1.06
+REM 15 Mar 1997 - JF: Attempted to make a bit more generic  v1.07
+REM 26 Mar 1997 - JF: Genericification (class) done         v1.08
+ERROR 0,"This is an IRClient script and cannot be run."
+d10 1
+a10 1
+DEFPROCOverload_Classes_Initialise
+d21 9
+a29 7
+DEFPROCOverload_Construct(class,instance)
+CASE class OF
+ WHEN Class_Dependency
+  instance.dependson=FNnewList
+  instance.next=-1
+ENDCASE
+PROC@@(class,instance)
+d32 1
+a32 1
+DEFFNnewDependency
+d36 1
+a36 1
+DEFPROCDependency_ResetList(old)
+d46 2
+a47 1
+DEFFNDependency_Add(name$,data)
+d49 1
+a49 1
+ LOCAL new
+d51 6
+a56 2
+ new.next=@@
+ @@=new
+d58 1
+a58 1
+ @@.next=0
+d60 4
+a63 3
+@@.name$=name$
+@@.data=data
+=@@
+d65 1
+a65 1
+DEFFNDependency_ReadOne
+d70 2
+a71 2
+IF this<>0 THENdone=this.processed=FALSE
+IF this=0 THENdone=TRUE
+d74 2
+a75 2
+ IF this<>0 THENdone=this.processed=FALSE
+ IF this=0 THENdone=TRUE
+d90 1
+a90 1
+DEFFNDependency_Find(name$)
+d103 1
+a103 1
+DEFFNDependency_Requires(entry)
+d126 1
+a126 1
+DEFFNDependency_ReadError
+d130 2
+a131 2
+IF this<>0 THENdone=this.processed=(TRUE*2)
+IF this=0 THENdone=TRUE
+d134 2
+a135 2
+ IF this<>0 THENdone=this.processed=(TRUE*2)
+ IF this=0 THENdone=TRUE
+d140 1
+a140 1
+DEFPROCDependency_DependsOn(name$)
+d151 1
+a151 1
+DEFFNDependency_LoadModules(path$,excludes$,flags)
+d227 1
+a227 1
+  LOAD entry.data.parent.data$+"."+file$
+d268 1
+a268 1
+DEFPROCDependency_fooclude(inex,str$,modules,excfile$)
+@

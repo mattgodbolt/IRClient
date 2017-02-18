@@ -1,0 +1,32 @@
+Set Foo$Dir <Obey$Dir>
+echo Backing up previous Release...
+Wipe <Foo$Dir>.OldRelease FR~C~V
+Copy <Foo$Dir>.Release <Foo$Dir>.OldRelease FR~C~V
+Wipe <Foo$Dir>.Release FR~C~V
+CDir <Foo$Dir>.Release
+echo Making a release version
+Run <Foo$Dir>.!IRClient.!Boot
+Run <IRClient$Dir>.IRCSource -release
+echo Copying entire current tree...
+Copy <Foo$Dir>.!IRClient <Foo$Dir>.Release.!IRClient FR~C~V
+echo Removing source and registration files
+Remove <Foo$Dir>.Release.!IRClient.IRCsource
+Remove <Foo$Dir>.Release.!IRClient.IRCsource2
+Wipe   <Foo$Dir>.Release.!IRClient.IRCModules FR~C~V
+Wipe   <Foo$Dir>.Release.!IRClient.Scripts.User FR~C~V
+Remove <Foo$Dir>.Release.!IRClient.IRCbak
+Remove <Foo$Dir>.Release.!IRClient.IRCback
+Remove <Foo$Dir>.Release.!IRClient.Registered
+Remove <Foo$Dir>.Release.!IRClient.!RunDebug
+echo Squeezing !RunImage
+squeeze -f -v <Foo$Dir>.Release.!IRClient.!RunImage
+squeeze -f -v <Foo$Dir>.Release.!IRClient.!RunImage
+| <Foo$Dir>.KeyGen.Munge <Foo$Dir>.Release.!IRClient.!RunImage
+echo Installing modules
+| Copy ADFS::Tantric.$.!Boot.Resources.!System.Modules.EqNet <Foo$Dir>.Release.!IRClient.Resources.EqNet F~C~V
+| Copy ADFS::Tantric.$.!Boot.Resources.!System.Modules.EqWimpMod <Foo$Dir>.Release.!IRClient.Resources.EqWimpMod F~C~V
+echo Zipping up
+Dir <Foo$Dir>.Release
+zip -9r IRC !IRClient
+echo Done! - Just check that the !Run file is ok - and that the Magrathea User directory is set up appropriately
+back

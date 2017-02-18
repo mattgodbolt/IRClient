@@ -1,0 +1,11 @@
+Control codes:
+31 = toggle underline
+30 = cursor (?)
+29 = reverse off
+28 = bold off
+27 = ANSI codes
+26 = underline off
+22 = Reverse on
+15 = Everything off (reset)
+2  = Toggle bold
+7  = Beep

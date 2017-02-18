@@ -1,0 +1,20 @@
+New routines which might be impressive to use :
+
+PROCAddCallBack(function$,time) - could do with a 'private word'
+PROCCloseByLocalPort(Port)
+PROCNukeProgram
+EVAL
+
+Menus
+-----
+PROCNewMenu(title$,name$)
+PROCAddDottedLine
+PROCAddMenuEntry(entry$,callback$,grey,tick,submenuname$)
+PROCOpenMenu(name$)
+PROCCommitMenu(name$)
+
+PROCNewMenu(title$,name$)
+PROCAddMenuEntry(item$,callback$,shaded,ticked,submenu$)
+ submenu$ => '>'<window>|<submenu>
+ callback$="" :: nothing happens, except if the window is specified then the
+                 window is a transient.

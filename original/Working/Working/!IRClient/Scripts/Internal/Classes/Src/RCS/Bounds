@@ -1,0 +1,188 @@
+head     1.2;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.2
+date     98.02.01.16.04.50;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.12.29.14.58.50;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@
+Bounding boxes for 'things'.
+@
+
+
+1.2
+log
+@Added unknown vars and ScaleBy's
+@
+text
+@REM > Bounds
+REM Bounding boxes ;-)
+REM (c) Justin Fletcher
+REM ---
+REM $Id: Bounds 1.1 97/12/29 14:58:50 gerph Exp $
+REM $Log:	Bounds $
+REM Revision 1.1  97/12/29  14:58:50  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: Bounds 1.1 97/12/29 14:58:50 gerph Exp $"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM A class to handle bounding boxes - just a container really
+Class_Bounds=FNRegisterClass("Bounds")
+PROCAddField(Class_Bounds,"xmin")
+PROCAddField(Class_Bounds,"ymin")
+PROCAddField(Class_Bounds,"xmax")
+PROCAddField(Class_Bounds,"ymax")
+:
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEFFNnewBounds(xmin,ymin,xmax,ymax)
+LOCAL new
+new= NEW Class_Bounds
+new.xmin=xmin:new.ymin=ymin
+new.xmax=xmax:new.ymax=ymax
+=new
+:
+DEFFNnewBounds_Memory(block)
+LOCAL new
+new= NEW Class_Bounds
+new.xmin=!block:new.ymin=!(block+4)
+new.xmax=!(block+8):new.ymax=!(block+12)
+=new
+:
+DEFFNBounds_Copy
+LOCAL new
+new= NEW Class_Bounds
+new.xmin=@@.xmin:new.ymin=@@.ymin:new.xmax=@@.xmax:new.ymax=@@.ymax
+=new
+:
+REM Returns the smallest square to encase the two passed
+DEF FNBounds_Composite(alt)
+LOCAL new
+REM Was: new= FNnewBounds(@@.xmin,@@.ymin,@@.xmax,@@.ymax)
+new=FN@@.Copy
+IF alt<>0 THEN
+ IF alt.xmin<new.xmin THEN new.xmin=alt.xmin
+ IF alt.ymin<new.ymin THEN new.ymin=alt.ymin
+ IF alt.xmax>new.xmax THEN new.xmax=alt.xmax
+ IF alt.ymax>new.ymax THEN new.ymax=alt.ymax
+ENDIF
+=new
+:
+REM Returns TRUE if alt is inside 'this'
+DEF FNBounds_Enclosed(alt)
+=(new.xmin<=alt.xmin) AND (new.ymin<=alt.ymin) AND (new.xmax>=alt.xmax) AND (new.ymax>=alt.ymax)
+:
+REM We need to find the position right of this icon
+DEF FNBounds_RightOf(valign,width,height)
+LOCAL new
+new=FNnewBounds(@@.xmax,@@.xmax+width,@@.ymin,@@.ymax)
+CASE (valign AND (3<<2)) OF
+ WHEN win_top
+  new.ymin=@@.ymax-height
+  new.ymax=@@.ymax
+ WHEN win_ycentre
+  new.ymin=@@.ymin+(@@.ymax-@@.ymin-height)/2
+  new.ymax=new.ymin+height
+ WHEN win_bottom
+  new.ymin=@@.ymin
+  new.ymax=@@.ymin+height
+ENDCASE
+=new
+:
+REM We need to find the position below of this icon
+DEF FNBounds_Below(halign,width,height)
+LOCAL new
+new=FNnewBounds(@@.xmin,@@.ymin-height,@@.ymin,@@.ymin)
+CASE (halign AND (3<<0)) OF
+ WHEN win_left
+  new.xmin=@@.xmin
+  new.xmax=@@.xmin+width
+ WHEN win_ycentre
+  new.xmin=@@.xmin+(@@.xmax-@@.xmin-width)/2
+  new.xmax=new.xmin+width
+ WHEN win_right
+  new.xmin=@@.xmax-width
+  new.xmax=@@.xmax
+ENDCASE
+=new
+:
+REM Extend the bounds by a little bit
+DEFPROCBounds_Border(xborder,yborder)
+@@.xmin-=xborder
+@@.xmax+=xborder
+@@.ymin-=yborder
+@@.ymax+=yborder
+ENDPROC
+:
+REM Yuck - I hate this with a passion
+DEFPROCBounds_Normalise
+@@.xmax=@@.xmax-@@.xmin:@@.xmin=0
+@@.ymax=@@.ymax-@@.ymin:@@.ymin=0
+ENDPROC
+:
+REM Called by the Scale class
+DEFFNBounds_Scale(scale)
+@@.xmax=FNscale.ScaleBy(@@.xmax)
+@@.xmin=FNscale.ScaleBy(@@.xmin)
+@@.ymax=FNscale.ScaleBy(@@.ymax)
+@@.ymin=FNscale.ScaleBy(@@.ymin)
+=@@
+:
+DEFFNBounds_GetUnknownVar(var$)
+CASE var$ OF
+ WHEN "width"
+  =@@.xmax-@@.xmin
+ WHEN "height"
+  =@@.ymax-@@.ymin
+ WHEN "block"
+  LOCAL block
+  block=FNnewBlock(16)
+  !(block.data)=@@.xmin
+  !(block.data+4)=@@.ymin
+  !(block.data+8)=@@.xmax
+  !(block.data+12)=@@.ymax
+  =block
+ENDCASE
+=FN@@(var$)
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 5
+a9 2
+REM $Id$
+REM $Log$
+d11 1
+a11 1
+PRINT "$Id$"
+d28 1
+a28 1
+new=  Class_Bounds
+d33 7
+d42 1
+a42 1
+new=  Class_Bounds
+d104 31
+@

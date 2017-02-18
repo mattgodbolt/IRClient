@@ -1,0 +1,246 @@
+REM > Font
+REM Font management (Wide)
+REM (c) Justin Fletcher
+REM ---
+REM $Id: Font 1.2 98/02/01 16:08:10 gerph Exp $
+REM $Log:	Font $
+REM Revision 1.2  98/02/01  16:08:10  gerph
+REM Selection of font by name changed, creating new
+REM functions. Similarly, selection of size.
+REM 
+REM Revision 1.1  98/01/23  01:44:37  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: Font 1.2 98/02/01 16:08:10 gerph Exp $"
+END
+:
+LOCAL defaultfont$
+:
+DEFPROCOverload_Classes_Initialise
+REM A class to handle fonts
+Class_Font=FNRegisterClass("Font")
+PROCAddField(Class_Font,"name$")
+PROCAddField(Class_Font,"localname$")
+PROCAddField(Class_Font,"flags")
+PROCAddField(Class_Font,"size")
+PROCAddField(Class_Font,"bigger")
+PROCAddField(Class_Font,"handle")
+PROCAddField(Class_Font,"colour")
+PROCAddField(Class_Font,"background")
+:
+REM Constants
+Font_bold=1
+Font_italic=2
+:
+REM If we can't find the font we want
+defaultfont$="Homerton.Medium"
+:
+FontList=FNFont_List
+:
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEFPROCFont_Destruct
+IF @.handle<>-1 THEN
+ SYS "XFont_LoseFont",@.handle
+ENDIF
+ENDPROC
+:
+DEFPROCFont_Construct
+@.handle=-1
+@.colour=FNnewColour
+@.background=FNnewColourRGB(255,255,255)
+ENDPROC
+:
+DEFFNnewFont(name$,size,flags)
+LOCAL new
+new= NEW Class_Font
+IF RIGHT$(FNCapitalise(name$),7)=".ITALIC" OR RIGHT$(FNCapitalise(name$),8)=".OBLIQUE" THEN
+ name$=LEFT$(name$,LEN(name$)-7)
+ IF RIGHT$(name$,1)="." THENname$=LEFT$(name$)
+ flags=flags OR Font_italic
+ENDIF
+IF RIGHT$(FNCapitalise(name$),5)=".BOLD" THEN
+ name$=LEFT$(name$,LEN(name$)-5)
+ flags=flags OR Font_bold
+ENDIF
+IF RIGHT$(FNCapitalise(name$),7)=".MEDIUM" THEN
+ name$=LEFT$(name$,LEN(name$)-7)
+ENDIF
+new.name$=name$
+REM Localname here is the 'real' font name
+new.localname$=""
+new.size=size
+new.flags=flags
+=new
+:
+REM Make a copy of the fonst
+DEFFNFont_Copy
+LOCAL new
+new= NEW Class_Font
+new.name$=@.name$:new.localname$=@.localname$
+new.size=@.size:new.bigger=@.bigger:new.flags=@.flags
+new.colour=FN@.colour.Copy
+new.background=FN@.background.Copy
+=new
+:
+DEFFNFont_List
+LOCAL list,blk,blk2,count,string
+list=FNnewList
+REM This crashes :
+REM list=FNnewBTree("BTree_CompareStrings")
+blk=FNnewBlock(256)
+blk2=FNnewBlock(256)
+SYS "Font_ListFonts",,blk.data,count+(3<<16),256,blk2.data,256 TO ,,count
+WHILE count<>-1
+ string=FNnewString($(blk.data))
+ SYS &104
+ SYS "OS_Write0",$(blk.data)
+ SYS "OS_NewLine"
+ PROClist.Add(string)
+
+ SYS "Font_ListFonts",,blk.data,count,256,blk2.data,256 TO ,,count
+ENDWHILE
+=list
+:
+DEFFNFont_CompareS(name$)
+=FNstricmp(name$,@.localname$)
+:
+DEFFNFont_Bigger(by)
+LOCAL new
+new=FN@.Copy
+new.bigger+=by
+IF new.handle<>-1 THEN
+ SYS "Font_LoseFont",new.handle
+ new.handle=-1
+ENDIF
+=new
+:
+DEFFNFont_Smaller(by)
+LOCAL new
+new=FN@.Copy
+new.bigger-=by
+IF new.handle<>-1 THEN
+ SYS "Font_LoseFont",new.handle
+ new.handle=-1
+ENDIF
+=new
+:
+DEFFNFont_Bold(state)
+LOCAL new
+new=FN@.Copy
+new.flags=FNFlagChange(new.flags,Font_bold,state)
+=new
+:
+DEFFNFont_Italic(state)
+LOCAL new
+new=FN@.Copy
+new.flags=FNFlagChange(new.flags,Font_italic,state)
+=new
+:
+DEFFNFont_FontName
+IF @.localname$<>"" THEN=@.localname$
+LOCAL inst,name$,pass
+name$=@.name$
+REPEAT
+ CASE (pass DIV 2) OF
+  WHEN 0
+   name$=@.name$
+  WHEN 1
+   name$=defaultfont$
+ ENDCASE
+ IF (pass MOD 2)=1 THEN name$+=".Medium"
+ IF (@.flags AND Font_bold) THEN
+  IF (@.flags AND Font_italic) THEN
+   inst=FNFontList.FindS(name$+".Bold.Italic")
+   IF inst=0 THEN inst=FNFontList.FindS(name$+".Bold.Oblique")
+  ELSE
+   inst=FNFontList.FindS(name$+".Bold")
+  ENDIF
+  IF inst=0 THEN
+   inst=FNFontList.FindS(name$)
+  ENDIF
+ ELSE
+  IF (@.flags AND Font_italic) THEN
+   inst=FNFontList.FindS(name$+".Bold.Italic")
+   IF inst=0 THEN inst=FNFontList.FindS(name$+".Bold.Oblique")
+   IF inst=0 THEN inst=FNFontList.FindS(name$)
+  ELSE
+   inst=FNFontList.FindS(name$)
+  ENDIF
+ ENDIF
+ pass+=1
+UNTIL (pass=4) OR (inst<>0)
+IF inst=0 THEN ERROR "No fonts available ! Help !"
+LOCAL font
+REM Ensure that the item is at the head of the list
+font=inst.data
+PROCFontList.Delete(font)
+PROCFontList.Add(font)
+=font.data$
+:
+DEFPROCFont_Fix
+IF @.handle<>-1 THENENDPROC
+LOCAL points,name$,handle
+points=@.points
+name$=FN@.FontName
+@.localname$=name$
+SYS "Font_FindFont",,name$,points,points,0,0 TO handle
+@.handle=handle
+ENDPROC
+:
+DEFPROCFont_Plot(str$,x,y)
+PROC@.Fix
+REM PRINT"Attempting to plot with handle "+STR$@.handle
+SYS "ColourTrans_SetFontColours",@.handle,@.background.palette,@.colour.palette,14
+SYS "Font_Paint",@.handle,str$,(1<<4)+(3<<8),x,y
+ENDPROC
+:
+DEFFNFont_GetUnknownVar(a$)
+CASE a$ OF
+ WHEN "points"
+  LOCAL size,big
+  size=@.size:big=@.bigger
+  WHILE big>0
+   size=(size*5)/4
+   big-=1
+  ENDWHILE
+  =size
+ENDCASE
+=FN@(a$)
+:
+DEFFNFont_Bounds(str$)
+LOCAL w,h
+PROC@.Fix
+SYS "Font_SetFont",@.handle
+SYS "Font_StringBBox",,str$ TO,x0,y0,x1,y1
+SYS "Font_ConverttoOS",,x0,y0 TO ,x0,y0
+SYS "Font_ConverttoOS",,x1,y1 TO ,x1,y1
+bounds=FNnewBounds(x0,y0,x1,y1)
+=bounds
+:
+REM I /cannot/ get this to work... ScanString returns stupid widths !
+REM PROC@.Fix
+REM LOCAL block,bounds,x0,y0,x1,y1
+REM block=FNnewBlock(36)
+REM !(block.data+0)=0
+REM !(block.data+4)=0
+REM !(block.data+8)=0
+REM !(block.data+12)=0
+REM !(block.data+16)=-1
+REM !(block.data+20)=0
+REM !(block.data+24)=0
+REM !(block.data+28)=0
+REM !(block.data+32)=0
+REM SYS "Font_ScanString",@.handle,str$,(1<<8)+(1<<18)+(1<<5),0,0,block.data
+REM SYS "Font_ConverttoOS",,!(block.data+20),!(block.data+24) TO ,x0,y0
+REM SYS "Font_ConverttoOS",,!(block.data+28),!(block.data+32) TO ,x1,y1
+REM PRINT"Bounds of "+str$
+REM PRINT"  "+STR$(!(block.data+20))+","+STR$(!(block.data+24))
+REM PRINT"  "+STR$(!(block.data+28))+","+STR$(!(block.data+32))
+REM PRINT" ="+STR$(x0)+","+STR$(y0)
+REM PRINT"  "+STR$(x1)+","+STR$(y1)
+REM bounds=FNnewBounds(x0,y0,x1,y1)
+REM =bounds

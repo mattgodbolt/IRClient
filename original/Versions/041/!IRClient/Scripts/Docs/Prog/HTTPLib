@@ -1,0 +1,236 @@
+HTTPLib
+=======
+This is a HTTP fetcher for IRClient. It works ok on web pages, but graphics
+and text will not be formatted correctly.
+
+Structures
+----------
+http_listptr -> a stack of the list structures we are in
+                !0 -> previous entry in stack, or 0 for start
+                !4 -> type of chain (List_X)
+                !8 -> current number in list
+
+http_linkstart -> a queue of the links found in the current document
+                !0 -> next entry in queue, or 0 for end
+                !4 -> name to give the user for the entry
+                !8 -> link URL
+http_linkend -> the last entry in the queue
+
+http_prevstart -> a queue of the current history
+                !0 -> the next entry in the history
+                !4 -> the previous entry in the history
+                !8 -> the URL of the page
+                !12 -> the 'title' of the page
+http_prevend -> the last entry in the queue
+
+http_fetchptr -> the start of a stack of subsiduary fetches going on
+                !0 -> previous entry in stack, or 0 for end
+                !4 = socket handle
+                !8 = buffer handle
+                !12 -> the content type of this fetch
+                !16 -> stack of header data (start)
+                !20 -> stack of header data (end)
+header data -> information about the header returned from a fetch
+                !0 -> next entry (ordered), or 0 for end
+                !4 -> field name
+                !8 -> field value
+
+Authentication
+--------------
+Currently relies on the fact that I'll get an WWW-Authenticate: header for
+new realms and it will forget any prior realms when entering them. Only one
+realm per time supported.
+
+
+Speed ups
+---------
+To increase the speed of the HTTPLib module I've moved some of the code into
+a seperate Relocatable Module. Basically, the modules provides the following
+code :
+
+HTMLDecode_GetWord (reduced time from 34s to 11s)
+=> r0-> buffer to read
+   r1 = length of buffer
+   r2 = flag (0 if end of buffer is NOT end of file)
+<= r0-> word read
+   r1 = number of bytes removed from buffer
+
+Which was based on :
+
+ REM flag = TRUE means that EOF is really EOF, not end of data
+ DEFFNgetword(flag)
+ LOCAL ret$,b,p,start
+ start=FNHTTP_Pos
+ ret$=""
+ b=32
+ WHILE (b=32 ORb=9 OR b=13 ORb=10) AND NOT FNHTTP_EOF
+  b=FNHTTP_GetByte
+ ENDWHILE
+ IF FNHTTP_EOF THEN
+  ret$=""
+ ELSE
+  IF b=ASC("<") THEN
+   REM A Tag
+   p=FNHTTP_GetByte
+   b=FNHTTP_GetByte
+   IF p=ASC("!") AND b=ASC("-") THEN
+    REM A comment
+    REPEAT
+     p=b
+     b=FNHTTP_GetByte
+    UNTIL(b=ASC(">") AND p=ASC("-")) OR FNHTTP_EOF
+    PROCHTTP_MoveOn(start)
+    ret$=FNgetword(flag)
+    start=FNHTTP_Pos
+   ELSE
+    ret$="<"+CHR$p+CHR$b
+    WHILE b<>ASC(">") AND NOT FNHTTP_EOF
+     b=FNHTTP_GetByte
+     IF b=13 ORb=9 ORb=10 THEN
+      b=32
+     ENDIF
+     ret$+=CHR$(b)
+    ENDWHILE
+    WHILE INSTR(ret$,"  ")>0
+     ret$=LEFT$(ret$,INSTR(ret$,"  "))+MID$(ret$,INSTR(ret$,"  ")+2)
+    ENDWHILE
+   ENDIF
+  ELSE
+   ret$=CHR$b
+   REPEAT
+    b=FNHTTP_GetByte
+    ret$+=CHR$(b)
+   UNTIL b=32 OR b=9 OR b=13 ORb=10 OR b=ASC("<") OR FNHTTP_EOF
+   b=ASC(RIGHT$(ret$,1))
+   IF b=32 OR b=9 OR b=13 ORb=10 OR b=ASC("<") THEN
+    ret$=LEFT$(ret$)
+    PROCHTTP_BackOne
+   ENDIF
+  ENDIF
+ ENDIF
+ IF FNHTTP_EOF THEN
+  IF flag THEN
+   REM We've reached the end and it really /is/ the end !
+   PROCHTTP_MoveOn(start)
+  ELSE
+   REM We've reached the end, but we're not actually done, 'cos we
+   REM haven't got the whole page yet
+   PROCHTTP_JumpBack(start)
+   REM You can tell because we return a null string but flag is
+   REM FALSE - set flag TRUE when you get the connection closed
+   REM error and then re-parse the data
+   ret$=""
+  ENDIF
+ ELSE
+  REM We've got a word, so we can shrink the buffer a bit
+  PROCHTTP_MoveOn(start)
+ ENDIF
+ =ret$
+
+ REM Read a byte from the buffer
+ DEFFNHTTP_GetByte
+ LOCAL ret
+ http_addr+=1
+ IF http_addr>http_end THEN
+  ret=32
+ ELSE
+  ret=?(http_addr-1)
+ ENDIF
+ =ret
+ :
+ DEFFNHTTP_EOF
+ LOCAL ret
+ IF http_addr>=http_end THEN
+  ret=TRUE
+ ELSE
+  ret=FALSE
+ ENDIF
+ =ret
+ :
+ DEFPROCHTTP_BackOne
+ http_addr-=1
+ ENDPROC
+ :
+ DEFPROCHTTP_JumpBack(pos)
+ http_addr=pos
+ ENDPROC
+ :
+ DEFPROCHTTP_MoveOn(pos)
+ PROCBufferShrink(HTTPBuffer,http_addr-pos)
+ http_addr=FNBufferAddr(HTTPBuffer)
+ http_end=http_addr+FNBufferLength(HTTPBuffer)
+ ENDPROC
+ :
+ DEFFNHTTP_Pos
+ =http_addr
+
+Or something similar to that...
+Speed improvement from this reduces the rendering time for my homepage from
+34 seconds to 11.
+
+
+HTMLDecode_GetAttribute (reduced time from 11s to 8s)
+=> r0-> string (starting at first attribute)
+<= r0-> next string (null if no more)
+   r1-> capitalised attribute (or 0 if no more)
+   r2-> value (or 0 if none given)
+
+This replaces :
+ attrib$=FNreadattrib(str$)
+ value$=FNreadattribvalue(str$)
+ str$=FNskipattrib(str$)
+
+to read the data, and for the actual processing :
+ DEFFNreadattrib(str$)
+ LOCAL attrib$
+ IF INSTR(str$+"=","=")<INSTR(str$+" "," ") THEN
+  attrib$=LEFT$(str$,INSTR(str$+"=","=")-1)
+ ELSE
+  attrib$=LEFT$(str$,INSTR(str$+" "," ")-1)
+ ENDIF
+ =FNCapitalise(attrib$)
+ :
+ DEFFNreadattribvalue(str$)
+ LOCAL attrib$,ret$
+ IF INSTR(str$+"=","=")<INSTR(str$+" "," ") THEN
+  str$=MID$(str$,INSTR(str$+"=","="))
+ ELSE
+  str$=MID$(str$,INSTR(str$+" "," ")+1)
+ ENDIF
+ IF LEFT$(str$,1)="=" THEN
+  str$=FNStrip(MID$(str$,2))
+  IF LEFT$(str$,1)="""" THEN
+   ret$=MID$(str$,2,INSTR(str$+"""","""",2)-2)
+  ELSE
+   ret$=LEFT$(str$,INSTR(str$+" "," ")-1)
+  ENDIF
+ ELSE
+  ret$=""
+ ENDIF
+ =ret$
+ :
+ DEFFNskipattrib(str$)
+ IF INSTR(str$+"=","=")<INSTR(str$+" "," ") THEN
+  str$=MID$(str$,INSTR(str$+"=","="))
+ ELSE
+  str$=MID$(str$,INSTR(str$+" "," ")+1)
+ ENDIF
+ IF LEFT$(str$,1)="=" THEN
+  str$=FNStrip(MID$(str$,2))
+  IF LEFT$(str$,1)="""" THEN
+   str$=MID$(str$,INSTR(str$+"""","""",2)+1)
+  ELSE
+   str$=MID$(str$,INSTR(str$+" "," ")+1)
+  ENDIF
+ ENDIF
+ =FNStrip(str$)
+
+
+HTMLDecode_MoveBytes
+=> r0-> source
+   r1-> destination
+   r2 = length
+
+Unused by HTTPLib, but basically moves bytes using a simple loop. Intended
+for reducing buffers, ie copy high to low for FIFO stacks. Will corrupt low
+to high copies if they overlap.

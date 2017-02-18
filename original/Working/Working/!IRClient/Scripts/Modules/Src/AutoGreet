@@ -1,0 +1,132 @@
+REM >AutoGreet
+REM Example auto-greet script
+REM (c) Justin Fletcher
+REM 25 Dec 1996 : JF: Started                           v1.00
+REM 29 Dec 1996 : JF: Added online toggling             v1.01
+REM 30 Dec 1996 : JF: Added configuration               v1.02
+REM 30 Dec 1996 : JF: Added a delay                     v1.03
+REM 25 Jan 1997 : JF: Added auto-op for ArcIRC          v1.04
+REM 02 Feb 1998 : JF: Removed auto-op for ArcIRC        v1.05
+REM ---
+REM $Id: AutoGreet 1.1 98/02/02 15:49:15 gerph Exp $
+REM $Log:	AutoGreet $
+REM Revision 1.1  98/02/02  15:49:15  gerph
+REM Initial revision
+REM 
+REM ---
+PRINT "$Id: AutoGreet 1.1 98/02/02 15:49:15 gerph Exp $"
+END
+:
+REM Initialise this module
+DEF PROCInitialiseModule
+REM Configuration
+PROCStartupStatus("Initialising AutoGreet...")
+autogreet=VAL(FNDB_ReadConfig("AutoGreet_On"))
+REM Pass on to other modules
+PROC@
+ENDPROC
+:
+REM Give ourselves a sensible name
+DEF FNOverload_ScriptInfo(num)
+LOCAL ret$
+IF num=0 THEN
+ ret$="AutoGreet v"+FNRCSVersion("$Revision: 1.1 $")+" (Gerph)"
+ELSE
+ ret$=FN@(num-1)
+ENDIF
+=ret$
+:
+DEF PROCOverload_On_Join(uid,chan$)
+REM Call the original routine
+PROC@(uid,chan$)
+REM Install the call back to say hi
+IF autogreet THEN
+ PROCAddCallBack("AutoGreet",200,FNStrdup(uid.nick$+" "+chan$))
+ENDIF
+ENDPROC
+:
+REM We're being called back
+DEF PROCOverload_CallBack(name$,private)
+LOCAL nick$,chan$
+IF name$="AutoGreet" THEN
+ REM It's us - decode the private word
+ nick$=LEFT$($(private),INSTR($(private)," ")-1)
+ chan$=$(private+LEN(nick$)+1)
+ REM And say our bit
+ PROCSay(chan$,"Hi "+nick$)
+ REM /very/ important to release the memory
+ PROCRelease(private)
+ELSE
+ PROC@(name$,private)
+ENDIF
+ENDPROC
+:
+DEF PROCOverload_UnknownCommand(com$,str$)
+LOCAL val
+CASE com$ OF
+ WHEN "AUTOGREET"
+  val=FNboolean(str$)
+  CASE val OF
+   WHEN TRUE,FALSE
+    autogreet=val
+    PROCDisplayInfo("AutoGreet turned "+FNbooltext(autogreet),"")
+   WHEN -2
+    PROCDisplayWarning("Syntax: AutoGreet <boolean>","")
+  ENDCASE
+ OTHERWISE
+  PROC@(com$,str$)
+ENDCASE
+ENDPROC
+:
+REM Enumerate module names
+DEF FNOverload_ConfigModName(count)
+LOCAL ret$
+IF count=0 THEN
+ ret$="AutoGreet"
+ELSE
+ ret$=FN@(count-1)
+ENDIF
+=ret$
+:
+REM What options do we provide ?
+DEF PROCOverload_ConfigOptions(module$)
+IF module$="AutoGreet" THEN
+ PROCDisplayConfig("")
+ PROCDisplayConfig("-- AutoGreet configuration --")
+ PROCDisplayConfig("You can configure :")
+ PROCDisplayConfig("  Active : Whether greet on join is active")
+ELSE
+ PROC@(module$)
+ENDIF
+ENDPROC
+:
+REM How do we configure things
+DEF PROCOverload_ConfigCommand(module$,com$,str$)
+IF module$="AutoGreet" THEN
+ CASE com$ OF
+  WHEN "ACTIVE"
+   val=FNboolean(str$)
+   IF val=-2 THEN
+    PROCDisplayConfig("Syntax: Active <boolean>")
+   ELSE
+    autogreet=val
+    PROCDB_WriteConfig("AutoGreet_On",STR$ autogreet)
+    PROCDisplayConfig("Set Active to "+FNbooltext(autogreet))
+   ENDIF
+
+  WHEN "LIST"
+   PROCDisplayConfig("")
+   PROCDisplayConfig("Active : "+FNbooltext(autogreet))
+   a$=FNbooltext(VAL(FNDB_ReadConfig("AutoGreet_On")))
+   PROCDisplayConfig("  (Configured "+a$+")")
+
+  WHEN "HELP"
+   PROCOverload_ConfigOptions(module$)
+
+  OTHERWISE
+   PROCDisplayConfig("Command not recognised")
+ ENDCASE
+ELSE
+ PROC@(module$,com$,str$)
+ENDIF
+ENDPROC

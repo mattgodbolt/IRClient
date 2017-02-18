@@ -1,0 +1,40 @@
+REM >Internal.Classes.DLList
+REM (c) 1997 Matthew Godbolt
+REM Doubly-linked lists
+REM ---
+REM $Id: DLList 1.2 97/12/29 14:49:00 gerph Exp $
+REM $Log:	DLList $
+REM Revision 1.2  97/12/29  14:49:00  gerph
+REM Unknown changes.
+REM 
+REM ---
+PRINT "$Id: DLList 1.2 97/12/29 14:49:00 gerph Exp $"
+END
+
+DEF PROCOverload_Classes_Initialise
+ Class_DLList     = FNRegisterSubclass(Class_List,"DLList")
+ Class_DLListItem = FNRegisterSubclass(Class_ListItem,"DLListItem")
+ PROCAddField(Class_DLListItem,"prev")
+ PROC@
+ENDPROC
+:
+DEF FNnewDLList
+=FNnew(Class_DLList)
+:
+DEF PROCDLList_Construct
+REM Nowt special - use List_Construct to do our dirties
+PROC@
+ENDPROC
+:
+DEF PROCDLList_Add(data)
+ LOCAL item
+ item = FNnew(FN@.GetDataType)
+ item.data = data
+ item.next = @.items
+ item.prev = 0
+ IF @.items THEN @.items.prev = item
+ @.items = item
+ENDPROC
+:
+DEF FNDLList_GetDataType
+=Class_DLListItem

@@ -1,0 +1,132 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.01.23.01.41.27;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Colour handling routines
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM > Colours
+REM Colour handling
+REM (c) Justin Fletcher
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM A class to handle bounding boxes - just a container really
+Class_Colour=FNRegisterClass("Colour")
+PROCAddField(Class_Colour,"red")
+PROCAddField(Class_Colour,"green")
+PROCAddField(Class_Colour,"blue")
+:
+REM This is actually a valid colour, but might be used by others
+Colour_Transparent=-1
+:
+REM Pass it on
+PROC@@
+ENDPROC
+:
+REM Create an empty colour (black)
+DEFFNnewColour
+=NEW Class_Colour
+:
+DEFFNnewColourRGB(r,g,b)
+LOCAL new
+new= NEW Class_Colour
+new.red=r:new.green=g:new.blue=b
+=new
+:
+DEFFNnewColourNamed(name$)
+LOCAL err,col
+REM "RGB_DecodeName"
+SYS &B0680,name$ TO col ;err
+IF col=-1 OR (err AND vbit)<>0 THEN =0
+=FNnewColourPalette(col)
+:
+DEFFNnewColourPalette(col)
+LOCAL new
+new= NEW Class_Colour
+new.red=(col>>8) AND 255:new.green=(col>>16) AND 255:new.blue=(col>>24) AND 255
+=new
+:
+DEFFNColour_Copy
+LOCAL new
+new= NEW Class_Colour
+new.red=@@.red:new.green=@@.green:new.blue=@@.blue
+=new
+:
+REM Call this to find the nearest wimp colour - mostly
+REM useful for things like windows
+DEFFNColour_ClosestWimp
+LOCAL pblk,col
+pblk=FNnewBlock(20*4)
+SYS "Wimp_ReadPalette",,pblk.data
+SYS "ColourTrans_ReturnColourNumberForMode",@@.palette,12,pblk.data TO col
+=col
+:
+DEF FNColour_GetUnknownVar(var$)
+LOCAL val
+CASE var$ OF
+ WHEN "palette"
+  =(@@.red<<8)+(@@.green<<16)+(@@.blue<<24)
+ WHEN "hue"
+  SYS "XColourTrans_ConvertRGBToHSV",@@.red<<8,@@.green<<8,@@.blue<<8 TO val
+  =val
+ WHEN "saturation"
+  SYS "XColourTrans_ConvertRGBToHSV",@@.red<<8,@@.green<<8,@@.blue<<8 TO ,val
+  =val
+ WHEN "value"
+  SYS "XColourTrans_ConvertRGBToHSV",@@.red<<8,@@.green<<8,@@.blue<<8 TO ,,val
+  =val
+ WHEN "cyan"
+  SYS "XColourTrans_ConvertRGBToCMYK",@@.red<<8,@@.green<<8,@@.blue<<8 TO val
+  =val
+ WHEN "magenta"
+  SYS "XColourTrans_ConvertRGBToCMYK",@@.red<<8,@@.green<<8,@@.blue<<8 TO ,val
+  =val
+ WHEN "yellow"
+  SYS "XColourTrans_ConvertRGBToCMYK",@@.red<<8,@@.green<<8,@@.blue<<8 TO ,,val
+  =val
+ WHEN "key"
+  SYS "XColourTrans_ConvertRGBToCMYK",@@.red<<8,@@.green<<8,@@.blue<<8 TO ,,,val
+  =val
+ENDCASE
+=FN@@(var$)
+:
+DEFFNColour_Composite(col)
+LOCAL new
+new=FN@@.Copy
+IF col=0 THEN =new
+new.red=(new.red+col.red)/2:new.green=(new.green+col.green)/2:new.blue=(new.blue+col.blue)/2
+=new
+:
+DEFFNColour_Opposite
+LOCAL new
+new=FN@@.Copy
+new.red=255-new.red:new.green=255-new.green:new.blue=255-new.blue
+=new
+:
+DEFPROCColour_SetGraphics
+SYS "ColourTrans_SetGCOL",@@.palette,,,&100,0
+ENDPROC
+@

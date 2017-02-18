@@ -1,0 +1,282 @@
+
+IRCLib for !IRClient V0.22
+==========================
+
+V0.18b - 29/1/96
+
+This program was originally written by Matthew Godbolt, and this version has
+had a number of changes made by me. Thanks are due to Matthew for allowing
+me to make available what started out as (and remains, largely) his code.
+
+
+The program IRCLib should be placed inside !IRClient.Scripts (after first
+copying the one that was already there somewhere else as a backup).
+
+
+The following have been added, changed and/or fixed.
+
+
+
+
+Flood Protection
+
+Important: The CTCP aspect of the flood protection has been tested. The /NAMES
+           aspect has not. It /should/ work, in theory.
+
+A degree of flood protection has been added. This has been done by placing a
+time limit of 2 seconds (default) on CTCP replies, and /NAMES commands - it will
+ignore all CTCP commands received (that require replies - so ACTIONS still work)
+that are received until 2 seconds has elapsed since the last reply was sent, and
+will not send /NAMES commands according to the same time limit. (NAMES is used
+to update the users window during nick changes, so rapid nick changes can result
+in flooding.)
+
+This was added hurredly, as a result of being flooded several times, so
+could easily be improved on. However, as it stands it /does/ work, and has
+been made available for that reason.
+
+One drawback with this is that if you receive /valid/ ctcp requests (pings
+from other IRCers to see if you are lagging, for example) and they reach
+you too close together, only the first will be replied to.
+
+Note: The protection offered for /NAMES will not work correctly if you are on
+      more than one channel, if the flooding is being carried out on more than
+      one /of/ those channels. It should work if you are on more than one channel,
+      but flooding is only happening on one.
+
+      As stated above, this part of the protection is untested, but what I expect
+      to happen, if you are on more than one channel being flooded in this way,
+      is that the users window will be updated (read fixed) on one but not the
+      other. If I'm right, issuing a manual /NAMES #chan for the channel that
+      hasn't been updated should fix it.
+       
+
+
+/SERVER
+
+To see messages as received from the server (which will largely be a duplication
+of what you see anyway, but in a different format) you can use /SERVER ON. All
+these messages will now appear in the server window. To switch this function off
+once more, use /SERVER OFF.
+
+
+
+/SPEAK
+
+A limited support for Jonathan Duddington's !Speak has been added. Using this,
+you can arrange to have all text from any one IRCer synthesised into speech.
+As with the flood protection, above, this is a far from perfect implementation.
+This is because I only added it to try it out. I've never removed, or completed
+it.
+
+Use /SPEAK nick to begin speaking all text from nick, and /SPEAK nick to
+cancel. /SPEAK with no parameters will display the nick you currently have this
+set for. Only one person's speech is synthesised at any one time in this
+implementation.
+
+         eg      /SPEAK VinceH      will result in everything you receive
+                                    from me being spoken.
+                 /SPEAK HLander     will change the speaker to HLander
+                 /SPEAK             will tell you that HLander is the current
+                                    speaker
+         and     /SPEAK HLander     will stop all speech.
+
+
+WARNING: As stated above, this isn't a proper implementation. To use it, you
+must load the relevant part of !Speak beforehand. This IRCLib doesn't register
+itself with the module. If you use another program that utilises !Speak, when
+you quit that application, you will start getting error messages from IRCLib,
+because the speak module will quit itself. So, if you load one or more apps that
+use !Speak, leave one of them loaded to prevent this problem.
+
+
+
+
+/AWAY
+
+This command marks you as away, so that whenever someone types /WHOIS yournick
+one of the lines that appears in the results will show you as away. This line
+will also be passed to anyone who /MSGs you.
+
+In this version, it will also declare to the current channel that you are away
+(and back, when appropriate).
+
+Use /AWAY reason to mark yourself as away, and /AWAY on its own to return.
+
+          eg:       if I typed      /AWAY getting a drink
+it will show: (on the channel)      *VinceH is getting a drink - be back soon
+                 (in my whois)      *VinceH is away: getting a drink
+              (as a msg reply)      *VinceH is away: getting a drink
+               if I then typed      /AWAY
+it will show: (on the channel)      *VinceH is back
+              and the /WHOIS and /MSG lines will be removed.
+
+
+
+/IGNORE
+
+This command allows you to ignore all comments and msg's from particular ppl.
+Anything they say on any channels you are on, and anything they /MSG you will
+not be displayed on your screen. They will also not get any CTCP replies from
+you.
+
+Use /IGNORE nickname to ignore someone, and /IGNORE nickname (again) to hear
+them oce more. /IGNORE with no nicknames will tell you who you are ignoring.
+Whenever you use /IGNORE the list of ignored nicks will appear in your
+current channel window.
+
+          eg:  /IGNORE Pest  - will ignore Pest
+               /IGNORE       - will tell me I'm ignoring Pest
+               /IGNORE Pest  - will stop me ignoring Pest
+
+
+/MODE
+
+This is the channel mode change command. You can now use it to make changes
+to the channel mode - that do *NOT* need any additional parameters. ie, you
+can make the channel moderated (+m) or not (-m), invitation only (+i) or not
+(-i), secret (+s) or not (-s), chanops can change the topic only (+t) or not
+(-t), or disable external messages to the channel (+n) or not (-n)
+
+Note: You need to be a channel operator (chanop) to use this command.
+
+          eg:  /MODE +t  - will mean only chanops can change the topic.
+               /MODE -t  - will allow anyone to do so.
+
+Mode commands that need parameters (eg making someone a chanop) have had
+alternative (and easier to remember commands) provided.
+
+
+/NAMES
+
+This will provide you with a list of nicknames on the specified channel.
+
+Use /NAMES #channel to see who is there.
+
+          eg: /NAMES #Argonet - might get you the following result:-
+              *** on channel #Argonet are @VinceH, @Lottie, @Jawkins
+
+/NICK
+
+This command enables you to change your nickname while on IRC.
+
+Use /NICK newnick to change your nickname to the one specified.
+
+          eg:   if I typed   /NICK McCleod
+                I'd see      *** you are now known as McCleod
+
+and from then on, McCleod would be my nickname, rather than VinceH
+
+
+/NOTIFY
+
+This command provides a way of knowing when certain people arrive on IRC.
+It performs a /WHOIS, cycling through a list of names, until the result
+is that the person is on IRC.
+
+Use /NOTIFY nickname to add that person to your list of ppl to look out
+for. /NOTIFY nickname a second time will remove that person, and /NOTIFY
+on its own will tell you who you have on the list.
+
+Note: Once the person arrives on IRC they are automatically removed from
+the list.
+
+          eg:   if I typed   /NOTIFY Lottie - I'd be notified of Lottie's
+                                              arrival on IRC.
+                             /NOTIFY Xina   - and I'd by notified of both
+                                              Lottie and Xina's arrival.
+
+If Lottie arrived, a message like...
+>>> Lottie has arrived on IRC
+...will be displayed, and Lottie would be taken off the list. And so on.
+
+This command is not without its problems, however.
+
+First of all, it only sends out the whois command when the script receives
+something to display. So if you are on silent channels, and are receiving
+no messages, it quite simply won't work.
+
+Secondly, on a very busy channel, you may find that following someone's
+arrival you suddenly get a long chain of Whois results for that person.
+This is particularly noticeable if they arrive while you have lag.
+
+Thirdly, remember that the command *cycles* through the names, and only
+checks one each time the routne is called - so the longer the list (and
+the quieter the channel) the more likely the person is to arrive on
+your channel *before* the script tells you they're on IRC. Stick to
+short lists, unless on a very busy channel - in which case, make it a
+long list, which will help avoid the second problem, above.
+
+
+
+All the following commands are the equivalent of various /MODE commands
+that require parameters. Do *not* attempt to use the /MODE version, use
+these instead:-
+
+(Sorry the instructions are a little brief from this point onwards, but
+time is against me.)
+          
+/OP
+
+Is used to make someone a channel operator.
+
+Use /OP nickname
+or  /OP nickname1,nickname2,etc
+
+
+/DEOP
+
+Is used to take chanop status away from someone
+
+Use /DEOP nickname
+or  /DEOP nickname1,nickname2,etc
+
+
+/BAN
+
+Is used to ban someone from a channel.
+
+Use /BAN mask (which is usually a based on the IP address, shown when
+              you /whois someone, or when they join and leave a chan.)
+
+eg  /BAN *@aj108.du.pipex.com
+
+
+/UNBAN
+
+Is used to lift a ban set by the above.
+
+Use /UNBAN mask
+
+
+/LIMIT
+
+Is used to limit the number of ppl on a channel. If you limit a channel to
+10 ppl for example, you will not be able to have more than that number
+present.
+
+Use /LIMIT number to set the limit to that number, and /LIMIT on its own to
+remove the limit.
+
+
+/KEY
+
+Is used to add and remove a key (password) for the channel.
+
+Use /KEY word to add a password, and /KEY -word to remove that password.
+
+
+I hope you find this altered IRCLib useful. Please email me if you have any
+comments or suggestions...
+
+vince.mh@argonet.co.uk
+
+VinceH on IRC, usually on #Argonet at varying times, but mostly between 10 &
+12 pm.
+
+Vince M. Hudd
+
+
+
+
+

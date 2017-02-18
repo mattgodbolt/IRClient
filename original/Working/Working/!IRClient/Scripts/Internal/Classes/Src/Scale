@@ -1,0 +1,259 @@
+REM >Scale class
+REM Scaling
+REM ---
+REM $Id: Scale 1.3 98/02/01 16:10:25 gerph Exp $
+REM $Log:	Scale $
+REM Revision 1.3  98/02/01  16:10:25  gerph
+REM Scaling changed, now calls class methods to perform
+REM scaling. Transform class added.
+REM 
+REM Revision 1.2  98/01/23  02:59:44  gerph
+REM Changed way that classes are identified in
+REM FNScaleBy.
+REM
+REM Revision 1.1  98/01/23  01:45:09  gerph
+REM Initial revision
+REM
+REM ---
+ERROR 0,"Don't run me, I'm a class above you"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM A simple scaler class
+Class_Scale=FNRegisterClass("Scale")
+PROCAddField(Class_Scale,"mult")
+PROCAddField(Class_Scale,"div")
+:
+REM A XY scaler class
+Class_XYScale=FNRegisterClass("XYScale")
+PROCAddField(Class_XYScale,"xmult")
+PROCAddField(Class_XYScale,"ymult")
+PROCAddField(Class_XYScale,"xdiv")
+PROCAddField(Class_XYScale,"ydiv")
+:
+REM A transformation class
+Class_Transform=FNRegisterClass("Transform")
+PROCAddField(Class_Transform,"xyscale")
+REM We can't rotate things at the moment... Some day, maybe
+REM PROCAddField(Class_Transform,"rotate")
+PROCAddField(Class_Transform,"x")
+PROCAddField(Class_Transform,"y")
+:
+REM Pass the call on
+PROC@
+ENDPROC
+:
+DEFFNnewScale(mult,div)
+LOCAL inst
+inst=FNnew(Class_Scale)
+inst.mult=mult:inst.div=div
+=inst
+:
+DEFFNScale_Copy
+LOCAL inst
+inst=FNnew(Class_Scale)
+inst.mult=@.mult:inst.div=@.div
+=inst
+:
+DEFPROCScale_Construct
+@.div=1:@.mult=1
+ENDPROC
+:
+DEFPROCScale_ZoomIn
+IF @.mult=1 THEN
+ @.div=@.div*2
+ELSE
+ @.mult=@.mult*2
+ENDIF
+ENDPROC
+:
+DEFPROCScale_ZoomOut
+IF @.div=1 THEN
+ @.mult=@.mult/2
+ IF @.mult=0 THEN@.mult=1
+ELSE
+ @.div=@.div/2
+ IF @.div=0 THEN@.div=1
+ENDIF
+ENDPROC
+:
+DEFFNScale_Scale(scale)
+@.mult=@.mult*scale.mult
+@.div=@.div*scale.div
+=@
+:
+REM Calls FN<instance>.Scale(<scale>) to scale items - see Bounds
+REM for an example of how this works
+DEFFNScale_ScaleBy(v)
+IF FNGetClassName(v)<> "" THEN =FNv.Scale(@)
+LOCAL mult,div,hcf
+mult=@.mult:div=@.div
+REM First do a bit of division in case we can get away with it
+REM in the divisor and the value
+hcf=FNHCF(v,div)
+v=v/hcf
+div=div/hcf
+REM Now do the division of the multiplier and divisor
+hcf=FNHCF(mult,div)
+mult=mult/hcf
+div=div/hcf
+REM And finally return some kind of value
+=v*mult/div
+:
+DEFFNObject_Scale
+ERROR "You cannot Scale a "+@.classname$
+:
+DEFPROCScale_Normalise
+LOCAL hcf
+hcf=FNHCF(@.mult,@.div)
+IF hcf<>1 THEN
+ @.mult=@.mult/hcf
+ @.div=@.div/hcf
+ENDIF
+ENDPROC
+:
+DEFFNScale_GetUnknownVar(a$)
+CASE a$ OF
+ WHEN "xyscale"
+  =FNnewXYScale(@.mult,@.mult,@.div,@.div)
+ WHEN "transform"
+  =FNnewTransform_Scale(@)
+ WHEN "xmult","ymult"
+  =@.mult
+ WHEN "xdiv","ydiv"
+  =@.div
+ENDCASE
+=FN@(a$)
+:
+DEFFNnewXYScale(xmult,ymult,xdiv,ydiv)
+LOCAL inst
+inst=FNnew(Class_XYScale)
+inst.ymult=ymult:inst.xdiv=xdiv:inst.xmult=xmult:inst.ydiv=ydiv
+=inst
+:
+DEFFNXYScale_Copy
+LOCAL inst
+inst=FNnew(Class_XYScale)
+inst.ymult=@.ymult:inst.xdiv=@.xdiv
+inst.xmult=@.xmult:inst.ydiv=@.ydiv
+=inst
+:
+DEFPROCXYScale_Construct
+@.xdiv=1:@.ydiv=1:@.xmult=1:@.ymult=1
+ENDPROC
+:
+DEFPROCXYScale_ZoomIn
+IF @.xmult=1 THEN
+ @.xdiv=@.xdiv*2
+ELSE
+ @.xmult=@.xmult*2
+ENDIF
+IF @.ymult=1 THEN
+ @.ydiv=@.ydiv*2
+ELSE
+ @.ymult=@.mult*2
+ENDIF
+ENDPROC
+:
+DEFPROCXYScale_ZoomOut
+IF @.xdiv=1 THEN
+ @.xmult=@.xmult/2
+ IF @.xmult=0 THEN@.xmult=1
+ELSE
+ @.xdiv=@.xdiv/2
+ IF @.xdiv=0 THEN@.xdiv=1
+ENDIF
+IF @.ydiv=1 THEN
+ @.ymult=@.ymult/2
+ IF @.ymult=0 THEN@.ymult=1
+ELSE
+ @.ydiv=@.ydiv/2
+ IF @.ydiv=0 THEN@.ydiv=1
+ENDIF
+ENDPROC
+:
+DEFFNXYScale_XYScale(xyscale)
+@.xmult=@.xmult*scale.xmult
+@.xdiv=@.xdiv*scale.xdiv
+@.ymult=@.ymult*scale.ymult
+@.ydiv=@.ydiv*scale.ydiv
+=@
+:
+DEFFNXYScale_Scale(scale)
+@.xmult=@.xmult*scale.mult
+@.xdiv=@.xdiv*scale.div
+@.ymult=@.ymult*scale.mult
+@.ydiv=@.ydiv*scale.div
+=@
+:
+REM Calls FN<instance>.Scale(<xyscale>) to scale the block
+DEFFNXYScale_ScaleBy(v)
+IF FNGetClassName(v)<>"" THEN =FNv.XYScale(@)
+ERROR "XYScale_ScaleBy needs two parameters really and we've not got parameter overloading yet"
+:
+DEFFNObject_XYScale
+ERROR "You cannot XYScale a "+@.classname$
+:
+DEFPROCXYScale_Normalise
+LOCAL hcf
+hcf=FNHCF(@.xmult,@.xdiv)
+IF hcf<>1 THEN
+ @.xmult=@.xmult/hcf
+ @.xdiv=@.xdiv/hcf
+ENDIF
+hcf=FNHCF(@.ymult,@.ydiv)
+IF hcf<>1 THEN
+ @.ymult=@.ymult/hcf
+ @.ydiv=@.ydiv/hcf
+ENDIF
+ENDPROC
+:
+DEFFNXYScale_GetUnknownVar(a$)
+CASE a$ OF
+ WHEN "transform"
+  =FNnewTransform_Scale(@)
+ENDCASE
+=FN@(a$)
+:
+DEFPROCTransform_Construct
+@.xyscale=FNnewXYScale(1,1,1,1)
+ENDPROC
+:
+DEFFNTransform_GetUnknownVar(a$)
+CASE a$ OF
+ WHEN "block"
+  LOCAL block
+  block=FNnewBlock(24)
+  !(block.data)=(&10000*@.xyscale.xmult)/@.xyscale.xdiv
+  !(block.data+4)=0
+  !(block.data+8)=0
+  !(block.data+12)=(&10000*@.xyscale.ymult)/@.xyscale.ydiv
+  !(block.data+16)=@.x
+  !(block.data+20)=@.y
+  =block
+ENDCASE
+=FN@(a$)
+:
+DEFFNnewTransform
+=NEW Class_Transform
+:
+DEFFNnewTransform_Scale(scale)
+LOCAL new
+new=NEW Class_Transform
+IF scale.classofme = Class_Scale THEN
+ new.xyscale=scale.xyscale
+ELSE
+ new.xyscale=scale
+ENDIF
+=new
+:
+DEFFNnewTransform_ScaleTranslate(scale,x,y)
+LOCAL new
+new=FNnewTransform_Scale(scale)
+new.x=x:new.y=y
+=new
+:
+DEFFNnewTransform_Translate(x,y)
+LOCAL new
+new=NEW Class_Transform:new.x=x:new.y=y
+=new

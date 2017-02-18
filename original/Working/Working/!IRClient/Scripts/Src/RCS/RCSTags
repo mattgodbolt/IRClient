@@ -1,0 +1,38 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.02.02.15.17.59;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Demo of RCSTag usage...
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM > RCSTags
+REM These are the RCS tags we can embed in BRCS files
+REM $Author$
+REM $Date$
+REM $Header$
+REM $Id$
+REM $Locker$
+REM $Log$
+REM $RCSfile$
+REM $Revision$
+REM $Source$
+REM $State$
+
+@

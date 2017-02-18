@@ -1,0 +1,199 @@
+REM > Network
+REM Network modelling
+REM (c) Justin Fletcher
+REM ---
+REM $Id: Network 1.2 98/02/01 16:09:24 gerph Exp $
+REM $Log:	Network $
+REM Revision 1.2  98/02/01  16:09:24  gerph
+REM Added DrawFile generation routines; reads
+REM 
+REM Revision 1.1  98/01/31  14:39:09  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: Network 1.2 98/02/01 16:09:24 gerph Exp $"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM A simple network class
+Class_Network=FNRegisterClass("Network")
+PROCAddField(Class_Network,"name$")
+PROCAddField(Class_Network,"connections")
+PROCAddField(Class_Network,"number")
+PROCAddField(Class_Network,"depth")
+:
+REM Specially so that we can map it
+Class_NetworkMap=FNRegisterSubclass(Class_Network,"NetworkMap")
+PROCAddField(Class_NetworkMap,"font")
+PROCAddField(Class_NetworkMap,"bounds")
+PROCAddField(Class_NetworkMap,"linecolour")
+:
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEFPROCNetwork_Construct
+@.connections=FNnewList
+ENDPROC
+:
+REM Create an empty network
+DEFFNnewNetwork(name$)
+LOCAL new
+new=NEW Class_Network
+new.name$=name$
+=new
+:
+DEFFNNetwork_FindS(name$)
+LOCAL host
+host=FN@.FindExactS(name$)
+IF host=0 THENhost=FN@.FindWildS(name$)
+=host
+:
+DEFFNNetwork_FindExactS(name$)
+IF name$=@.name$ THEN=@
+LOCAL item,net
+item=FN@.connections.First
+WHILE item<>0
+ net=FNitem.data.FindS(name$)
+ IF net<>0 THEN=net
+ item=item.next
+ENDWHILE
+=0
+:
+DEFFNNetwork_FindWildS(name$)
+IF FNWildcardMatch(name$,@.name$) THEN=@
+LOCAL item,net
+item=FN@.connections.First
+WHILE item<>0
+ net=FNitem.data.FindWildS(name$)
+ IF net<>0 THEN=net
+ item=item.next
+ENDWHILE
+=0
+:
+DEFPROCNetwork_Add(host$,child$)
+LOCAL hostnet
+hostnet=FN@.FindS(host$)
+IF hostnet<>0 THEN
+ PROChostnet.connections.Add(FNnewNetwork(child$))
+ hostnet.number+=1
+ENDIF
+ENDPROC
+:
+DEFPROCNetwork_Display(indent)
+LOCAL item
+PRINT STRING$(indent," ")+@.name$
+item=FN@.connections.First
+WHILE item <> 0
+ PROCitem.data.Display(indent+2)
+ item=item.next
+ENDWHILE
+ENDPROC
+:
+DEFPROCNetworkMap_Construct
+@.bounds=0
+@.font=FNnewFont("Homerton.Medium",12*16,0)
+@.linecolour=FNnewColourRGB(255,0,0)
+REM Pass on
+PROC@
+ENDPROC
+:
+DEFFNnewNetworkMap(name$)
+LOCAL new
+new=NEW Class_NetworkMap
+new.name$=name$
+=new
+:
+REM Returns a valid network map instance, but it may not be
+REM attached to anything - inst.depth = 0
+DEFFNNetworkMap_Add(host$,child$)
+LOCAL hostnet,childinst
+hostnet=FN@.FindS(host$)
+childinst=FNnewNetworkMap(child$)
+IF hostnet<>0 THEN
+ childinst.depth=hostnet.depth+1
+ PROChostnet.connections.Add(childinst)
+ hostnet.number+=1
+ENDIF
+=childinst
+:
+DEFFNNetworkMap_Bounds
+LOCAL textbound,totalwidth,item,bounds
+textbound=FN@.font.Bounds(@.name$)
+item=FN@.connections.First
+WHILE item<>0
+ bounds=FNitem.data.Bounds
+ totalwidth+=bounds.xmax-bounds.xmin
+ item=item.next
+ENDWHILE
+IF totalwidth<(textbound.xmax-textbound.xmin) THEN
+ totalwidth=(textbound.xmax-textbound.xmin)
+ENDIF
+textbound.xmin=0
+textbound.xmax=totalwidth
+PROCtextbound.Border(16,0)
+@.bounds=textbound
+=textbound
+:
+DEFPROCNetworkMap_Draw(x,y)
+LOCAL textbound,dummy,drawpath,ox,oy,ix
+IF @.bounds=0 THENdummy=FN@.Bounds
+textbound=FN@.font.Bounds(@.name$)
+ox=x-(textbound.width/2)
+oy=y-textbound.height
+LOCAL text
+text=FNnewDrawText(ox,oy,@.name$,@.font)
+PROCtext.Plot
+ix=(textbound.width)/(@.number+1)
+x-=@.bounds.xmax/2
+y-=textbound.height+32+8*@.number
+LOCAL item
+item=FN@.connections.First
+WHILE item<>0
+ PROCitem.data.Draw(x+(item.data.bounds.width/2),y)
+ drawpath=FNnewDrawPath
+ drawpath.colour=Colour_Transparent
+ drawpath.outline=@.linecolour
+ ox+=ix
+ PROCdrawpath.Move(ox,oy-4)
+ PROCdrawpath.Draw(x+(item.data.bounds.width/2),y+4)
+ PROCdrawpath.Plot
+ x+=item.data.bounds.xmax
+ item=item.next
+ENDWHILE
+ENDPROC
+:
+DEFPROCNetworkMap_Generate(drawfile,x,y)
+LOCAL textbound,dummy,drawpath,ox,oy,ix
+SYS &104
+SYS "OS_Write0",@.name$
+IF @.bounds=0 THEN dummy=FN@.Bounds
+textbound=FN@.font.Bounds(@.name$)
+ox=x-(textbound.width/2)
+oy=y-textbound.height
+LOCAL text
+SYS "OS_Write0"," -"
+text=FNnewDrawText(ox,oy,@.name$,@.font)
+PROCdrawfile.Add(text)
+ix=(textbound.width)/(@.number+1)
+x-=@.bounds.xmax/2
+y-=textbound.height+32+8*@.number
+LOCAL item
+item=FN@.connections.First
+SYS "OS_Write0","< "
+WHILE item<>0
+ PROCitem.data.Generate(drawfile,x+(item.data.bounds.width/2),y)
+ SYS "OS_Write0","("
+ drawpath=FNnewDrawPath
+ drawpath.colour=Colour_Transparent
+ drawpath.outline=item.data.linecolour
+ ox+=ix
+ PROCdrawpath.Move(ox,oy-4)
+ PROCdrawpath.Draw(x+(item.data.bounds.width/2),y+4)
+ PROCdrawfile.Add(drawpath)
+ x+=item.data.bounds.xmax
+ SYS "OS_Write0",")"
+ item=item.next
+ENDWHILE
+SYS "OS_Write0"," > "
+ENDPROC

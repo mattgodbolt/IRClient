@@ -1,0 +1,14 @@
++ Wrote entirely new parser, slower but will work even if
+  tags are split across lines.
++ Entites '&amp;' and '&#163;' (pound sign) are handled.
++ Added configuration code so that the URL and the
+  headline-tag can both be modified if neccessary.  The
+  module will assume defaults if none are available.
++ Altered the credits. ;)
+
+- Long lines.
+- Using Netplex over loopback with certain speed settings,
+  causes the Headlines module to not receive the whole of
+  the HTML input even though Netplex confirms that the
+  whole file was sent.
+- URL handling could be better.

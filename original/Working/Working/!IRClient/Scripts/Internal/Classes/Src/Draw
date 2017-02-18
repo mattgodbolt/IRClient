@@ -1,0 +1,420 @@
+REM > Draw
+REM Draw paths and things
+REM (c) Justin Fletcher
+REM ---
+REM $Id: Draw 1.3 98/02/01 16:07:15 gerph Exp $
+REM $Log:	Draw $
+REM Revision 1.3  98/02/01  16:07:15  gerph
+REM Added drawfile generation (very, very nasty).
+REM 
+REM Revision 1.2  98/01/23  02:58:26  gerph
+REM Fixed HCF function that was killing interpreter.
+REM
+REM Revision 1.1  98/01/23  01:42:32  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: Draw 1.3 98/02/01 16:07:15 gerph Exp $"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM Template draw object
+Class_DrawObject=FNRegisterClass("DrawObject")
+PROCAddField(Class_DrawObject,"x")
+PROCAddField(Class_DrawObject,"y")
+:
+REM A standard path object
+Class_DrawPath=FNRegisterSubclass(Class_DrawObject,"DrawPath")
+PROCAddField(Class_DrawPath,"list")
+PROCAddField(Class_DrawPath,"colour")
+PROCAddField(Class_DrawPath,"outline")
+PROCAddField(Class_DrawPath,"width")
+PROCAddField(Class_DrawPath,"blocklen")
+PROCAddField(Class_DrawPath,"block")
+PROCAddField(Class_DrawPath,"lastadded")
+PROCAddField(Class_DrawPath,"scale")
+PROCAddField(Class_DrawPath,"inputscale")
+:
+Class_DrawPathMove=FNRegisterSubclass(Class_DrawObject,"DrawPathMove")
+:
+Class_DrawPathDraw=FNRegisterSubclass(Class_DrawObject,"DrawPathDraw")
+:
+REM Bezier class has end point (x,y), start control (scx,scy)
+REM and end control (ecx, ecy)
+Class_DrawPathBezier=FNRegisterSubclass(Class_DrawObject,"DrawPathBezier")
+PROCAddField(Class_DrawPathBezier,"scx")
+PROCAddField(Class_DrawPathBezier,"scy")
+PROCAddField(Class_DrawPathBezier,"ecx")
+PROCAddField(Class_DrawPathBezier,"ecy")
+:
+REM A Text object
+Class_DrawText=FNRegisterSubclass(Class_DrawObject,"DrawText")
+PROCAddField(Class_DrawText,"text$")
+PROCAddField(Class_DrawText,"font")
+PROCAddField(Class_DrawText,"inputscale")
+PROCAddField(Class_DrawText,"scale")
+:
+Class_DrawFile=FNRegisterClass("DrawFile")
+PROCAddField(Class_DrawFile,"bounds")
+PROCAddField(Class_DrawFile,"producer$")
+PROCAddField(Class_DrawFile,"version")
+PROCAddField(Class_DrawFile,"objects")
+:
+Class_DrawFileObject=FNRegisterClass("DrawFileObject")
+PROCAddField(Class_DrawFileObject,"bounds")
+PROCAddField(Class_DrawFileObject,"buffer")
+PROCAddField(Class_DrawFileObject,"type")
+:
+Class_DrawFontTable=FNRegisterClass("DrawFontTable")
+PROCAddField(Class_DrawFontTable,"name$")
+PROCAddField(Class_DrawFontTable,"num")
+:
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEFPROCDrawPath_Construct
+@.list=FNnewList
+@.colour=FNnewColourRGB(255,0,0)
+@.outline=FNnewColourRGB(255,0,0)
+REM 8 for the end bit - 4 for end path, 4 for close path
+@.blocklen=8
+@.inputscale=FNnewScale(256,1)
+@.scale=FNnewScale(1,1)
+@.width=0
+ENDPROC
+:
+REM Create an empty draw path
+DEFFNnewDrawPath
+=NEW Class_DrawPath
+:
+DEFPROCDrawPath_Move(x,y)
+LOCAL new
+IF @.lastadded = Class_DrawPathMove THEN
+ new=FN@.list.Last
+ELSE
+ new=NEW Class_DrawPathMove
+ PROC@.list.AddAtEnd(new)
+ @.blocklen+=12
+ENDIF
+new.x=FN@.inputscale.ScaleBy(x):new.y=FN@.inputscale.ScaleBy(y)
+REM PRINT"WAS A MOVE:"
+REM PRINTnew.x
+REM PRINTnew.y
+@.lastadded=Class_DrawPathMove
+ENDPROC
+:
+DEFPROCDrawPath_Draw(x,y)
+LOCAL new
+IF @.lastadded=0 THEN ERROR "In a DrawPath you must move before you can Draw"
+new=NEW Class_DrawPathDraw
+new.x=FN@.inputscale.ScaleBy(x):new.y=FN@.inputscale.ScaleBy(y)
+PROC@.list.AddAtEnd(new)
+@.blocklen+=12
+@.lastadded=Class_DrawPathDraw
+ENDPROC
+:
+DEFPROCDrawPath_Bezier(x,y,scx,scy,ecx,ecy)
+LOCAL new
+IF @.lastadded=0 THEN ERROR "In a DrawPath you must move before you can Bezier"
+new=NEW Class_DrawPathBezier
+new.x=FN@.inputscale.ScaleBy(x):new.y=FN@.inputscale.ScaleBy(y)
+new.scx=FN@.inputscale.ScaleBy(scx):new.scy=FN@.inputscale.ScaleBy(scy)
+new.ecx=FN@.inputscale.ScaleBy(ecx):new.ecy=FN@.inputscale.ScaleBy(ecy)
+PROC@.list.AddAtEnd(new)
+@.blocklen+=28
+@.lastadded=Class_DrawPathBezier
+ENDPROC
+:
+REM Special kind of bezier curve with only one control point
+DEFPROCDrawPath_Bezier2(x,y,cx,cy)
+LOCAL new
+IF @.lastadded=0 THEN ERROR "In a DrawPath you must move before you can Bezier"
+new=NEW Class_DrawPathBezier
+new.x=FN@.inputscale.ScaleBy(x):new.y=FN@.inputscale.ScaleBy(y)
+new.scx=FN@.inputscale.ScaleBy(cx):new.scy=FN@.inputscale.ScaleBy(cy)
+new.ecx=FN@.inputscale.ScaleBy(cx):new.ecy=FN@.inputscale.ScaleBy(cy)
+PROC@.list.AddAtEnd(new)
+@.blocklen+=28
+@.lastadded=Class_DrawPathBezier
+ENDPROC
+:
+DEFFNDrawPath_DrawPath
+LOCAL list,ptr,block,path
+block=FNnewBlock(@.blocklen+20)
+list=FN@.list.First
+ptr=block.data
+WHILE list
+ path=list.data
+ CASE path.classofme OF
+  WHEN Class_DrawPathBezier
+   !ptr=6
+   !(ptr+4)=path.scx
+   !(ptr+8)=path.scy
+   !(ptr+12)=path.ecx
+   !(ptr+16)=path.ecy
+   !(ptr+20)=path.x
+   !(ptr+24)=path.y
+   ptr+=28
+  WHEN Class_DrawPathMove
+   !ptr=2
+   !(ptr+4)=path.x
+   !(ptr+8)=path.y
+   ptr+=12
+  WHEN Class_DrawPathDraw
+   !ptr=8
+   !(ptr+4)=path.x
+   !(ptr+8)=path.y
+   ptr+=12
+ ENDCASE
+ list=list.next
+ENDWHILE
+!ptr=5
+!(ptr+4)=0
+=block
+:
+DEFPROCDrawPath_Plot
+LOCAL transform,joins
+IF @.block=0 THEN @.block=FN@.DrawPath
+transform=FNnewTransform_ScaleTranslate(@.scale,@.x,@.y)
+IF @.colour<>Colour_Transparent THEN
+ REM Change colour
+ PROC@.colour.SetGraphics
+ SYS "Draw_Fill",@.block.data,0,transform.block.data,0
+ENDIF
+IF @.outline<>Colour_Transparent THEN
+ REM Change colour
+ PROC@.outline.SetGraphics
+ joins=FNnewBlock(16)
+ !(joins.data)=&00010101
+ !(joins.data+4)=0
+ !(joins.data+8)=0
+ !(joins.data+12)=0
+ SYS "Draw_Stroke",@.block.data,0,transform.block.data,0,@.width,joins.data,0
+ENDIF
+ENDPROC
+:
+DEFPROCDrawFile_Construct
+@.objects=FNnewList
+@.version=201<<16
+ENDPROC
+:
+DEFFNnewDrawFile(producer$)
+LOCAL new
+new=NEW Class_DrawFile
+IF producer$="" THENproducer$="IRClient"
+new.producer$=producer$
+=new
+:
+DEFPROCDrawFile_Add(instance)
+PROC@.objects.Add(instance)
+ENDPROC
+:
+DEFPROCDrawText_Construct
+REM Ensures that although we're inputting things as Draw units
+REM we can plot to the screen correctly (divide by 256 again!)
+@.inputscale=FNnewScale(256,1)
+@.scale=FNnewScale(1,1)
+ENDPROC
+:
+DEFFNnewDrawText(x,y,text$,font)
+LOCAL new
+new=NEW Class_DrawText
+new.text$=text$
+new.font=font
+new.x=FNnew.inputscale.ScaleBy(x)
+new.y=FNnew.inputscale.ScaleBy(y)
+=new
+:
+DEFPROCDrawText_Plot
+LOCAL x,y,scale
+scale=FNnewScale(1,256)
+scale=FN@.scale.ScaleBy(scale)
+x=FNscale.ScaleBy(@.x)
+y=FNscale.ScaleBy(@.y)
+PROC@.font.Plot(@.text$,x,y)
+ENDPROC
+:
+REM Adding something to a drawfile should put it at the top
+DEFPROCDrawFile_Add(instance)
+PROC@.objects.AddAtEnd(instance)
+ENDPROC
+:
+DEFFNnewDrawFileObject(type)
+LOCAL new
+new=NEW Class_DrawFileObject
+new.type=type
+new.buffer=FNNewBuffer
+=new
+:
+DEFFNDrawFile_Generate
+REM This is the easiest way for the time being
+LOCAL block,a$,drawbuffer
+drawbuffer=FNNewBuffer
+block=FNnewBlock(256)
+$(block.data)="Draw"
+!(block.data+4)=@.version>>16
+!(block.data+8)=@.version AND &FFFF
+a$=LEFT$(@.producer$,12)
+a$+=STRING$(12-LEN(a$)," ")
+$(block.data+12)=a$
+PROCBufferAdd(drawbuffer,block.data,24)
+LOCAL item,bounds,newobj,secondbuf
+bounds=0
+secondbuf=FNNewBuffer
+REM First we must scan for text areas - irritating, huh ?
+item=FN@.objects.First
+LOCAL textarea,fontlist,textarean,name$,textsize
+textarean=1:fontlist=FNnewList
+WHILE item<>0
+ IF item.data.classofme=Class_DrawText THEN
+  name$=item.data.font.localname$
+  IF FNfontlist.FindS(name$)=0 THEN
+   textarea=FNnewDrawFontTable(name$,textarean)
+   PROCfontlist.Add(textarea)
+   textsize+=(LEN(name$)+2+3) AND NOT 3
+   textarean+=1
+  ENDIF
+ ENDIF
+ item=item.next
+ENDWHILE
+REM Place the table in the buffer
+item=FNfontlist.First
+IF item<>0 THEN
+ !(block.data)=0
+ !(block.data+4)=textsize+8
+ PROCBufferAdd(secondbuf,block.data,8)
+ WHILE item<>0
+  ?(block.data)=item.data.num
+  !(block.data+LEN(item.data.name$)+1)=0
+  $(block.data+1)=item.data.name$
+  PROCBufferAdd(secondbuf,block.data,(LEN(item.data.name$)+2+3) AND NOT 3)
+  item=item.next
+ ENDWHILE
+ENDIF
+REM Now we can generate the main paths and things
+item=FN@.objects.First
+WHILE item<>0
+ IF item.data.classofme <> Class_DrawText THEN
+  newobj=FNitem.data.Generate
+ ELSE
+  newobj=FNitem.data.Generate(fontlist)
+ ENDIF
+ REM Generate returns a DrawFileObject instance
+ IF newobj.bounds<>0 THEN
+  IF bounds=0 THEN
+   bounds=newobj.bounds
+  ELSE
+   REM If this wasn't the first item then add it to the bbox
+   bounds=FNbounds.Composite(newobj.bounds)
+  ENDIF
+ ENDIF
+ !(block.data)=newobj.type
+ !(block.data+4)=FNBufferLength(newobj.buffer)+8
+ PROCBufferAdd(secondbuf,block.data,8)
+ PROCBufferAdd(secondbuf,FNBufferAddr(newobj.buffer),FNBufferLength(newobj.buffer))
+ REM This isn't done automatically
+ PROCFreeBuffer(newobj.buffer)
+ item=item.next
+ENDWHILE
+REM Now add the secondary buffer to the drawbuffer (header)
+IF bounds=0 THEN bounds=FNnewBounds
+PROCBufferAdd(drawbuffer,bounds.block.data,16)
+PROCBufferAdd(drawbuffer,FNBufferAddr(secondbuf),FNBufferLength(secondbuf))
+REM Free the second buffer
+PROCFreeBuffer(secondbuf)
+=drawbuffer
+:
+DEFFNDrawPath_Bounds
+LOCAL block
+block=FNnewBlock(16)
+LOCAL transform,joins
+transform=FNnewTransform_ScaleTranslate(@.scale,@.x,@.y)
+joins=FNnewBlock(16)
+!(joins.data)=&00010101
+!(joins.data+4)=0
+!(joins.data+8)=0
+!(joins.data+12)=0
+IF @.block=0 THEN @.block=FN@.DrawPath
+REM Find the size of the block
+SYS "Draw_ProcessPath",@.block.data,0,transform.block.data,0,@.width,joins.data,0,(block.data) OR &80000000
+=FNnewBounds_Memory(block.data)
+:
+DEFFNDrawText_Bounds
+LOCAL bounds
+bounds=FN@.font.Bounds(@.text$)
+bounds.xmin+=@.x
+bounds.ymin+=@.y
+bounds.xmax+=@.x
+bounds.ymax+=@.y
+=bounds
+:
+DEFFNDrawText_Generate(fontlist)
+LOCAL new,block
+new=FNnewDrawFileObject(1)
+REM Add bounding box !!!!
+new.bounds=FN@.Bounds
+PROCBufferAdd(new.buffer,new.bounds.block.data,16)
+block=FNnewBlock(28)
+!(block.data)=@.font.colour.palette
+!(block.data+4)=@.font.background.palette
+LOCAL fnum
+fnum=FNfontlist.FindS(@.font.localname$)
+!(block.data+8)=fnum.data.num
+!(block.data+12)=@.font.points*40
+!(block.data+16)=@.font.points*40
+!(block.data+20)=FN@.scale.ScaleBy(@.x)
+!(block.data+24)=FN@.scale.ScaleBy(@.y)
+PROCBufferAdd(new.buffer,block.data,28)
+block=FNnewBlock((LEN(@.text$)+4) AND NOT 3)
+$(block.data)=@.text$
+PROCBufferAdd(new.buffer,block.data,(LEN(@.text$)+4) AND NOT 3)
+=new
+:
+DEFFNDrawPath_Generate
+LOCAL new,block
+new=FNnewDrawFileObject(2)
+REM Add bounding box !!!!
+new.bounds=FN@.Bounds
+PROCBufferAdd(new.buffer,new.bounds.block.data,16)
+block=FNnewBlock(16)
+IF @.colour=Colour_Transparent THEN
+ !(block.data)=-1
+ELSE
+ !(block.data)=@.colour.palette
+ENDIF
+IF @.outline=Colour_Transparent THEN
+ !(block.data+4)=-1
+ELSE
+ !(block.data+4)=@.outline.palette
+ENDIF
+!(block.data+8)=@.width
+!(block.data+12)=(1<<0)+(1<<2)+(1<<4)
+PROCBufferAdd(new.buffer,block.data,16)
+REM Right, that's the pre-amble over with, now to fill it up
+IF @.block=0 THEN @.block=FN@.DrawPath
+LOCAL transform,joins,newblk
+transform=FNnewTransform_ScaleTranslate(@.scale,@.x,@.y)
+joins=FNnewBlock(16)
+!(joins.data)=&00010101
+!(joins.data+4)=0
+!(joins.data+8)=0
+!(joins.data+12)=0
+REM Re-scale the block
+newblk=FNnewBlock(@.blocklen+20)
+!(newblk.data+0)=0
+!(newblk.data+4)=@.blocklen+20
+SYS "Draw_ProcessPath",@.block.data,0,transform.block.data,0,@.width,joins.data,0,newblk.data
+PROCBufferAdd(new.buffer,newblk.data,@.blocklen)
+REM We can no-longer use that block because it's been scaled
+=new
+:
+DEFFNnewDrawFontTable(name$,num)
+LOCAL new
+new=NEW Class_DrawFontTable
+new.name$=name$
+new.num=num
+=new
+:
+DEFFNDrawFontTable_CompareS(name$)
+=FNstricmp(name$,@.name$)

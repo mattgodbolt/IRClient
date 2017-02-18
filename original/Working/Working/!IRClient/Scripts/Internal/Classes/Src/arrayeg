@@ -1,0 +1,14 @@
+REM >ArrayEg
+END
+
+DEFPROCinit
+handlers=FNnewStrArray
+handlers["justin"]="hello"
+handlers[a$]="hello"
+handlers[6]="what?"
+handlers[a]="what ?"
+handlers=FNnewIntArray
+handlers["justin"]=FNnewStrArray
+handlers["justin"]["hello"]="what?"
+ENDPROC
+:

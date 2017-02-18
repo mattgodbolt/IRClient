@@ -1,0 +1,58 @@
+REM >IdentD
+REM Provide Identd support for IRClient
+REM (c) TheMoog, extracted by Gerph
+REM ---
+REM $Id: IdentD 1.1 98/02/02 16:00:55 gerph Exp $
+REM $Log:	IdentD $
+REM Revision 1.1  98/02/02  16:00:55  gerph
+REM Initial revision
+REM 
+REM ---
+END
+:
+LOCAL IdentSocket,Identing,IdentBuffer
+:
+DEF PROCInitialiseModule
+REM Initialise MOTD buffer and listen
+PROCStartupStatus("Initialising IdentD...")
+IdentSocket = FNListen(113,"IdentServer",0)
+IdentBuffer = FNNewBuffer
+Identing    = FALSE
+IF IdentSocket=0 THEN
+ REM I've made this silent
+ REM PROCNotify("Unable to start IdentD server")
+ENDIF
+REM Pass on to other modules
+PROC@
+ENDPROC
+:
+REM Give ourselves a sensible name
+DEF FNOverload_ScriptInfo(num)
+LOCAL ret$
+IF num=0 THEN
+ ret$="Identd v"+FNRCSVersion("$Revision: 1.1 $")+" (TheMoog)"
+ELSE
+ ret$=FN@(num-1)
+ENDIF
+=ret$
+:
+DEF PROCIdentServer(i1,eqhandle)
+  LOCAL socket
+  IF NOT Identing THEN
+    socket = FNAccept(eqhandle,"","IDIncoming",0)
+    Identing = TRUE
+  ENDIF
+ENDPROC
+
+DEF PROCIDIncoming(i1,eqhandle)
+  LOCAL numbytes,str$
+  numbytes = FNReadToStaticBuffer(eqhandle)
+  PROCBufferAdd(IdentBuffer,FNStaticBufferAddr,numbytes)
+  str$=FNGetLineFromBuffer(IdentBuffer)
+  IF str$<>"" THEN
+    PROCSendString(eqhandle,str$+" : USERID : RISCOS : "+FNGetUsername)
+    PROCDisplayCTCP("Ident received for '"+str$+"'","")
+    PROCClose(eqhandle)
+    Identing = FALSE
+  ENDIF
+ENDPROC

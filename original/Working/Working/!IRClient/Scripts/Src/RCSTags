@@ -1,0 +1,16 @@
+REM > RCSTags
+REM These are the RCS tags we can embed in BRCS files
+REM $Author: gerph $
+REM $Date: 98/02/02 15:17:59 $
+REM $Header: Src.RCS.RCSTags 1.1 98/02/02 15:17:59 gerph Exp $
+REM $Id: RCSTags 1.1 98/02/02 15:17:59 gerph Exp $
+REM $Locker:  $
+REM $Log:	RCSTags $
+REM Revision 1.1  98/02/02  15:17:59  gerph
+REM Initial revision
+REM 
+REM $RCSfile: RCSTags $
+REM $Revision: 1.1 $
+REM $Source: Src.RCS.RCSTags $
+REM $State: Exp $
+

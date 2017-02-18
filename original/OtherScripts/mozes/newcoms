@@ -1,0 +1,674 @@
+New Commands for IRCLib script version 0.22
+by Stuart Winter
+
+Where there is "[¤]" it indicates that you need to be a channel
+operator on the channel where the action is performed.
+
+==
+/TC
+
+syntax: /TC <channel name> <message to the channel>
+eg.   : /TC ArgoNet looks through the window and comes in
+
+note, this command doesn't need a " # " chaaracter.
+
+What it does is to put the equivelant of a '/ME' command into the
+channel without you neccessarily being on it.
+
+It also puts a message into the server window telling you which
+channel you have sent it to, and what message has been sent.
+
+The errors you may incure whilst using this command is that you do
+not have any privileges to talk to the channel - this is probably
+because someone has disabled extranal messages to the channel.
+==
+
+/NTCHANGE [¤]
+syntax: /NTCHANGE
+
+All this command does is to stop non channel operators of the
+currently selected channel from changing the topic.
+
+This was added because occasionally the /MODE #<channel> didn't work
+
+==
+
+/LETTOPIC [¤]
+syntax: /LETTOPIC
+
+Respectivly, this command is the reverse of the /NTCHANGE command.
+
+==
+
+/SECRET [¤]
+syntax: /SECRET
+
+All this command does is to simply change the mode of the channel so
+that it is "Private","Secret" and "Invite only".  It is basically
+easier than typing #MODE #<channel> +p +s +i
+Also, this command only operates on the currently selcted channel
+(eg. the one which you are talking to - the window for that channel
+is yellow)
+
+==
+
+/UNSECRET  [¤]
+syntax: /UNSECRET
+
+This command is the reverse of /SECRET
+
+==
+
+/TOTALBAN  [¤]
+syntax: /TOTALBAN
+
+This command bans absoultely everyone from getting onto the channel
+which you are currently talking to.  However, I do not reccommend
+using it on public channels (eg. #acorn, #argonet etc) as you may
+find yourself quite flamed :-)
+
+
+==
+
+/TOTALUNBAN [¤]
+syntax: /TOTALUNBAN
+
+This command is the reverse of /TOTALBAN
+
+This command is more useful - as it as unbans all ban lists, and will
+then let anybody on.  
+
+==
+
+/MSGWINDOW
+syntax: /MSGWINDOW <user_on_irc>
+
+What this command does is to open a query window to the user which
+you specify.
+This command is mainly only useful when you can not click on their
+user name because you aren't on the channel which they are on - for
+example, someone is /MSGing you and their messages are ariving in the
+"Server Messages" window.  So, to save you typing 
+"/MSG <whoever> <what ever message>", you simply open a window to
+them, and all their text will arrive in it, and you can talk back
+inside the window.
+
+==
+
+/MY
+syntax: /MY dog is black
+
+This command performs exactly the same operation as a /ME, except
+that this puts " 's " before the text.
+So the other users see:
+"*MoZes 's dog is black"
+(however, on your screen there is no space before the " 's ", and
+your user name.
+
+==
+
+/MD
+syntax: /MD prefer chocolate to a strawberry
+
+This command is exactly the same as /MY exept that is puts a 
+" 'd " after the user name.
+
+==
+
+/OH
+syntax: /OH
+
+Since most people on IRC seem to say "Oh" quite a lot, because they
+can't be bothered to type., " oh, okay" etc. This command has been
+added.
+
+What it does is to simply put the text "Oh, right, okay" in the
+screen.
+
+==
+
+/ARGONET
+syntax: /ARGONET
+
+This command simply joins onto the channel #ArgoNet
+
+==
+
+/ACORN
+syntax: /ACORN
+
+The easy way to join #Acorn :-)
+
+==
+
+
+/BRB
+syntax: /BRB [any reason]
+
+This simply displays 
+"*MoZes will BRB (<the reason if any given>)"
+
+==
+
+/BACK
+syntax: /BACK
+
+This simply tells the users that you are back
+(works along with the BRB command)
+
+==
+/AGE
+syntax: /AGE
+
+This displays your age on the screen in the form of
+a /ME command - you have to set your age in the script
+(which is at the top of the script)
+
+==
+
+/ISN
+syntax: /ISN
+
+This simply says that you aren't doing something
+for instance..
+somebody says "*Jim is going down the pub and going to get drunk"
+you could put
+
+/ISN :-((
+which would produce 
+"*MoZes isn't :-(("
+
+==
+/IS
+syntax: /IS
+
+This command is the same as /ISN but says "Is" :-)
+
+==
+
+/CYA
+syntax: /CYA [reason]
+
+This command informs the users that you are leaving the channel by
+saying "*MoZes is leaving now.. bye.." (assuming you were called
+"MoZes".
+
+However, if you had a reason for leaving, or were going to come back
+later then you could put
+
+/CYA be back about 10pm
+
+Which would put on the screen
+"*MoZes is leaving now.. bye.. (be back about 10pm)"
+(and yes, it does put the brackets in)
+
+==
+
+/EMAIL
+syntax: /EMAIL [anything else you want to say about it]
+
+This command puts your email address on the screen as in the form of
+a /ME command.  (You need to edit the script to change the email
+address)
+
+If you want to say anything else about it.. for instance, that you
+will be changing it soon.. then put..
+
+/EMAIL I'll be changing it soon tho
+
+==
+
+/URL
+syntax: URL [anything else you want to say about it]
+
+This command does the same thing as /EMAIL except that this displays
+your www address.
+Again, you have to edit the script to set it.
+
+==
+
+/QOP [¤]
+syntax: /QOP
+
+This command promotes a specified list of people (which is in the
+variable at the very top of the script) to Channel operator status.
+The point of this is because occasionally when "nasty" people decide
+to take over the channel, (de opping people) this is the best way to
+try and regain control.  By promoting people to channel operators
+again quickly, they can then quickly kick the offender off the
+channel and restore order.
+
+Of course, you have to make sure that you are quick enough, before you
+get deopped :-)
+
+To edit the list of people, simply add their name to the list.
+
+This list of people is also the same as the list of people who automatically
+get prompted to chanop status.
+
+==
+
+/JOINTOG
+syntax: /JOINTOG
+
+This command simply dictates whether or not as soon as you are kicked
+off a channel, you rejoin is straight away.
+Useful if people are messing around.
+
+==
+/OPALL [¤]
+syntax: /OPALL
+
+This command works in basically the same manner as the autogreets do,
+however, what this does is to Automatically Promote /any/ new user
+who joins the particular channel that you are on to ChanOp status.
+(Of course, you need to be a chanop to actually get the command to 
+be able to do it)
+
+The reason behind this is basically because, say, if the channel is
+Invite-Only, then the new user /must/ have been invited - so you may
+assume that they are legibale to have chanop status straight away.
+And of course, they don't have to be in any autop op list.
+
+==
+
+/IRCLOG 
+syntax: /IRCLOG <filename to log the channels into>
+
+What this command does is to simply take
+almost /everything/ that enters the screen and place it into
+a file specified by the user.
+
+Basically, this is useful for seeing what people have said on
+a particular night or something, or just basically if you are
+testing a command on the screen and want to record the results.
+Whatever u can think of - I'm sure u can think of an appropriate
+reason for its use.
+
+It does not record the /NOTIFY or /IGNORE or /STATUS command
+outputs to the screen as I didn't see any reason whatsoever
+for making it do it.
+What it does it to take everthing else tho and put it inside
+a text file like this...
+
+ (#ArgoNet) <Gelfink> 1996
+ (#argonet) <Wheetzy> I don't have another address because we only have one computer
+ (#ArgoNet) <Gelfink> 2001
+ (#ArgoNet) ~* MoZes is logging now
+ (#ArgoNet) <foggy> :-p
+ (#ArgoNet) <Gelfink> I have one computer and two addresses
+ (#ArgoNet) <MoZes> whets: but aegonet do extra ines - I used to have 2 when I wa on argonet
+ (#ArgoNet) ~* MoZes turns off logging
+ 
+I hope they don't mine me putting that there :-)
+
+[the case differences in #ArgoNet are because Gelf and Foggy have joined
+Argonet through the /ARGONET command in my script]
+ 
+The channel name in brackets also changes say, if I was on
+#Acorn at the same time - messages from acorn would also
+be stored in the same file - so you might have one line from
+#ArgoNet and one from #Acorn.
+Also, it records your MSGs :-P
+
+Also, as you can see - where I have started logging, I 
+did a /ME action - it records them by putting a ~ infront of it..
+infact, it does that for /all/ ACTION CTCPs.
+
+
+==
+
+/ENDIRCLOG
+syntax: /ENDIRCLOG
+
+This command turns off IRCLogging.
+
+==
+  
+/SENDTOIRC
+syntax: /SENDTOIRC <text to send to the IRC server>
+
+This command simply sends anything you want to the IRC server,
+just incase I haven't already done a command which does it :-)
+
+Just for an example..
+
+/SENDTOIRC names #acorn
+
+for example would display the names of the people who are
+on the channel #acorn.
+(of course you can already do that with the /NAMES command..
+but its usefull for other things)
+
+
+========
+
+/BOTOP 
+syntax: /BOTOP <registered password with the bot>
+
+This command sends a private message to the bot to
+1) Identify yourself to it by sending a message 
+   Ident <your password>
+   this is so that ot makes sure it recognises you first
+
+2) Sends another message telling it you want to be opped
+   Op <your password>
+
+Then hopefully, the bot will recognise you and give you
+ops - assuming you have the right password :-)
+
+At the moment, the IRClib is configured to use the 
+bot JadZia which is hanging around on channel
+#ArgoNet... but you can change it
+(its at the top of the program called
+your_bot$="JadZia"  --- just change the name
+to which ever bot you want)
+
+=====
+
+/LIFELINE
+syntax: /LIFELINE <on> [but NOT off]
+
+This command is useful because when you leave the computer
+connected to IRC - you may sometimes get pinged out
+by whichever server you're connected to because you haven't
+said anything to it for a while.
+
+What it does is to keep sending a MSG to 
+yourself, and putting the results inside a query
+window - so it doesn't mess up the channel that you are on.
+
+It will perform an MSG to yourself everytime someone on the channel
+says something, or someone messages you - infact, it works
+at the same time as the NOTIFY command.
+
+To turn this command off, just type
+/LIFELINE
+[then close the query window yourself :-)  ]
+
+===
+
+/NUPDATE
+syntax: /NUPDATE
+
+This command is simply updates the user table on the
+right hand side of IRCLient's channel window.
+
+What it does, is to simply send a NAMES command to the 
+server requesting the names of everyone on the channel
+that you have currently selected in IRClient - and
+this then updates the user table, and also shows
+on the screen who is on the channel.
+
+This is useful because sometimes IRCLient doesn't
+quite pick up on the fact that someone's left or joined
+and to save you changing you nick so that it updates
+the screen - you can now simply do this instead.
+
+====
+
+/TIME
+syntax: /TIME
+
+This command simply shows the current time on whatever channel/window
+is selected.
+
+==
+
+
+/MODE  [¤]
+syntax: /MODE <mode change | mode change>
+
+This command changes the modes of the currently selected channel.
+And circulates through all of them passed to it and applies them
+individually, as you can see on the screen.
+
+The original MODE command only worked for single mode changes,
+but this one can have as many as you want, as long as they
+are seperated by spaces.
+
+e.g.
+
+/MODE +s +p +m +i
+etc etc..
+
+NOTE:  You don't include the channel name with this command, as
+in its predecessor.. as I didn't really see the point :-)
+Also, this command does NOT support chanop promotions
+(eg. /mode +o ircuser) , or  bans
+or indeed, any other command that requires a IRC User's
+name to be passed to it.
+For Chanop promotion use /OP - /deOP
+For Ban, use /BAN
+
+
+===
+
+/HI
+syntax: /HI
+
+This command reads the nickname of the last person who joined
+the selected channel, and then says "Hiya <whoever>"
+
+Its not an autogreet- and saves you from typing out their
+full name -or shortening it somewhat.
+
+==
+
+/MACINFO
+syntax: /MACINFO <user>
+
+This command simply performs a CTCP MACHINEINFO on the selected 
+user.  Basically an easy way of typing /CTCP <user> MACHINEINFO
+
+Note:  You may /not/ always get a reply to from this though, 
+this is because MACHINEINFO is non-standard - and only exists
+in IRCClient 0.21 and upwards.
+
+==
+
+/PING
+syntax: /PING <user>
+
+This command performs a CTCP <user> PING 
+quicker than /CTCP <user> PING
+
+==
+
+/VER
+syntax: /VER <user>
+
+Same as above, but issues a CTCP VERSION which
+reports the version of the IRC Client that they are
+using back to you.
+
+However, people using RAW IRC or dismayl.demon.co.uk,port23
+won't issue a version code back - this also goes for
+some IRC CLients
+
+==
+
+/TIM
+syntax: /TIM <user>
+
+This does the same as the above but issues a 
+CTCP <user> TIME.
+
+Note : the CTCP TIME function on some versions
+of IRCClient may cause them to crash - this is
+due to an error in the code of the main program.
+
+==
+
+/SKICK [¤]
+syntax: /SKICK
+
+This command either activates or deactivates the
+swear kicking procedure.
+
+When active, this procedure scans whatever is going
+to the channels that you are on, and checks whether
+a person has said a swear word that is present in your
+swear word list (which is at the top of the client - 
+clearly visible :-)  ).
+
+If it does find a word matching one of the words in 
+this list, then it will kick them off (ONLY if you
+have chan op privileges though).
+However, if /you/ type in a swear word - then it
+will NOT kick you off :-)
+
+You can toggle this command by just typing 
+/SKICK  - it will show you a little window on 
+the screen as to what it's status is every time
+you use the command.
+You can also see what status it is, by typing
+/STATUS.
+
+note: When using this procedure, if you have a 
+slowish computer, you will probably notice a short
+delay before the text gets displayed to the screen
+(It will probably look like you are experiencing lag)
+This is simply because it takes a short time to check
+the sentance (esp if its a large one) against the
+swear list.
+
+I WOULD NOT advise you to *EVER* use this command
+alongside the IRCLOG command because you will almost
+grind to a halt!!
+
+
+=====
+
+/TEXTLINE
+syntax: /TEXTLINE <filename>
+
+This command takes the filename passed to it, and reads the file
+and puts it onto the screen so everyone else can see it (basically
+it saves you typing it out).  Its a simple as that.
+
+Now, at the moment, this command could be described as 'bugged'. 
+This is because it has to look for a certain marker in the file
+to determin the end of it.. this isn't because I'm stupid, and 
+don't know how to check for the end of files using EOF, but because
+IRCLient doesn't support (that I know of) the EOF command.. so unless
+you have the marker at the end of the file, then you will get an 
+"End of file" error from IRclient in the debug window.
+
+The marker that you need to put at the end of the file is
+just one of these characters.
+
+ -   ¤   -
+
+So, take this text for example...
+"Yes, I really would like to buy your really over priced hard disks
+even though I know that they are, because I like the way that you 
+have nice pictures on your receipts¤"
+As you can see, the marker (¤) at the end will stop the text there, and
+then the file will get closed and all that text will be displayed.
+
+Of course, though, you shouldn't pass massive ammounts of text through
+the command - as it may cause IRClient to crash, or the server to 
+think you're flooding or something.
+
+==
+
+/ADDOP
+syntax: /ADDOP <new users too add to the auto ops lists>
+
+This command temporarily adds people to your auto ops lists.
+It makes a completely new one - so that when you type /SHOWOPS
+you will notice that there is now an extra list.
+
+To add them permenantly, you should add them into the script.
+
+==
+
+/SHOWOPS
+syntax:  /SHOWOPS
+
+This command dumps onto the screen, the whole list of people
+who get auto opped.
+
+No particular use - but there you go! :-)
+
+==
+
+/VOICE [¤]
+syntax: /VOICE <user>
+
+This command lets a particular IRC user to talk on a channel
+which is moderated (ie. only chan ops may talk).
+
+==
+
+/NOVOICE [¤]
+syntax: /NOVOICE <user>
+
+This command is the opposite of /VOICE  so if the user
+does not have chan ops on the channel, and it is
+moderated - they can't talk.
+
+
+=====
+
+
+
+
+******CHANGES*******
+
+/TOTALUNBAN
+
+This command previously used to simply unban a mask of "*!*@*" and
+that was simply it.  However, this DOES NOT remove every ban assigned
+to the channel.
+
+What this command does, is to actually now unban /everything/ that is
+set the channel - which is clearly visible on the channel.
+
+It works by you typing /TOTALUNBAN, then requesting a ban list from
+the server, and then removing every one that is passed to it.
+
+This however, isn't a transient command - it remains active until it
+is disabled by /TOTALUNBAN... which means, that whenever a ban list
+is requested from the server (by typing either 
+/BAN or /MODE #channel +b), all of the bans will be removed.
+
+So, if you *just* want to view the ban list, then you will have to turn
+off the unbanning.
+
+You can tell whether or not the unbanning is on, by looking at the
+status from the command /STATUS
+
+========
+
+/TIME
+syntax
+This command has been just slightly edited so that it returns
+the time in the format of AM and PM, instead of the 24hr clock.
+This is because I sit there trying to work out what the hell the
+time is! :-)
+
+This also goes for the /CTCP <user> TIME
+==
+
+
+
+
+
+===
+
+
+
+
+
+At the top of the IRCLib Script, there is some code which dictates
+which users automatically get auto opped - I have left some people in
+it - so you can see how it works, as it is now programmed differently
+from last time, so that you can now have an almost infinate number
+of people in the list .. and not get limited to a 255character
+text string.
+
+  ** PLEASE REMOVE THE PEOPLE FROM THE LIST THAT YOU DO NOT KNOW EXIST! **
+
+

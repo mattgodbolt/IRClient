@@ -1,0 +1,32 @@
+Done:
+
+è Rather late...single line IFs - only needed 6 lines changing....dunno why
+  I didn't do it at the start...
+
+è Removal of loadsa defunct calls to StripSpaces in IRBasic which are not needed
+  now 'cos of all whitespace being stripped on load
+
+è New hton function (htonl()) as stolen from ARM - very cunning :))) Have a
+  loook (it's in IRCSource)
+
+è SynchCodeAreas parameters fixed (didn't actually realise it took any!)
+
+è Bug in the whitespace stripper fixed (no more memory freed tho' :( )
+
+è Dave Thomas' Templates and sprites added, and a minor fix to the redraw code
+  imped to make them look better.
+
+è PROC re-entrancy problems fixed - your new code should now work!
+
+è Memory wrapper routines and strcmp/strlen routines streamlined, and made
+  cache-aware == more speed!!!!!!!! (noticeably, even!)
+
+è Clipboard stuff added so key bindings can use clipboard
+
+è Bug in File class fixed - which shows up the following problem:
+NB BUG IN += AND -= - don't use @ or FN on either side till I work out why!
+
+è Magrathea changed to use single-line IFs - although I think it's a bit older
+  than the one you've got - check first!
+
+Enjoy!

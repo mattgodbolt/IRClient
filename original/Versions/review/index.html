@@ -1,0 +1,236 @@
+<head>
+<title>Magrathea development review</title>
+<!-- Author: Justin Fletcher -->
+<!-- Produced by Archimedes !Zap -->
+</head>
+<body>
+<h1 align=center>Magrathea can cater for you - we are not proud</h1>
+
+<h2>Introduction</h2>
+
+<h3>What is IRC ?</h3>
+Basically, IRC allows you to chat to many people across the world
+simultaneously through a group conference (channels) or on an individual
+level (private messages). There's not much more to IRC than that usually,
+except that you can transfer files across the world using it and, of course,
+you meet an extraordinarily diverse group of people.
+
+<h3>What programs are there ?</h3>
+Currently the IRC scene is positively bustling with clients being written for
+it. There are three known groups developing IRC clients (the program used to
+access the IRC network) :
+
+<ul>
+
+<li>iXRC, by QuadWorks<br>
+This will be a commercial IRC client, and is currently being written in C by
+a group of four programmers who can usually be found 'hanging around on
+#acorn' - Jonix, TheMage, Ajith. Currently nobody outside the group
+has seen iXRC, though if the reports from it's writers are to be believed
+it's definately going to be something to watch out for. Some of it's features
+include writable icons for each channel or chat, dcc chat and send, BASIC
+style scripting and a few 'secret' features.
+
+<li>Rabbit, by RiscTaker<br>
+Whilst I haven't seen much of RiscTaker on IRC recently, I've heard some very
+interesting things about Rabbit. Rabbit, it would appear, is a scripted IRC
+client which can do much of the work of other applications with very little
+configuration. However, information is sketchy, so I'm reluctant to say more.
+
+<li>IRClient, by Matthew Godbolt<br>
+IRClient comes in two flavours - 0.16 and 0.22. The main reason for this is
+that Matthew got fed up and re-wrote the whole application after 0.16 was
+released. 0.16 uses a single window to perform all operations, but has dcc
+chat and send working. 0.22 however uses multiple windows for chats, but
+doesn't include dcc options.
+
+</ul>
+
+<p>Currently however, the only freely available clients are IRClient 0.16 and
+0.22, so these tend to be the most often used.
+
+
+<h2>So what <i>is</i> Magrathea ?</h2>
+Magrathea is a set of scripts for IRClient 0.24 onwards. I hear you all
+crying out that I just said IRClient had only got 0.16 and 0.22 versions -
+the thing is that 0.24 (and recently 0.26) have yet to be released due to
+their instability. When they are released however, you'll know pretty much
+what to expect...
+
+<h3>Ok, so what will I expect ?</h3>
+IRClient 0.22 based around a script system for it's entire connection so it
+is extremely expandable. The fact that the script is actually BASIC only
+makes it easier to modify. It <i>is</i> BASIC of a sort, before you re-read
+the last line. The entire BASIC language has been re-written in Assembler by
+Matthew simply to provide an easy to use programming interface for the
+client. This in itself is pretty amazing (well, <i>I</i> think so), but
+better still, the language has been improved.
+
+<h3>An improvement to BASIC ?</h3>
+One of the things about BASIC which makes it so difficult to expand is the
+fact that you can't just replace one routine by another, whilst keeping the
+functionality of the first - Overloading procedures and functions. When this
+was first added it was thought that it would be just a novelty thing, however
+this one thing has had enormous implications for the entire language.
+
+<p>For example, say you have a routine to display text in the window, with
+the form <code>PROCDisplay(message$,from$,window$)</code>. This is all fine
+and dandy, and you've used it throughout your code. However, you suddenly
+think it might be useful to have things logged to a file. With normal BASIC
+it's not too hard, as you just do a search and replace for
+<code>PROCDisplay(</code> and  replace it with (for example)
+<code>PROCLog_Display(</code>. But, if you have lots of libraries which use
+the <code>PROCDisplay</code> routine you'll have to go through each of those
+replacing the calls.
+
+<p>IRClient however, allows you to get around this much more simply. If you
+include a routine in another library (or module as they are called) which is
+also called <code>PROCDisplay</code> then it will be called before the
+original routine. So you can quite happily output the message to the file
+with something like :
+
+<pre>o=OPENOUT("$.file")
+BPUT#o,message$
+</pre>
+
+and then stick on the end of the procedure a call to
+<code>PROC@(message$,from$,win$)</code> which will pass the call onto the
+original routine. Or more specifically, pass the call on to the routine
+called prior to that module being loaded.
+
+<p>Before you start wondering how useful that is, I'll just mention a few of
+the calls which I've used overloading to provide extensions :
+
+<ol>
+
+<li><code>PROCInitaliseModule</code><br>
+Every module has this procedure if it wishes to set up some variables for
+itself. Since every module is called in turn this can lead to problems with
+the <a href="#dependancy">dependancies</a>.
+
+<li><code>FNOverload_ScriptInfo</code><br>
+Any major module (which provides functionality to the client) should contain
+this function to return it's name.
+
+<li><code>PROCOverload_UnknownCommand</code><br>
+If the user enters an unknown command in a chat window it is passed to this
+procedure. Each individual module can check the command against it's own list
+of commands, process it if it recognises it, and pass the call on if it
+doesn't.
+
+<li><code>PROCOverload_UnknownCTCPRequest</code><br>
+Whenever another client issues a CTCP (Client To Client Protocol - used for
+encoding more complex functions) request to you, this routine is called and,
+like the UnknownCommand call, it is processed by each to give them a chance
+to reply and perform any actions necessary.
+
+</ol>
+
+<h3>How fast is all this then ?</h3>
+You've probably been wondering how fast this all runs whilst you are
+connected, what with all this overloading and things. Well, I'm developing
+Magrathea on my A5000 running it locally and over an intranet consisting of
+an econet connection to <!-- Subliminal message: Buy iXRC ! --> another A5000
+and through a slip connection to an amiga and to be quite honest it's not bad
+at all. On that system I'll admit that IRClient actually runs faster than the
+intranet link, but on the pipex connection I was using at home I was still
+very much able to use the computer for other things (memory constraints
+excepting).
+
+<h2>What are we working on then ?</h2>
+Recently, I redesigned the entire layout of the Magrathea directory such that
+it's now very modular. Each extension module lives in a directory called
+Modules, in directories containing their resources and possibly a dependancy
+file.
+
+<h3><a name="dependancy">Dependancies ? In Basic ?</a></h3>
+Because of the way in which the overloads work, it isn't simply possible to
+scan the Modules directory and load <i>everything</i>. When I did this I
+found that those module which added extra features to other modules might not
+start up in the right order and so the overloads wouldn't be performed. Thus,
+I had to write a dependancy processor so that the modules can be loaded in
+the correct order. Unfortunately, as you can add or remove modules now at any
+time (and soon there will be a configuration option to install or remove
+modules), it is possible that this could occur before you connect, or in the
+time between disconnecting and re-connecting, this needs to be done at run
+time.
+
+<p>Thus, we have a dependancy module living in the 'Default' directory, which
+checks a file showing the dependancies, constructs a dependancy tree, loads
+the files in the correct order and reports any loops and invalid dependancies
+to you. Some may argue that this is a tad over the top for a simple IRC
+client, but the way I've attempted to make the system modular means that
+these horrible things must be included.
+
+<h3>Go on then... What else ?</h3>
+Other recent additions include a Scheduler module (which will allow you to
+use <code>PROCAddCallBack</code> to ensure that you are called back after a
+certain period), a Logs module (performing appoximately the code above), and
+a Samples module (to play samples when particular events take place).
+
+<h3>Yes... and ?</h3>
+Oh, alright then, you've talked me into it, but don't tell anyone; this can
+be our little secret, alright ?
+
+<h2><a href="modules.html">Modules</a></h2>
+Currently there are 20 individual modules, of which only some are actually
+useful to the end user. Those of interest are :
+
+<ul>
+<li><a href="modules.html#dcc">DCC</a> - Direct chats
+<li><a href="modules.html#dccsend">DCCSend</a> - File transfer
+<li><a href="modules.html#email">Email</a> - an <i>very</i> simpleemail address database
+<li><a href="modules.html#floodprot">FloodProt</a> - flood protection
+<li><a href="modules.html#headlines">Headlines - news headlines</a>
+<li><a href="modules.html#help">Help</a> - online help
+<li><a href="modules.html#http">HTTP</a> - HTTP fetcher
+<li><a href="modules.html#identd">Identd</a> - Ident daemon
+<li><a href="modules.html#list">List</a> - /list flood protection
+<li><a href="modules.html#logs">Logs</a> - channel and chat logging
+<li><a href="modules.html#motd">Motd</a> - IRClient message of the day
+<li><a href="modules.html#notify">Notify</a> - friends notification
+<li><a href="modules.html#ontv">OnTV</a> - What's on TV now ?
+<li><a href="modules.html#samples">Samples</a> - Silly noises
+<li><a href="modules.html#smtp">SMTP</a> - Email to people
+</ul>
+
+<p>Plus, of course there is the main IRCLib module which control the main
+connection and the other subservient modules.
+
+<h2>Lets see this thing in action then...</h2>
+Well, I've told you what it does, so here's a view of IRC in use locally (I'm
+paying the bills now, so I'm not on the modem !) :
+<p align=center><img src="images/full.gif" alt="[A large image]" width=800 height=532>
+<p align=left>
+
+<h2>Summary</h2>
+As I'm sure you'll realise I haven't actually told you much about what the
+scripts can do, and very little about how the programming works. There are
+three very good reasons for this. One of them is that I don't want to give
+the game away <i>too</i> much. The second is that there is a quite
+exceptionally large amount of code and resources, and to describe even a
+small fraction can take more time than I have to actually code them. The
+third reason has escaped me - it's probably run off with the milkman if I
+know it. Which I don't.
+
+<p>If you'd like to find out more about the IRClient programming language,
+you can mail myself at
+<a href="mailto:gerph@essex.ac.uk">gerph@essex.ac.uk</a> or Matthew at
+<a href="mailto:matthew@xania.uk.org">matthew@xania.uk.org</a>, but be warned
+that we're both very busy with writing, and possibly even having a life as
+well, so we're likely to be slow to respond.
+
+<h2>Availability</h2>
+IRClient version 0.22 which supports the BASIC programming language is
+currently available from
+<a href="http://newton.ex.ac.uk/general/ug/godbolt/">his home page</a>.
+However, the Magrathea script is undergoing one or two <b>major</b> changes,
+<!-- For those of you reading the HMTL, you may as well read that as meaning
+     it is incredibly buggy -->
+and so it won't be available for a few weeks yet. Hopefully it <i>will</i> be
+released before the Acorn World show, as I don't want to be pestered by
+people asking when it will be out whilst I wander around aimlessly.
+
+<hr>
+<address>This page is maintained by <a href="http://users.essex.ac.uk/users/gerph/">Justin Fletcher</a> (<a href="mailto:gerph@essex.ac.uk">Gerph@essex.ac.uk</a>).<br>Last modified on 6th October 1996.</address>
+</body>

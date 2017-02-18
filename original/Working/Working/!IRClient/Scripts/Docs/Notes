@@ -1,0 +1,239 @@
+
+This file relates to Magrathea and may be out of date.
+
+New overload structure
+======================
+To add features you should tie into the routines starting
+  PROCOverload_xxx
+These will be the main entry points for different types of
+calls. To pass the call on from an overloaded routine, use
+  PROC@(<params>).
+Other calls may be overloaded, but their use is NOT recommended - contact
+Gerph for a better interface.
+
+Module structure
+================
+This structure reduces the number of lines required to be added to the IRCLib
+script when new modules are written. You should almost always provide a
+FNOverload_ScriptInfo routine to provide a line of information about the
+script which is used by /ctcp <user> scripts.
+
+The current overloading routines which you should be able to use are :
+  PROCInitialiseModule             : IRClient is starting - initialise vars
+  PROCConnecting                   : IRC is being connected, you will begin
+                                     to be called from here on so any vars which
+                                     may change should be reset here.
+  FNShutdownModule                 : This is called when IRC itself disconnects
+                                     and all IRC related modules should release
+                                     their sockets/memory. DCC, etc may continue
+                                     but control will only return to the user if
+                                     you set bit 0 of the flags.
+  PROCOverload_ScriptInfo          : Provide information about the script
+  PROCOverload_DisplaySelected     : A display has been clicked on (only ##)
+  PROCOverload_UserLine            : A line has been entered in an ## window
+  PROCOverload_UnknownCommand      : An unknown command has been entered in
+                                     a nick/chat window
+  FNOverload_AboutToSay            : We are about to say something
+
+  
+'On' overloads
+--------------
+These are similar to the mIRC 'ON' scripting functions and allow you to add
+features to particular events. Currently the following are supported :
+  PROCOverload_On_Join  : Someone joining a channel
+  PROCOverload_On_Part  : Someone leaving a channel
+  PROCOverload_On_Kick  : Someone being kicked from a channel
+* PROCOverload_On_Nick  : Someone changing their nick
+* PROCOverload_On_Quit  : Someone has quit IRC
+
+* These routines will be called for each channel that the user is on
+
+
+CTCP Routines
+-------------
+The following routines are currently provided for extensions using CTCP :
+  PROCOverload_UnknownCTCPReply    : A reply to a ctcp that we sent
+  PROCOverload_UnknownCTCPRequest  : A request for ctcp from another nick
+  FNOverload_ListCTCP              : CLIENTINFO has been called - return
+                                     details about extra ctcp's
+  
+Configuration overloads
+-----------------------
+If a module is configurable it should also provide :
+  FNOverload_ConfigName       : Return the modules name
+  PROCOverload_ConfigOptions  : Display information about it
+  PROCOverload_ConfigCommand  : Process the users line
+
+See the file Prog.ConfigLib for more details
+
+
+Notifying the user of events
+----------------------------
+When you wish to notify the user of something there are 4 ways of doing this :
+  a) PROCNotify(mess$)
+     This is a short message which appears in a window in the middle of the
+     screen, disappearing after a period. Only use this for transient notes.
+     
+  b) PROCDisplayError(mess$,win$)
+     This will display, in red, a message in the window specified.
+     This should be used for dire warnings, such as being unable to open
+     important files, or being unable to connect to another machine.
+     
+  c) PROCDisplayWarning(mess$,win$)
+     This will display, in orange, a message in the window specified.
+     This should be used for most warnings which mean the operation could not
+     be performed for some reason. Error type warnings should be preceeded by
+     *** if they are intended for user windows. Syntax warnings should be
+     preceeded by a single *.
+     
+  d) PROCDisplayInfo(mess$,win$)
+     This will display, in white (maybe), a message in the window specified.
+     This should be used for informational messages which are not related to
+     the main text of the window. Most should be preceeded by a single *.
+  
+The latter three will have *** prepended to them /if/ :
+  1) the destination is not specified (ie win$="")
+  2) the first character of the string is not *
+
+The reason for this is so that you can produce error messages in a different
+style in your own window. If you are sending a message to a variable window
+(ie it may be a channel, a chat or the current window) then you should
+include the *'s yourself; otherwise things will not look consistant.
+
+There is a further means of displaying information, but this should be
+restricted to messages relating *directly* to things on IRC. This is
+PROCDisplayCTCP(mess$,win$) and this uses the CTCP colour specified in the
+configuration window. These messages will /always/ be preceeded by *** if
+they do not already contain them.
+
+
+Simple things
+-------------
+To put something in a window you should use PROCDisplay(message$,"",window$).
+To 'say' something to a window you should use PROCSay(message$,window$).
+To 'act' at a window you should use PROCAction(message$,window$).
+Sending directly to the server is by means of PROCSendToIRC(message$).
+To display things in IRC windows, eg chat/channel, use
+  PROCMessageToDisplay(message$,from$,to$). to$ may be prefixed by - for
+  notices.
+
+
+Notes on IRClient BASIC
+=======================
+(These are not critisisms, only reminders)
+IF's must be multi-line it seems
+Remember that WHEN <x>:<command> doesn't work, you fool Justin !
+No multiple commands per line in any way.
+FOR NEXT loops cannot change the variable value
+var$=$<address> now works but must be 0-terminated
+No % variables, everything is integers
+No dimensioned arrays - arrrgggghhhh !
+TIME$ doesn't work
+Can't leave lines with just : on them
+No ~ for printing Hex in STR$~<varname>
+Some things like comparisons will require brackets around them, like:
+  IF (!(<var>+<value>))=<value> THEN
+  otherwise they read as :
+  IF !((<var+value)=<value>) THEN
+  which gives !/?/$ operator out of range.
+No unary operations (I think you can't use -<varname> in certain circumstances)
+FNWildcardMatch is case sensitive
+Same variable assignment seems to fail - you can't do ret=!(ret+16)
+Functions in place of strings seems to fail sometimes :
+  SYS "something",0,FNOurHostName TO ,,ret
+  seems to fail, but I can't say why...
+Can't use binary, ie %10 doesn't work
+
+
+Old Magrathea features
+======================
+These have been removed for various reasons :
+Version$=Version$+"<script name>" - use FNOverload_ScriptInfo
+Swapped the UnknownCTCPRequest overload's first two parameters - now from$,to$
+  as this seems more 'obvious'
+
+
+EXTREME WARNING
+===============
+There would seem to be a bug in the EconetA driver (Blundell's) which causes
+it's part of the stack to die if the amount of data sent from one machine is
+greater than about 4k... This is a guideline figure and I've got around it by
+polling with IRServer in between displaying the motd, but this will cause
+problems with certain programs, eg http or smtp.
+
+
+Recent bugs in IRC (currently using 0.27)
+==================
+The Scheduler module gave me endless headaches, 'cos I was determined to get
+it working sensibly so that I could test the FloodProt module. If we could
+have an interface which is similar to that it'd be nice - if not then I'm not
+bothered. It'd be nice though if you could keep the 'sorted' list of
+claimants so that they are alwasys called in the correct order.
+
+I've yet to test the EVAL function :-(
+
+Referencing things in MID$ off the end of the string seems to crash it :-(
+
+PROCAddCallBack("string",FNStrdup(var$+" "+var$) dies - missing bracket, but
+gives error somewhere else...
+
+
+Christmasy type note
+====================
+It's 25th December 1996 at 1:15 am and I'm all in the mood for programming...
+However if I don't go to bed now I'll never see Santa at 6:30 tomorrow so I
+shall leave IRClient at it's current state and hope that it'll wait for me
+until tomorrow... 17 scripts installed and still no real problems... says
+something really...
+
+
+03 Jan 1997 type note
+=====================
+This is another BETA release. This release is intended to be so that people
+can give constructive comments on IRClient over the weekend whilst Matt is
+stopping with me. Matt will be here from about 1pm Saturday until erm... God
+knows when on Sunday (probably mid-evening, though I've not a clue really).
+I should expect that we will be popping on to IRC throughout the day to
+'test' things and get peoples opinions. Could you either leave messages with
+Subetha or better still email us at Gerph@essex.ac.uk.
+
+This might be the last release before a 'full' release in mid-January. If
+anybody wishes to write documentation for commands or even a complete module
+they are welcome to and it would be much appreciated. The idea is to build up
+a StrongHelp manual that can be updated as we go along so the format of any
+documentation should be :
+
+  A stronghelp manual containing a directory with the same name as the module
+you are documenting (or Standard for the main module). Each / command should be documented in a data file within that named "/<command>". Any external
+references should be within the modules directory using _ to prefix the
+filename. Extensions to the /commands should be contained within a directory
+so you might have :
+  config./config.boolean
+except for the fact that boolean will probably need to be accessed from other
+modules easily and should probably be called config._boolean.
+  No files should be text files. This is not a 'lookupable' manual. Any
+programming work should be be contained within PROC or FN directories within
+the modules directory, eg config.PROC.Overload_ConfigCommand and any data structures or other related information should be in a data directory within the
+modules directory, eg http.data.listptr.
+  The author should leave his name and contact details in a file named author
+in the modules directory. If the author of the module and that of the manual
+are different then both MUST be included. This is a) to stop problems with
+the documentation hassling the original authors who may be unaware of the
+authorship and b) to make everyone famous. Anyone wishing to remain anonymous
+(fools !) may include my name as that of the author and I'll take the blame
+for it :-)
+
+This structure may lead to quite long path names, but the idea is to remove
+the X-Files internal help system and revert to something much more useful in
+StrongHelp form. This can then be converted to HTML using the HTML encoder
+I've written. The structure will also allow easy updating as stronghelp manuals containing only the 'new' modules help can be distributed with the module and
+by simply copying (or having a program copy which is a later intent) the
+files from the new manual into the main manual it can be updated. A simple
+program such as those used in the Filetypes manual can then be used to build
+the index pages 'on the fly' or at update time.
+
+I only invented the format this morning whilst lying in a very cold bath so
+it's very likely that there are some fundamental problems with it, but I
+don't forsee to many things that will make life difficult. I will collate all
+manuals I receive into one large 'stylised' manual so that things look
+consistant.

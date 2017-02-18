@@ -1,0 +1,742 @@
+In      -
+Out     MemAlloc
+Type    Module
+Ver     1.01g
+Size    1024k
+
+{
+
+Version History:
+0.00-0.03               Various pre-release versions : unstable API
+1.00                    Claim and Release working perfectly
+1.01                    Resize, GetSize, EnumerateBlocks added
+1.02                    Resize bug fixed, works with non-DAs
+
+}
+
+Define Workspace
+ Name workspace
+ Default r12
+ Prefix Wksp_
+  DynamicFlag           !       Can we use OS_DynamicArea?
+  PageSize              !       Size of a page
+
+ Name Block
+ Default r2
+ Prefix Block_
+  TagAndSize            !       The tag (bit 31) and Size (0-30)
+  Next                  !       Next in the chain
+  Prev                  !       Previous in the chain
+
+ Name Area
+ Default r1
+ Prefix Area_
+  MagicWord             !       A magic word
+  Size                  !       Size of the area
+  Number                !       Dynamic Area (if needed)
+  First                 !       First free block
+  Last                  !       Last free block
+  Workspace             !       Pointer to module's workspace so can be called
+
+End Workspace
+
+Define Module
+ Name           MemoryAllocater
+ Author         Matthew Godbolt
+ Init           MAlloc_Initialise
+ Workspace      *`len_workspace
+ SWIs
+  Base          &dab80
+  Prefix        MAlloc
+  0             Initialise      SWI_Initialise
+  1             Finalise        SWI_Finalise
+  2             Claim           SWI_Claim
+  3             Free            SWI_Free
+  4             Vectors         SWI_Vectors
+  5             Resize          SWI_Resize
+  6             GetBlockSize    SWI_GetBlockSize
+  7             EnumerateBlocks SWI_EnumerateBlocks
+ End Swis
+End Module
+
+:
+
+Pre
+vectorsize = 20
+End Pre
+
+.MagicWord
+        EQUS    "paeH"
+
+:
+
+; ***************************************************************
+; Name:         MAlloc_Initialise
+; Function:     Initialise the memory module
+; On Entry:     -
+; On Exit:      -
+; Notes:        
+; ***************************************************************
+
+.MAlloc_Initialise
+STMFD   R13!,{R0-R7,R14}
+
+;       Read the size of a page
+SWI     "OS_ReadMemMapInfo"
+SUB     R0,R0,#1                ; 1 minus for ease of BIC
+STRW    R0,Wksp_PageSize
+
+;       Can we use dynamic areas?
+ADR     R1,$Dynamics
+SWI     "XOS_SWINumberFromString"
+MOVVC   R0,#1
+STRWVC  R0,Wksp_DynamicFlag
+
+LDMFD   R13!,{R0-R7,PC}^
+$Dynamics
+        EQUZA   "OS_DynamicArea"
+:
+
+; ***************************************************************
+; Name:         MAlloc_Finalise
+; Function:     Finalise the module, returning an error if we
+;               still have clients
+; On Entry:     -
+; On Exit:      -
+; Notes:        Not yet done
+; ***************************************************************
+
+;.MAlloc_Finalise
+;STMFD   R13!,{R0-R7,R14}
+;; do nowt
+;LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name:         SWI_Initialise
+; Function:     Called by a client to create a new area
+; On Entry:     r0 -> Name of area (ignored on non-DA machines)
+;               r1 =  flags (if set):
+;                       bit 0 = OK to use memory above program
+;                               as a substitute for a DA
+;                       bit 1 = If using memory above program,
+;                               then r2 is the top of memory, else
+;                               use GetEnv
+;                       bit 2-31 reserved
+;               r2 -> top of used memory (if no DA's and r1 bit 1 set)
+;               r3 -> size to start with
+; On Exit:      r0 -> Address of area
+; Notes:
+; ***************************************************************
+
+.SWI_Initialise
+STMFD   R13!,{R1-R8,R14}
+
+;       Can we use dynamic areas?
+LDRW    R14,Wksp_DynamicFlag
+TEQ     R14,#1
+BEQ     $UseDynamicAreas
+
+; non-DA code
+TST     R1,#1                   ; is it OK to use memory above program?
+BEQ     $CantInitialise
+
+TST     R1,#2                   ; use r2 as base?
+MOVNE   R0,R2                   ; if not - use this
+SWIEQ   "OS_GetEnv"
+MOVEQ   R0,R1                   ; r2 is the base of the area
+
+ADD     R3,R2,R3                ; r3 -> end of area
+STMFD   R13!,{R0-R2}
+SWI     "OS_GetEnv"
+SUB     R3,R3,R1                ; r3 -> number of bytes extra needed
+LDMFD   R13!,{R0-R2}
+
+LDRW    R4,Wksp_PageSize
+ADD     R3,R3,R4
+BICS    R3,R3,R4                ; r3 = number of bytes of full pages needed
+LDRWEQ  R3,Wksp_PageSize
+ADDEQ   R3,R3,#1
+
+; now set the slotsize
+STMFD   R13!,{R0,R1,R2}
+MVN     R0,#0
+MVN     R1,#0
+SWI     "XWimp_SlotSize"
+MOVVC   R8,R0                   ; get current size
+ADDVC   R0,R0,R3
+SWIVC   "XWimp_SlotSize"
+SUBVC   R8,R0,R8                ; get size of heap
+LDMFD   R13!,{R0,R1,R2}
+BVS     $CantInitialise
+STR     R8,[R0,#Area_Size]
+
+B       $SetUpArea
+
+; now for dynamic areas
+$UseDynamicAreas
+LDRW    R14,Wksp_PageSize
+ADD     R3,R3,R14
+BICS    R3,R3,R14
+LDRWEQ  R3,Wksp_PageSize
+ADDEQ   R3,R3,#1
+
+MOV     R8,R0                   ; get name
+MOV     R7,#0                   ; no wksp
+MOV     R6,#0                   ; no handler
+MVN     R5,#0                   ; unlimited
+MOV     R4,#1<<7                ; no drag
+MOV     R2,R3                   ; get size
+MVN     R3,#0                   ; no base
+MVN     R1,#0                   ; area number
+MOV     R0,#0                   ; create
+SWI     "XOS_DynamicArea"
+BVS     $CantInitialise
+
+MOV     R0,R3                   ; r0 is the base of the area
+STR     R1,[R0,#Area_Number]    ; store in the dynamic area number
+STR     R2,[R0,#Area_Size]      ; store in the size
+
+$SetUpArea
+;       Stuff that's the same in both cases
+LDR     R3,[R0,#Area_Size]      ; r3 =  size of area
+
+MVN     R14,#0                  ; get minus one (which is alloced)
+STR     R14,[R0,#`len_Area]     ; store in sentinel at beginning of block
+ADD     R4,R0,R3                ; point to end of block
+STR     R14,[R4,#-4]            ; store in sentinel at end of block
+
+SUB     R3,R3,#`len_Area+8      ; r3 =  size of free bits, including sentinels
+
+ADD     R2,R0,#`len_Area+4      ; r2 -> only free block
+
+STR     R2,[R0,#Area_First]
+STR     R2,[R0,#Area_Last]      ; this is the first and last block
+
+STRW    R3,Block_TagAndSize     ; store in the size of the free block
+MOV     R14,#0
+STRW    R14,Block_Next
+STRW    R14,Block_Prev          ; this is the only free bit
+
+ADD     R2,R2,R3                ; end of the block
+STR     R3,[R2,#-4]             ; store in second tag
+
+LDR     R3,MagicWord
+STR     R3,[R0,#Area_MagicWord]
+
+STR     R12,[R0,#Area_Workspace]
+
+LDMFD   R13!,{R1-R8,PC}^
+$CantInitialise
+ADR     R0,$CantInitialiseError
+LDMFD   R13!,{R1-R8,R14}
+ORRS    PC,R14,#1<<28
+$CantInitialiseError
+        EQUD    &deadbeef
+        EQUZA   "Unable to initialise memory handler"
+
+:
+
+; ***************************************************************
+; Name:         SWI_Finalise
+; Function:     Shut down an area
+; On Entry:     r1 =  area thang
+; On Exit:      -
+; Notes:        -
+; ***************************************************************
+
+
+.SWI_Finalise
+STMFD   R13!,{R0-R7,R14}
+LDRW    R0,Area_MagicWord
+LDR     R14,MagicWord
+TEQ     R0,R14
+LDMNEFD R13!,{R0-R7,R14}
+BNE     BadInR1
+
+LDRW    R0,Wksp_DynamicFlag
+TEQ     R0,#1
+LDRWEQ  R1,Area_Number                  ; NB r1 is corrupted now
+SWIEQ   "OS_DynamicArea"
+
+LDMFD   R13!,{R0-R7,PC}^
+
+
+.BadInR1
+ADR     R0,BadInR1Error
+ORRS    PC,R14,#1<<28
+.BadInR1Error
+        EQUD    &beefdead
+        EQUZA   "Bad MAlloc descriptor in r1"
+
+:
+
+; ***************************************************************
+; Name:         SWI_Claim
+; Function:     Claim some memory from a heap
+; On Entry:     r1 -> area handle
+;               r3 -> number of bytes
+; On Exit:      r2 -> block of data
+; Notes:        
+; ***************************************************************
+
+.SWI_Claim
+STMFD   R13!,{R0,R1,R3-R7,R12,R14}
+
+; Is the area ok?
+LDRW    R14,Area_MagicWord
+LDR     R0,MagicWord
+TEQ     R0,R14
+LDMNEFD R13!,{R0,R1,R3-R7,R12,R14}
+BNE     BadInR1
+
+LDRW    R12,Area_Workspace              ; get r12 back!
+
+; next make sure we aren't doing anything silly
+CMP     R3,#0
+BLE     $CantClaim
+
+; constraints on number of bytes - must be at least 8, word aligned, and
+; has an eight byte overhead.
+ADD     R3,R3,#3+8              ; 8 byte overhead
+BIC     R3,R3,#3
+CMP     R3,#16                  ; must be at least (8+8) bytes long
+MOVLT   R3,#16
+
+$ExtendedSoRetry
+LDRW    R2,Area_First           ; r2 points to the first block
+TEQ     R2,#0                   ; any areas at all?
+BEQ     $ExtendArea
+
+$lpFind
+LDRW    R0,Block_TagAndSize     ; this is a free block so tag is clear
+SUBS    R0,R0,R3                ; is it big enough
+BPL     $FoundBlock
+LDRW    R2,Block_Next           ; next block in the chain
+TEQ     R2,#0                   ; have we run out of free chunks?
+BNE     $lpFind                 ; keep going...
+
+$ExtendArea
+; we need to extend the area to cope with r3 bytes
+LDRW    R14,Wksp_PageSize       ; get page size
+ADD     R7,R3,R14
+BIC     R7,R7,R14               ; r7 is number of bytes in whole pages
+
+LDRW    R14,Wksp_DynamicFlag
+TEQ     R14,#1
+BNE     $IncWimpSlot
+LDRW    R0,Area_Number
+MOV     R6,R1                   ; preserve r1
+MOV     R1,R7                   ; number of bytes
+SWI     "XOS_ChangeDynamicArea"
+BVS     $CantClaim
+MOV     R7,R1                   ; actual change in size
+MOV     R1,R6                   ; get r1 back
+B       $HaveInced
+
+$IncWimpSlot
+MOV     R6,R1                   ; keep r1
+MVN     R0,#0
+MVN     R1,#0
+SWI     "XWimp_SlotSize"
+MOV     R5,R0                   ; current size
+ADDVC   R0,R0,R7
+SWIVC   "XWimp_SlotSize"
+BVS     $CantClaim
+
+SUB     R7,R0,R5                ; size - old size
+MOV     R1,R6                   ; put r1 back
+
+$HaveInced
+; we now have r7 more bytes - is this ok
+CMP     R3,R7
+BGT     $CantClaim              ; if we can't alloc this much - aak
+LDRW    R4,Area_Size
+ADD     R5,R4,R7
+STRW    R5,Area_Size            ; update size of whole area
+ADD     R2,R1,R4                ; r2 points to end of whole thing
+SUB     R2,R2,#4                ; r2 now points at sentinel
+ORR     R7,R7,#1<<31            ; pretend it's an allocated block
+STRW    R7,Block_TagAndSize     ; put tag in
+ADD     R14,R1,R5               ; point to end of whole thing
+MVN     R0,#0
+STR     R0,[R14,#-4]            ; put sentinel in
+STR     R7,[R14,#-8]            ; and the size of the block
+ADD     R2,R2,#4                ; point at the data within
+BL      SWI_Free                ; and free this block
+BVS     $CantClaim
+B       $ExtendedSoRetry        ; and loop round
+
+$FoundBlock                     ; r0 = number of bytes left over in block
+CMP     R0,#`len_Block+8        ; overhead allowance
+BLE     $DontBotherMakingAnotherFreeBlock
+
+ADD     R4,R2,R3                ; point r4 at end of block
+ORR     R14,R3,#1<<31           ; set this block as allocated
+STRW    R14,Block_TagAndSize    ; store new size in
+STR     R14,[R4,#-4]            ; and store at end too
+
+; we now have to make a new free block at r2+r3, of size r0
+ADD     R3,R2,R3                ; r3 points to new block to create
+STR     R0,[R3,#Block_TagAndSize]
+ADD     R14,R3,R0
+STR     R0,[R14,#-4]            ; store other end too
+
+LDRW    R4,Block_Next
+STR     R4,[R3,#Block_Next]     ; copy next across
+
+TEQ     R4,#0                   ; was this the last block?
+ADDEQ   R4,R1,#Area_Last - Block_Prev
+STR     R3,[R4,#Block_Prev]     ; update next's prev field
+
+LDRW    R4,Block_Prev
+STR     R4,[R3,#Block_Prev]     ; copy prev across
+
+TEQ     R4,#0                   ; was this the first block?
+ADDEQ   R4,R1,#Area_First - Block_Next
+STR     R3,[R4,#Block_Next]     ; update the prev's next field
+
+ADD     R2,R2,#4                ; point r2 at the actual data within
+
+LDMFD   R13!,{R0,R1,R3-R7,R12,PC}^  ; and return
+
+$DontBotherMakingAnotherFreeBlock
+LDRW    R4,Block_TagAndSize
+ORR     R14,R4,#1<<31
+STRW    R14,Block_TagAndSize    ; mark as allocated
+ADD     R4,R2,R4
+STR     R14,[R4,#-4]            ; and mark other end too
+
+LDRW    R4,Block_Next           ; get the next block
+LDRW    R5,Block_Prev           ; get the previous block
+MOVS    R7,R4                   ; r7 = address of next block (adjusted)
+ADDEQ   R7,R1,#Area_Last - Block_Prev
+MOVS    R3,R5                   ; r3 = address of prev block (adjusted)
+ADDEQ   R3,R1,#Area_First- Block_Next
+
+STR     R4,[R3,#Block_Next]     ; prev->next = this->next
+STR     R5,[R7,#Block_Prev]     ; next->prev = this->prev
+
+ADD     R2,R2,#4                ; point r2 at the actual data within
+
+LDMFD   R13!,{R0,R1,R3-R7,R12,PC}^
+$CantClaim
+LDMFD   R13!,{R0,R1,R3-R7,R12,R14}
+ADR     R0,$CantClaimError
+ORRS    PC,R14,#1<<28
+$CantClaimError
+        EQUD    &deaddead
+        EQUZA   "Unable to claim memory"
+
+:
+
+; ***************************************************************
+; Name:         SWI_Free
+; Function:     Frees a previously allocated block
+; On Entry:     r1 -> heap thing
+;               r2 -> block
+; On Exit:      -
+; Notes:        -
+; ***************************************************************
+
+.SWI_Free
+STMFD   R13!,{R0-R7,R14}
+
+; Is the area ok?
+LDRW    R14,Area_MagicWord
+LDR     R0,MagicWord
+TEQ     R0,R14
+LDMNEFD R13!,{R0-R7,R14}
+BNE     BadInR1
+
+;LDRW    R12,Area_Workspace              ; get r12 back! NOT NEEDED ATM
+
+
+SUB     R2,R2,#4                ; r2 is now the block address
+LDRW    R3,Block_TagAndSize     ; get the size of this block
+TEQ     R3,#0                   ; make sure it was alloced
+BPL     $Free_Error
+BIC     R3,R3,#1<<31            ; clear the top bit
+
+ADD     R14,R2,R3               ; point to end
+LDR     R14,[R14,#-4]           ; get end tag
+BIC     R14,R14,#1<<31          ; make free
+TEQ     R3,R14                  ; two should be same
+BNE     $Free_Error
+
+LDR     R5,[R2,#-4]             ; get size and status of previous block
+LDR     R6,[R2,R3]              ; get size and status of next block
+
+TEQ     R5,#0                   ; check previous block
+BPL     $NeedToExtendPrevious
+TEQ     R6,#0                   ; check next block
+BPL     $NeedToRemapNext
+
+MOV     R0,#0
+STRW    R0,Block_Prev           ; prev = NULL
+LDRW    R0,Area_First           ; get first block
+STRW    R0,Block_Next           ; this->next = first
+STRW    R2,Area_First           ; first = this
+TEQ     R0,#0
+ADDEQ   R0,R1,#Area_Last-Block_Prev
+STR     R2,[R0,#Block_Prev]     ; update next's prev field
+
+STRW    R3,Block_TagAndSize
+ADD     R4,R2,R3
+STR     R3,[R4,#-4]             ; store new tag in both first and last
+LDMFD   R13!,{R0-R7,PC}^
+
+$NeedToExtendPrevious
+SUB     R2,R2,R5                ; r2 now points at the previous block
+ADD     R3,R3,R5                ; r3 is now r5 bytes longer
+STRW    R3,Block_TagAndSize     ; store in size
+ADD     R4,R2,R3
+STR     R3,[R4,#-4]             ; store in at end
+
+TEQ     R6,#0                   ; check next area
+LDMMIFD R13!,{R0-R7,PC}^
+
+ADD     R7,R2,R3                ; point r7 at the block
+ADD     R3,R3,R6                ; r3 is now r6 bytes longer
+
+STRW    R3,Block_TagAndSize     ; store in size
+ADD     R4,R2,R3
+STR     R3,[R4,#-4]             ; store in at end
+
+; now to delete the free block at r7
+LDR     R4,[R7,#Block_Next]     ; get the next block
+LDR     R5,[R7,#Block_Prev]     ; get the previous block
+MOVS    R7,R4                   ; r7 = address of next block (adjusted)
+ADDEQ   R7,R1,#Area_Last - Block_Prev
+MOVS    R3,R5                   ; r3 = address of prev block (adjusted)
+ADDEQ   R3,R1,#Area_First- Block_Next
+
+STR     R4,[R3,#Block_Next]     ; prev->next = this->next
+STR     R5,[R7,#Block_Prev]     ; next->prev = this->prev
+
+LDMFD   R13!,{R0-R7,PC}^
+
+$NeedToRemapNext
+ADD     R4,R2,R3                ; point r4 at the block
+ADD     R3,R3,R6                ; r3 is now r6 bytes longer
+
+LDR     R5,[R4,#Block_Prev]     ; get prev
+STRW    R5,Block_Prev           ; this->prev = prev
+MOVS    R6,R5
+ADDEQ   R6,R1,#Area_First - Block_Next
+STR     R2,[R6,#Block_Next]     ; prev->next = this
+
+LDR     R5,[R4,#Block_Next]     ; get next
+STRW    R5,Block_Next           ; this->prev = prev
+MOVS    R6,R5
+ADDEQ   R6,R1,#Area_Last - Block_Prev
+STR     R2,[R6,#Block_Prev]     ; prev->next = this
+
+STRW    R3,Block_TagAndSize     ; store in size
+ADD     R4,R2,R3
+STR     R3,[R4,#-4]             ; store in at end
+
+LDMFD   R13!,{R0-R7,PC}^
+$Free_Error
+LDMFD   R13!,{R0-R7,R14}
+ADR     R0,Free_ErrMes
+ORRS    PC,R14,#1<<28
+.Free_ErrMes
+        EQUD    &beefbeef
+        EQUZA   "Not a MAlloc block"
+
+
+:
+
+; ***************************************************************
+; Name:         SWI_Vectors     
+; Function:     Fill in a table of routine addresses
+; On Entry:     r0 -> table or 0
+;               r1 =  size of table (needs to be at least 32 bytes)
+; On Exit:      Table filled in if r0 <> 0  or error
+;               r1 =  number of bytes needed if r0 = 0
+; Notes:        -
+; ***************************************************************
+
+.SWI_Vectors
+TEQ     R0,#0
+MOVEQ   R1,#vectorsize
+MOVEQS  PC,R14
+CMP     R1,#vectorsize
+ADRLT   R0,$VectorProblem
+ORRLTS  PC,R14,#1<<28
+STMFD   R13!,{R14}
+ADR     R14,SWI_Claim
+STR     R14,[R0]
+ADR     R14,SWI_Free
+STR     R14,[R0,#4]
+ADR     R14,SWI_Resize
+STR     R14,[R0,#8]
+ADR     R14,SWI_GetBlockSize
+STR     R14,[R0,#12]
+ADR     R14,SWI_EnumerateBlocks
+STR     R14,[R0,#16]
+LDMFD   R13!,{PC}^
+$VectorProblem
+        EQUD    &deaddaed
+        EQUZA   "Vector table too small"
+
+:
+
+; ***************************************************************
+; Name:         SWI_Resize
+; Function:     Resize a block
+; On Entry:     r1 -> heap
+;               r2 -> block
+;               r3 -> new size
+; On Exit:      r2 -> new block address
+; Notes:
+; ***************************************************************
+
+.SWI_Resize
+STMFD   R13!,{R0,R1,R3-R7,R14}
+
+TEQ     R2,#0                   ; is this a Claim?
+BLEQ    SWI_Claim
+BEQ     $Done
+TEQ     R3,#0                   ; is this a free?
+BLEQ    SWI_Free
+BEQ     $Done
+
+ADD     R3,R3,#3+8              ; 8 byte overhead
+BIC     R3,R3,#3
+CMP     R3,#16                  ; must be at least (8+8) bytes long
+MOVLT   R3,#16
+
+SUB     R2,R2,#4                ; point r2 at the block
+LDRW    R4,Block_TagAndSize     ; get the size
+TEQ     R4,#0
+BPL     $ResizeProblem          ; is it an allocated block?
+ADD     R5,R2,R4                ; next block
+LDR     R14,[R5,#-4]            ; get size of far bit
+TEQ     R14,R4                  ; make sure this is a real block
+BNE     $ResizeProblem
+
+BIC     R4,R4,#1<<31            ; get raw size
+CMP     R3,R4
+ADDEQ   R2,R2,#4                ; done?
+BEQ     $Done
+BGT     $ExtendBlock
+
+SUB     R7,R4,R3               ; find out how much we're shrinking by
+CMP     R7,#`len_Block+8       ; too little to care about?
+ADDLE   R2,R2,#4
+BLE     $Done
+
+ORR     R14,R3,#1<<31           ; this is the new size
+STR     R3,[R2]
+ADD     R5,R2,R3                ; r5 points to new block
+STR     R14,[R5,#-4]            ; store in 'other side' of
+ORR     R14,R7,#1<<31           ; make an allocated block of the size of the
+STR     R14,[R5]                ; rest of the block
+ADD     R7,R5,R7
+STR     R14,[R7,#-4]            ; and other end
+MOV     R6,R2                   ; preserve r2
+ADD     R2,R5,#4                ; point r2 at new block
+BL      SWI_Free                ; and free it
+ADD     R2,R6,#4                ; return value
+B       $Done
+
+$ExtendBlock
+; XXXXXXXXXXXXXX needs doing properly
+MOV     R6,R2                   ; preserve old data
+BL      SWI_Claim               ; claim a new r2 at the new size
+BVS     $ResizeProblem
+
+MOV     R0,R2                   ; preserve return value
+MOV     R5,R6                   ; preserve old value
+
+$CopyLp         ; XXXXX needs speeding up
+LDR     R14,[R6],#4
+STR     R14,[R2],#4
+SUBS    R4,R4,#4
+BNE     $CopyLp
+
+MOV     R2,R5
+BL      SWI_Free                ; free it
+
+MOV     R2,R0                   ; return value
+
+$Done
+LDMFD   R13!,{R0,R1,R3-R7,PC}^
+$ResizeProblem
+LDMFD   R13!,{R0,R1,R3-R7,R14}
+ADR     R0,$ResizeProbMes
+ORRS    PC,R14,#1<<28
+$ResizeProbMes
+        EQUD    &deaddaed
+        EQUZA   "Unable to resize block"
+
+:
+
+; ***************************************************************
+; Name:         SWI_GetBlockSize
+; Function:     Returns the size of a free or allocated block
+; On Entry:     r1 -> heap
+;               r2 -> block
+; On Exit:      r3 =  size
+; Notes:
+; ***************************************************************
+
+.SWI_GetBlockSize
+STMFD   R13!,{R14}
+LDR     R3,[R2,#-4]                     ; get size
+ADD     R14,R3,R14                      ; 8 on from size
+LDR     R14,[R14,#-8]                   ; get other end of size
+TEQ     R3,R14                          ; make sure they're the same
+BIC     R3,R3,#1<<31                    ; clear top bit if allocated
+LDMEQFD R13!,{PC}^
+LDMFD   R13!,{R14}
+ADR     R0,Free_ErrMes
+ORRS    PC,R14,#1<<28                   ; return error 'Not a Malloc Block'
+
+:
+
+; ***************************************************************
+; Name:         SWI_EnumerateBlocks
+; Function:     List the blocks in a heap
+; On Entry:     r1 -> heap
+;               r2 -> block (or 0 for first call)
+; On Exit:      r0 =  flag (0 if free, -1 if not)
+;               r2 -> block (or 0 if no more)
+;               r3 =  size of block (0 if no more)
+; Notes:
+; ***************************************************************
+
+.SWI_EnumerateBlocks
+STMFD   R13!,{R14}
+
+LDRW    R14,Area_MagicWord
+LDR     R0,MagicWord
+TEQ     R0,R14
+LDMNEFD R13!,{R14}
+BNE     BadInR1
+
+TEQ     R2,#0                           ; is this the first call?
+ADDEQ   R2,R1,#`len_Area+4+4            ; point r2 at first block+4 if so
+LDRNE   R14,[R2,#-4]                    ; else find block size
+BICNE   R14,R14,#1<<31                  ; make sure it's an abs value
+ADDNE   R2,R2,R14                       ; and move r2 on appropriate amount
+
+LDR     R3,[R2,#-4]                     ; get block size
+
+CMN     R3,#1                           ; is this the end?
+MOVEQ   R3,#0
+MOVEQ   R2,#0                           ; signal the end
+
+TEQ     R3,#0                           ; get top bit
+BIC     R3,R3,#1<<31                    ; clear top bit
+MOVPL   R0,#0                           ; r0=0 if free
+MVNMI   R0,#0                           ; r0=-1 if allocated
+
+LDMFD   R13!,{PC}^
+
+#POST
+#Run <CODE>
+#END

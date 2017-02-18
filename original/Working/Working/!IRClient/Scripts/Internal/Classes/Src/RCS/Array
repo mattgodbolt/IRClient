@@ -1,0 +1,106 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     97.04.13.12.41.12;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Array support for variables
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >Array class
+REM This is still a 'test' class
+REM 29 Mar 1997 : JF - started after a spark of inspiration  v1.00
+REM 30 Mar 1997 : JF - fixed so that it works !              v1.01
+ERROR 0,"Go away, I don't need your hassles!"
+END
+:
+DEFPROCOverload_Classes_Initialise
+Class_Array=FNRegisterSubclass(Class_List,"Array")
+REM The items in the class (a list)
+PROCAddField(Class_Array,"items")
+Class_ArrayItem=FNRegisterSubclass(Class_String,"ArrayItem")
+REM The instance
+PROCAddField(Class_ArrayItem,"inst")
+REM Pass the call on
+PROC@@
+ENDPROC
+:
+DEFFNnewArray
+=FNnew(Class_Array)
+:
+DEFFNnewArrayItem(v$)
+LOCAL a
+a=FNnew(Class_ArrayItem)
+a.data$=v$
+=a
+:
+DEFPROCArray_AddName(name$)
+LOCAL inst
+PROC@@.Add(FNnewString(name$))
+inst=FN@@.Find(FNnewString(name$))
+inst.items=FNnew(Class_List)
+ENDPROC
+:
+DEFFNArray_GetUnknownVar(a$)
+LOCAL inst,found,v$
+IF INSTR(a$,"[")=0 OR INSTR(a$,"]")=0 THEN
+ inst=FN@@.Find(FNnewString(a$))
+ IF inst=0 THEN
+  =FN@@(a$)
+ ENDIF
+ELSE
+ inst=FN@@.Find(FNnewString(LEFT$(a$,INSTR(a$,"[")-1)))
+ IF inst=0 THEN
+  ERROR "Array entry not found for "+FNGetClassName(@@)+"."+a$
+ ENDIF
+ v$=MID$(a$,INSTR(a$,"[")+1)
+ v$=LEFT$(v$,INSTR(v$,"]")-1)
+ IF RIGHT$(v$,1)="$" THENv$=EVAL(v$)
+ IF RIGHT$(v$,1)="%" THENv$=STR$(EVAL(LEFT$(v$)))
+ found=FNinst.items.Find(FNnewString(v$))
+ IF found=0 THEN
+  ERROR "Array index not found for "+FNGetClassName(@@)+"."+a$
+ ENDIF
+ =found.data.inst
+ENDIF
+ERROR "I should never reach here"
+=0
+:
+DEFPROCArray_SetUnknownVarInt(a$,num)
+LOCAL inst,found,v$
+IF INSTR(a$,"[")=0 OR INSTR(a$,"]")=0 THEN
+ ERROR "Array index not given for "+FNGetClassName(@@)+"."+a$
+ELSE
+ inst=FN@@.Find(FNnewString(LEFT$(a$,INSTR(a$,"[")-1)))
+ IF inst=0 THEN
+  ERROR "Array entry not found for "+FNGetClassName(@@)+"."+a$
+ ENDIF
+ v$=MID$(a$,INSTR(a$,"[")+1)
+ v$=LEFT$(v$,INSTR(v$,"]")-1)
+ IF RIGHT$(v$,1)="$" THENv$=EVAL(v$)
+ IF RIGHT$(v$,1)="%" THENv$=STR$(EVAL(LEFT$(v$)))
+ found=FNinst.items.Find(FNnewString(v$))
+ IF found=0 THEN
+  PROCinst.items.Add(FNnewArrayItem(v$))
+  found=FNinst.items.Find(FNnewString(v$))
+ ENDIF
+ found.data.inst=num
+ENDIF
+ENDPROC
+@

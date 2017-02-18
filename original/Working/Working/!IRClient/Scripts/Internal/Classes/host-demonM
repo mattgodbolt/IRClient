@@ -1,0 +1,27 @@
+ircnet.demon.co.uk ircnet.demon.co.uk :0 Demon Internet Ltd, London, UK.
+*.NL.net ircnet.demon.co.uk :1 NLnet Amsterdam, The Netherlands
+*.xs4all.nl *.NL.net :2 [irc.xs4all.nl] XS4ALL, Networking for the Masses
+*.DE *.NL.net :2 [irc.uni-stuttgart.de] [irc.uni-stuttgart.de] Stut
+*.fi *.se :4 [ircd.funet.fi] Finnish University and Research Ne
+*.teliafi.net *.fi :5 [irc.teliafi.net] Telia Finland
+irc.estpak.ee *.fi :5 [cs.estpak.ee] Estpak Data, Tallinn, Estonia
+irc.ut.ee irc.estpak.ee :6 [madli.ut.ee] University of Tartu, Estonia
+irc.easynet.co.uk ircnet.demon.co.uk :1 Easynet, London, UK
+irc2.sci.kun.nl *.NL.net :2 University of Nijmegen, The Netherlands
+irc.sci.kun.nl irc2.sci.kun.nl :3 University of Nijmegen, The Netherlands
+*.stealth.net *.fi :5 [ircd.stealth.net] Stealth - New York, USA
+*.fr *.DE :3 [sil.polytechnique.fr] Ecole Polytechnique, France
+*.jp *.stealth.net :6 [irc.tokyo.wide.ad.jp] WIDE Project Tokyo NOC, Jap
+*.webbernet.net *.stealth.net :6 [ircd.webbernet.net] Web Net Worldwide
+*.gr *.DE :4 [irc.ee.auth.gr] Aristotle uni. of Thessaloniki, 
+*.se irc2.sci.kun.nl :3 [irc.ludd.luth.se] Top of the world, Lulea, Sweden
+*.lt *.se :4 [193.219.61.14] Lithuanian IrcNET Uplink Server, L
+*.cz *.se :4 [irc.felk.cvut.cz] Technical University of Prague,
+eris.bt.net ircnet.demon.co.uk :1 British Telecom IRC Routing Server
+irc.u-net.com eris.bt.net :2 U-Net Internet IRCNet Server
+chat.btinternet.com eris.bt.net :2 BT Internet Chat
+chat.bt.net eris.bt.net :2 [194.73.82.246] British Telecom Public IRC Server
+irc.warwick.ac.uk irc.u-net.com :3 University of Warwick server
+luisvive.euiti.upv.es irc2.sci.kun.nl :3 [UPV]-= luisvive.euiti.upv.es =- SPAiN
+*.msu.ru irc.portal.ru :8 [irc.msu.ru] Moscow State University, Russia
+irc.netcom.net.uk ircnet.demon.co.uk :1 NETCOM Internet Ltd, UK

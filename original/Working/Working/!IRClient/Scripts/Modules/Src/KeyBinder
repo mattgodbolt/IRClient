@@ -1,0 +1,58 @@
+REM >KeyBinder
+REM Binding of keys to operations
+REM (c) Matthew Godbolt
+REM 27 Sep 1996 - JF: Configuration added                   v1.03
+REM ---
+REM $Id: KeyBinder 1.1 98/02/02 16:06:47 gerph Exp $
+REM $Log:	KeyBinder $
+REM Revision 1.1  98/02/02  16:06:47  gerph
+REM Initial revision
+REM 
+REM ---
+PRINT "$Id: KeyBinder 1.1 98/02/02 16:06:47 gerph Exp $"
+END
+
+DEF PROCInitialiseModule
+PROCStartupStatus("Initialising KeyBinder...")
+LOCAL file,line$,key$,command$
+file = FNnewFile("<IRClient$Dir>.Scripts.User.Bindings","<")
+IF file THEN
+ WHILE NOT FNfile.Eof
+  IF line$<>"" THEN
+   key$=FNoneparam(line$)
+   command$=FNmoveon(line$)
+   IF key$<>"" AND command$<>"" THEN
+    PROCBindKey(key$,command$)
+   ELSE
+    IF key$<>"" AND command$="" THEN
+     PRINT "Warning - key "+key$+" has no associated binding"
+    ENDIF
+   ENDIF
+  ENDIF
+  line$=FNfile.ReadLine
+ ENDWHILE
+ENDIF
+PROC@
+ENDPROC
+:
+DEF PROC_InsertStr(parmlist)
+PROCInputInsertStr(parmlist.data.data$)
+ENDPROC
+:
+DEF PROC_IRCCommand(parmlist)
+PROCUserLine(parmlist.data.data$)
+ENDPROC
+:
+DEF PROC_CloseDisplay(parmlist)
+PROCCloseDisplay(parmlist.data.data$)
+ENDPROC
+:
+DEF PROC_Leave(parmlist)
+LOCAL channel$
+channel$=parmlist.data.data$
+IF LEFT$(channel$,1)="#" AND MID$(channel$,2,1)<>"#" THEN
+ PROCUserLine("/LEAVE "+channel$)
+ELSE
+ PROCCloseDisplay(channel$)
+ENDIF
+ENDPROC

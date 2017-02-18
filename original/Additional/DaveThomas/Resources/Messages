@@ -1,0 +1,80 @@
+#
+# Messages for IRClient © 1995 Matthew Godbolt
+# See !Help file for details
+#
+Generic:This \w belongs to IRClient. Move the pointer over different icons for more help.
+
+#Iconbar text
+Iconbar.Generic:IRClient - an Internet Relay Chat client for RISC OS.  \Sopen the current session, adjust for the preferences or MENU for a menu.
+
+#Windows
+
+#The info window
+Info.Generic:This \w shows interesting and important information about IRClient
+Info.LaunchHelp:\Slaunch !Help. But seeing as you can read this - you don't need to!
+Info.Version:This shows the current version number and whether or not this program is the registered version.  Quote this in any bug reports
+Info.Icon:This icon as designed by pixeleyes - pixeleye@oslonett.no and all-round good bloke!
+Info.Author:That's me - known as 'The Moog' to my mates.|MContact me as M.R.Godbolt@exeter.ac.uk or as TheMoog on #acorn on IRC (usually *early* in the morning :-)
+Info.AppIcon:This icon was designed by Spanners, so there.
+Info.Magrathea:Magrathea is an advanced script system which runs on IRClient.
+
+#Your country needs lerts
+Alert.Generic:Seeing this window means something has gone wrong. Never mind - I might fix it one day, you never know.
+Alert.Continue:\Stry and continue IRClient.
+Alert.Quit:\Squit IRClient. Before quitting IRClient will try and close all files and 'nicely' log off the IRC server, so this is still safe.
+Alert.Message:This tells you, perhaps cryptically, why IRClient has just gone 'bang'!
+
+#The notes
+ByTheWay.Generic:This is a helpful little note.  To make it go away click on it, or wait for a bit.
+
+#Making sure
+AreYouSure.Generic:This window makes sure you *really* meant what you just told IRClient to do.
+AreYouSure.Yes:Click here at your peril!
+AreYouSure.No:The easy way out...
+
+#Start up
+Startup.Generic:A window telling you what this is and who I am!
+
+#Preferences
+Preferences.Generic:This \w allows you to change how other people see you, and how IRClient looks and feels.
+Preferences.OK:\Sapply the current choices and close the window, click adjust to keep the window on screen.
+Preferences.Cancel:\Sclose the window, leaving everything as it was before.
+Preferences.LaunchHelp:\Slaunch Interactive Help - not that you need to ...
+Preferences.Save:\Ssave the options.
+
+#PrefPane
+PrefPane.Generic:This \w allows you to change how other people see you, and how IRClient looks and feels.
+PrefPane.Nick:This is your IRC nickname - the name everyone else on IRC will you as.  Read the IRC Primer for more help.
+PrefPane.User:This is normally set to be your email address, for example I set mine to be 'py94mrg', as my email address is py94mrg@ex.ac.uk.
+PrefPane.IRLname:This is the message, which is nominally your real name, which is displayed after your IRC nickname in channel listings.  Either use your real name, or put a witty comment here.
+PrefPane.UseSys:\Suse the system font in displays.
+PrefPane.UseBitMap:\Suse the bitmap described below.
+PrefPane.UseAnti:\Suse the anti-aliased font as below.
+PrefPane.EditColours:\Sedit the colours IRClient uses.
+PrefPane.BitList:\Sget a list of installed bitmap fonts.
+PrefPane.BitFont:This is the bitmap font IRClient will use.
+PrefPane.AntiFont:This is the anti-aliased font IRClient will use.
+PrefPane.FontList:\Sget a list of installed anti-aliased fonts.
+PrefPane.Banner:When selected, IRClient will show its startup banner.
+PrefPane.BeepError:When selected, IRClient beeps when it displays an error.
+PrefPane.BeepNotify:When selected, IRClient beeps when it shows a note.
+PrefPane.NoteLen:This is how long, in seconds, a note stays on the screen.
+PrefPane.MOTD:When selected, IRClient will fetch and display its Message Of The Day, which is updated by myself every time something new happens in IRClient's development.
+PrefPane.Invis:When selected, IRClient will ensure your user mode (UMODE) defaults to '+i', or invisible.
+PrefPane.Meta:When selected, other IRClient users can see you on the IRClient meta-server.
+PrefPane.IdentD:When selected, IRClient services IdentD requests.|MTurn this on if you get 'Authentication error' or similar from the IRC server.
+
+#Connect
+Connect.Generic:This \w starts a connection to a remote host.
+Connect.Server:This is the host IRClient will connect to.
+Connect.Port:This is the port on the host which IRClient will connect to.  For IRC servers this is usually port 6667.  For MUDs and talkers it varies.
+Connect.HostList:\Sget a list of IRC servers, MUDs & talkers, and your own list.
+Connect.IRCserver:When selected, IRClient will treat the connection as an IRC connection and will send IRC commands, else it will send whatever you type directly.
+Connect.Add:\Sadd this host/port pair to your personal list.
+Connect.Connect:\Sto start your session.
+
+#Menus
+Menu.Generic:
+Menu.Quit:\Skill IRClient - if your 'phone bill has got just that bit too big!
+Menu.Preferences:\Schange how IRClient looks and works.
+Menu.Connect:\Sor move left to connect to an IRC, or other, server.

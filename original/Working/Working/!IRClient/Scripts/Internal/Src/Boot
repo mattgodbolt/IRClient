@@ -1,0 +1,72 @@
+REM >Internal.Boot
+REM (c) 1997 M Richard G
+REM This file loads all the internal modules in the right order
+REM ?? ??? ???? : MG - Started                               v1.00
+REM 29 Mar 1997 : JF - Added PROCFinalise                    v1.01
+REM 13 Apr 1997 : ** - Switched to RCS !                     r1
+REM ---
+REM $Id: Boot 1.4 98/02/02 14:16:24 gerph Exp $
+REM $Log:	Boot $
+REM Revision 1.4  98/02/02  14:16:24  gerph
+REM Added check for scripts directory into global
+REM variable ScriptsDir$.
+REM 
+REM Revision 1.3  97/04/13  13:15:54  gerph
+REM Header re-organisation
+REM
+REM Revision 1.2  97/04/13  13:11:51  gerph
+REM Trying out the RCS system 'live'
+REM ---
+PRINT "$Id: Boot 1.4 98/02/02 14:16:24 gerph Exp $"
+END
+
+REM Initialise the internal libraries
+DEF PROCInitialise
+REM Firstly read in the scripts directory so we don't have to mess
+LOCAL blk,read
+blk=FNClaim(256)
+SYS "OS_ReadVarVal","IRClient$Dir",blk,256,0,1 TO ,,read
+?(blk+read)=0
+ScriptsDir$=($(blk))+".Scripts"
+PROCRelease(blk)
+REM Now initialise things
+PROCStartupStatus("Loading internals...")
+LOAD ScriptsDir$+".Internal.Throwback"
+PROCErrors_Initialise
+LOAD ScriptsDir$+".Internal.Constants"
+PROCConstants_Initialise
+LOAD ScriptsDir$+".Internal.MiscUtils"
+PROCMiscUtils_Initialise
+LOAD ScriptsDir$+".Internal.Classes.!Module"
+PROCClasses_Initialise
+LOAD ScriptsDir$+".Internal.Menus"
+PROCMenus_Initialise
+LOAD ScriptsDir$+".Internal.Input"
+PROCInput_Initialise
+REM ---- Insert what ever library you wish to use here, with
+REM      a call to initialise it
+LOAD ScriptsDir$+".Magrathea"
+PROCMagratheaAwakes
+REM ---- Stop
+PROCStartupStatus("Initialisation complete")
+ENDPROC
+:
+REM Finalise everything safely
+DEFPROCFinalise
+ENDPROC
+:
+REM These must exist or the error handler will fault it !
+DEFPROCScriptError(error$,line,file$)
+ENDPROC
+DEFPROCScriptErrorRetrace(line,file$)
+ENDPROC
+DEFPROCScriptErrorDone
+ENDPROC
+:
+REM Ensure that clicks on the iconbar at this point don't crash
+DEFPROCMenu_OpenMenu(menu$,x,y)
+PROCMenu_Quit
+ENDPROC
+DEFPROCIconbarClick
+PROCMenu_Quit
+ENDPROC

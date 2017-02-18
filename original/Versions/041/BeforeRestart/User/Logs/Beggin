@@ -1,0 +1,36 @@
+     *Beggin* Why does it not understand commands anymore? (/list etc)Even /raw don't work
+    *TheMoog* hmm /raw was never a command; /list is coming real soon 
+    *TheMoog* I have a beta-/list on my machine atm - release date few days time
+     *Beggin* some1 told me to use /raw, then command & it works for some but not /list, /names etc
+    *TheMoog* try /quote
+    *TheMoog* But you'll probably lose your connection if you try /quote LIST
+     *Beggin* nope - that don't work either :(
+    *TheMoog* Oh ...you'll have to habg onm I'm afriad
+     *Beggin* ok
+    *TheMoog* Sorry bout that
+     *Beggin* u got time to give a non-techie a quick lesson?
+    *TheMoog* Must about
+    *TheMoog* Just about even
+    *TheMoog* :-)
+    *TheMoog* What kind of thing are you after?
+     *Beggin* :) What does CTCP do - other than allow u to speak to someone & get Info etc? What does 'SCRIPTS@ mean/do?
+    *TheMoog* CTCP is a way of asking someone's IRC client questions
+    *TheMoog* so /ctcp *TheMoog* VERSION says 'what version of an IRC client are you running, *TheMoog*?'
+     *Beggin* ok..
+    *TheMoog* CTCP is used to glean interesting information from people, and is the foundation upon which DCC file transfers occur
+     *Beggin* ..but I'm right in thinking u can't have file transfer to/from DCC yet?
+    *TheMoog* Not yet
+    *TheMoog* v0.16 of IRClient had it
+    *TheMoog* but it got broken in the transition between .16 and .40 (current version)
+    *TheMoog* Myself and Gerph are working to get it working ASAP
+     *Beggin* Had that once (v0.16) but never got it to work ...wouldn't connect
+    *TheMoog* Hmm
+    *TheMoog* A lot has happened since then...
+     *Beggin* As far as I know, this is the only IRC s/w around for acorns - until xIRC from Quadworks comes out - that right?
+    *TheMoog* There are a couple more under development
+    *TheMoog* OK Fozza - time to go
+    *TheMoog* oops wrong window - sorry
+    *TheMoog* Gotta dash - expecting incoming phone call!
+    *TheMoog* Good luck with it!
+     *Beggin* ok!:)
+     *Beggin* Thanks - I'll get your cheque off!!

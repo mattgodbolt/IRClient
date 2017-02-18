@@ -1,0 +1,57 @@
+                      **** This file need re-writing ****
+
+                           Magrathea IRClient script
+                           =========================
+
+    "Whatever your tastes, Magrathea can cater for you. We are not proud."
+
+Introduction
+------------
+IRClient is a very powerful program in that it allows you to develop your own
+scripts using a language which is in essence BASIC. Because of this, it is
+very easy to develop different parts of the scripts so that they can perform
+tasks other than those we currently have. For this reason, my self (Gerph)
+and Zarni have developed what we hope to be a quite expandable and structured
+script.
+
+Most of the code is based on TheMoog's original code, but has been modified
+to our own tastes and hopefully for the greater good. If you have any
+comments on the Magrathea script, please contact us at the addresses at the
+bottom of this file.
+
+
+<< This is all rubbish now that the new structure has been 'imposed' :-)
+Anyone want to re-write ? >>
+
+
+How to install Magrathea
+------------------------
+Open the !IRClient application and simply copy the Scripts directory into it,
+then modify your !IRClient.Scripts.IRC file (in BASIC mode) so that the first
+'LOAD' command in the file reads:
+
+LOAD "<IRClient$Dir>.Scripts.Magrathea.IRCLib"
+
+You may wish to take a copy of the old Scripts directory in the event of
+Magrathea not being to your liking (although we will do our best to change it
+so that it /is/ to your liking).
+
+Once installed you should try connecting to an IRC Server, or use Gerph's
+local !IRServer application to test it offline. Help can be gained by using
+/Help.
+
+Upgrading
+---------
+Upgrading is currently slightly different in that you will probably be
+supplied with a copy of the Config file when you get Magarthea. If you wish to keep your old configuration you should copy this file
+(!IRClient.Scripts.Magrathea.Resources.Config) somewhere, copy the new
+Magrathea in to the directory and then put the Config file back.
+
+
+[[[[ Rest of document under development - ie I can't be bothered ATM ]]]]
+
+Contacts
+--------
+Justin Fletcher	Gerph	gerph@essex.ac.uk
+Alex Howarth	Zarni	keystrok@mail.zynet.co.uk 
+Matthew Godbolt	TheMoog	matthew@xania.co.uk (or summats !)

@@ -1,0 +1,569 @@
+head     1.5;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.5
+date     97.12.29.14.56.12;  author gerph;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     97.07.15.15.09.02;  author matt;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     97.04.16.01.32.07;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.04.13.23.54.28;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.18.20.30;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Window Object class
+@
+
+
+1.5
+log
+@WOTemplate now includes indirected data,
+fixed bugs with <wotemplate>.text$=,
+added bounding boxes.
+@
+text
+@REM >WObjects
+REM LEN 1997 Justin Fletcher (Wide)
+REM Window 'objects' - anything that can be in a window
+REM ---
+REM $Id: WObjects 1.4 97/07/15 15:09:02 matt Exp $
+REM $Log:	WObjects $
+REM Revision 1.4  97/07/15  15:09:02  matt
+REM Changed to fit new @@ paradigm
+REM
+REM Revision 1.3  97/04/16  01:32:07  gerph
+REM Handlers lists /should/ work. The don't however. Possibly because of
+REM corruption of stack.
+REM
+REM Revision 1.2  97/04/13  23:54:28  gerph
+REM Various fixes for the handlers and additional Help handler added.
+REM
+REM Revision 1.1  97/04/13  18:20:30  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: WObjects 1.4 97/07/15 15:09:02 matt Exp $"
+END
+:
+DEF PROCOverload_Classes_Initialise
+REM The WObject class from which window objects are derived
+Class_WObject=FNRegisterClass("WObject")
+REM The window handle that the object lives in (the main one)
+PROCAddField(Class_WObject,"window")
+REM The parent object which organises where it lives
+PROCAddField(Class_WObject,"parent")
+REM This the little list of handlers for events
+PROCAddField(Class_WObject,"handlers")
+:
+REM WOTemplate class - Window Object Template icon
+Class_WOTemplate=FNRegisterSubclass(Class_WObject,"WOTemplate")
+PROCAddField(Class_WOTemplate,"icon")
+REM Most items will need some indirected data; those that don't, don't need this
+PROCAddField(Class_WOTemplate,"indir")
+:
+REM Pass on to any other initialisation routines
+PROC@@
+ENDPROC
+:
+DEF PROCWObject_Construct
+@@.handlers=FNnewHandlerList
+REM PRINT"Constructing a WObject"
+ENDPROC
+:
+DEF PROCWObject_Destruct
+REM PRINT"Destroying a WObject"
+ENDPROC
+:
+DEF PROCWObject_AddHandler(name$,routine$,private)
+PROC@@.handlers.AddHandler(name$,routine$,private)
+ENDPROC
+:
+REM Pass on any unknown menu clicks
+DEF PROCWObject_Menu(xoff,yoff,icon)
+LOCAL inst
+inst=FN@@.handlers.FindS("Menu")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs3(@@,xoff,yoff)
+ENDIF
+IF inst=0 THEN PROC@@.window.Menu(xoff,yoff,icon)
+ENDPROC
+:
+REM Pass on any unknown clicks
+DEF PROCWObject_Click(xoff,yoff,but,icon)
+LOCAL inst
+REM PRINT"WObject Click"
+inst=FN@@.handlers.FindS("Click")
+REM PRINT"Click's found"
+IF inst THEN
+ inst=FNinst.data.IterateFNs4(@@,xoff,yoff,but)
+ENDIF
+IF inst=0 THEN PROC@@.window.Click(xoff,yoff,but,icon)
+ENDPROC
+:
+REM Pass on any unknown focus
+DEF PROCWObject_Focus(gotfocus,icon)
+LOCAL inst
+inst=FN@@.handlers.FindS("Focus")
+IF inst THEN
+ inst=FNinst.data.IterateFNs2(@@,gotfocus)
+ENDIF
+IF inst=0 THEN PROC@@.window.Focus(gotfocus,icon)
+ENDPROC
+:
+REM Pass on any unknown help requests
+DEF FNWObject_Help(x,y,icon)
+LOCAL inst,help$
+inst=FN@@.handlers.FindS("HelpIs")
+IF inst THEN
+ inst=FNinst.data.First
+ help$=inst.data.routine$
+ IF LEFT$(help$,1)="*" THEN
+  help$=FN@@.window.Help(x,y,icon)+MID$(help$,2)
+ ENDIF
+ENDIF
+IF inst=0 THEN
+ inst=FN@@.handlers.FindS("Help")
+ IF inst THEN
+  help$=FNinst.data.IterateFNs5S("",@@,x,y,icon)
+  IF LEFT$(help$,2)="|M" THEN
+   help$=FN@@.window.Help(x,y,icon)+help$
+  ENDIF
+ ENDIF
+ENDIF
+IF help$="" THEN help$=FN@@.window.Help(x,y,icon)
+=help$
+:
+REM Pass on any unknown icon things
+DEF PROCWObject_Key(char,icon)
+LOCAL inst
+inst=FN@@.handlers.FindS("KeyDefault")
+IF inst THEN
+ IF char=13 THEN
+  PROCinst.data.items.data.private.Click(-1,-1,win_select,-1)
+ ELSE
+  inst=0
+ ENDIF
+ENDIF
+IF inst=0 THEN
+ inst=FN@@.handlers.FindS("KeyCancel")
+ IF inst THEN
+  IF char=27 THEN
+   PROCinst.data.items.data.private.Click(-1,-1,win_select,-1)
+  ELSE
+   inst=0
+  ENDIF
+ ENDIF
+ENDIF
+IF inst=0 THEN
+ inst=FN@@.handlers.FindS("Key")
+ IF inst THEN
+  inst=FNinst.data.IterateFNs3("",@@,char)
+ ENDIF
+ENDIF
+IF inst=0 THEN PROC@@.window.Key(char,icon)
+ENDPROC
+:
+REM We need to find if this is the icon we wanted
+REM Always returns FALSE - you should supply your own 'finder'
+DEF FNWObject_Compare(key)
+=FALSE
+:
+REM We need find the position of this icon; you should provide your
+REM own code to find the bounds
+DEF FNWObject_Bounds
+=FNnewBounds(0,0,0,0)
+:
+REM We need to find the position right of this icon
+DEF FNBounds_RightOf(valign,width,height)
+LOCAL new
+new=FNnewBounds(xmax,xmax+width,ymin,ymax)
+CASE (valign AND (3<<2)) OF
+ WHEN win_top
+  new.ymin=@@.ymax-height
+  new.ymax=@@.ymax
+ WHEN win_ycentre
+  new.ymin=@@.ymin+(@@.ymax-@@.ymin-height)/2
+  new.ymax=new.ymin+height
+ WHEN win_bot
+  new.ymin=@@.ymin
+  new.ymax=@@.ymax+height
+ENDCASE
+=new
+:
+REM Add a template icon as an object
+DEF FNWindow_AddTIcon(icon)
+LOCAL inst
+inst= Class_WOTemplate
+inst.window=@@
+inst.icon=icon
+PROC@@.AddObject(inst)
+=inst
+:
+DEF PROCWOTemplate_Construct
+REM Default is 'no window', 'no icon'
+@@.window=-1
+@@.icon=-1
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEF PROCWOTemplate_Destruct
+REMPRINT"WOTemplate destructing @@="+STR$@@
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEF PROCWOTemplate_Destroy
+PROC@@.handlers.Destroy
+PROC@@.window.RemoveObject(@@)
+REM And pass it on
+PROC@@
+ENDPROC
+:
+DEF FNWOTemplate_Bounds
+LOCAL bounds,block
+block=FNnewBlock(48)
+!(block.data)=@@.window.handle
+!(block.data+4)=@@.icon
+SYS "Wimp_GetIconState",,block.data
+bounds=FNnewBounds(!(block.data+8),!(block.data+12),!(block.data+16),!(block.data+20))
+=bounds
+:
+DEF PROCWOTemplate_Delete
+REM PRINT"WOT_Delete"
+LOCAL block
+block.data=FNnewBlock(8)
+!(block.data)=@@.window.handle
+!(block.data+4)=@@.icon
+SYS "Wimp_DeleteIcon",,block.data
+REM And destroy
+PROC@@.Destroy
+ENDPROC
+:
+DEF PROCWOTemplate_SetUnknownVarStr(var$,val$)
+CASE var$ OF
+ WHEN "text$"
+  LOCAL block,flags
+  block=FNnewBlock(40)
+  !(block.data)=@@.window.handle
+  !(block.data+4)=@@.icon
+  SYS "Wimp_GetIconState",,block.data
+  flags=!(block.data+24)
+  IF (flags AND 1)=0 THEN ENDPROC
+  IF (flags AND 8)<>0 THEN
+   LOCAL maxlen
+   maxlen=!(block.data+36)
+   REM Set the text
+   $(!(block.data+28))=LEFT$(val$,maxlen-1)
+  ELSE
+   LOCAL block,icon
+   block=FNnewBlock(8)
+   @@.indir=block
+   !(block.data)=@@.window.handle
+   !(block.data+4)=@@.icon
+   REM Delete the icon
+   SYS "Wimp_DeleteIcon",,block.data
+   REM Re-create with new data
+   $(block.data+28)=LEFT$(val$,11)
+   SYS "Wimp_CreateIcon",,block.data+8 TO icon
+   @@.icon=icon
+  ENDIF
+  REM Cause it to be redrawn
+  !(block.data+8)=0
+  !(block.data+12)=0
+  SYS "Wimp_SetIconState",,block.data
+ OTHERWISE
+  PROC@@(var$,val$)
+ENDCASE
+ENDPROC
+:
+DEF FNWOTemplate_Compare(key)
+=(@@.icon=key)
+@
+
+
+1.4
+log
+@Changed to fit new @@ paradigm
+@
+text
+@d2 1
+a2 1
+REM (c) 1997 Justin Fletcher
+d5 1
+a5 1
+REM $Id: WObjects 1.3 97/04/16 01:32:07 gerph Exp $
+d7 3
+d21 1
+a21 1
+PRINT "$Id: WObjects 1.3 97/04/16 01:32:07 gerph Exp $"
+d37 2
+d70 1
+a70 1
+PRINT"WObject Click"
+d72 1
+a72 1
+PRINT"Click's found"
+d94 2
+a95 1
+ help$=inst.data.data.routine$
+d97 1
+a97 1
+  help$=FN@@.window.Help(@@,inst.data.data.private,x,y,icon)+"|M"+MID$(help$,2)
+d118 1
+a118 1
+  PROCinst.data.data.private.Click(-1,-1,win_select,-1)
+d127 1
+a127 1
+   PROCinst.data.data.private.Click(-1,-1,win_select,-1)
+d147 22
+d172 1
+a172 1
+inst=FNnew(Class_WOTemplate)
+d187 1
+a187 1
+PRINT"WOTemplate destructing @@="+STR$@@
+a192 1
+PRINT"Attempting to destroy WOTemplate handlers (@@="+STR$@@+" "+FNGetClassName(@@)+")"
+a193 1
+PRINT"B3 PROC@@ (@@="+STR$@@+" "+FNGetClassName(@@)+")"
+d196 1
+a196 2
+PRINT"B4 PROC@@ (@@="+STR$@@+" "+FNGetClassName(@@)+")"
+IF @@<>0 THEN PROC@@
+d199 9
+d233 1
+a233 1
+   $(!(block.data+28))=LEFT$(val$,maxlen)
+d236 2
+a237 1
+   block.data=FNnewBlock(8)
+d251 1
+a251 1
+ 
+@
+
+
+1.3
+log
+@Handlers lists /should/ work. The don't however. Possibly because of
+corruption of stack.
+@
+text
+@d5 1
+a5 1
+REM $Id: WObjects 1.2 97/04/13 23:54:28 gerph Exp $
+d7 4
+d18 1
+a18 1
+PRINT "$Id: WObjects 1.2 97/04/13 23:54:28 gerph Exp $"
+d39 1
+a39 1
+DEFPROCWObject_Construct
+d44 1
+a44 1
+DEFPROCWObject_Destruct
+d48 1
+a48 1
+DEFPROCWObject_AddHandler(name$,routine$,private)
+d53 1
+a53 1
+DEFPROCWObject_Menu(xoff,yoff,icon)
+d59 1
+a59 1
+IF inst=0 THENPROC@@.window.Menu(xoff,yoff,icon)
+d63 1
+a63 1
+DEFPROCWObject_Click(xoff,yoff,but,icon)
+d71 1
+a71 1
+IF inst=0 THENPROC@@.window.Click(xoff,yoff,but,icon)
+d75 1
+a75 1
+DEFPROCWObject_Focus(gotfocus,icon)
+d81 1
+a81 1
+IF inst=0 THENPROC@@.window.Focus(gotfocus,icon)
+d85 1
+a85 1
+DEFFNWObject_Help(x,y,icon)
+d103 1
+a103 1
+IF help$="" THENhelp$=FN@@.window.Help(x,y,icon)
+d107 1
+a107 1
+DEFPROCWObject_Key(char,icon)
+d133 1
+a133 1
+IF inst=0 THENPROC@@.window.Key(char,icon)
+d138 1
+a138 1
+DEFFNWObject_Compare(key)
+d150 1
+a150 1
+DEFPROCWOTemplate_Construct
+d158 2
+a159 2
+DEFPROCWOTemplate_Destruct
+PRINT"WOTemplate destructing"
+a161 1
+REM PRINT"Set to "+STR$@@
+d164 2
+a165 2
+DEFPROCWOTemplate_Destroy
+PRINT"Attempting to destroy WOTemplate handlers"
+d167 1
+d170 2
+a171 1
+PROC@@
+d174 1
+a174 1
+DEFPROCWOTemplate_Delete
+d185 1
+a185 1
+DEFPROCWOTemplate_SetUnknownVarStr(var$,val$)
+d194 1
+a194 1
+  IF (flags AND 1)=0 THENENDPROC
+d221 1
+a221 1
+DEFFNWOTemplate_Compare(key)
+@
+
+
+1.2
+log
+@Various fixes for the handlers and additional Help handler added.
+@
+text
+@d5 1
+a5 1
+REM $Id: WObjects 1.1 97/04/13 18:20:30 gerph Exp $
+d7 3
+d14 1
+a14 1
+PRINT "$Id: WObjects 1.1 97/04/13 18:20:30 gerph Exp $"
+d36 1
+a36 1
+@@.handlers=FNnewBTree("Handler_Compare")
+d45 1
+a45 1
+PROC@@.handlers.Add(FNnewHandler(name$,routine$,private))
+d53 1
+a53 1
+ inst=FN(inst.data.routine$)(@@,private,xoff,yoff)
+d61 1
+d63 1
+d65 1
+a65 2
+ REM PRINT"Attempt to call "+inst.data.routine$
+ inst=FN(inst.data.routine$)(@@,inst.data.private,xoff,yoff,but)
+d75 1
+a75 1
+ inst=FN(inst.data.routine$)(@@,inst.data.private,gotfocus)
+d83 1
+a83 1
+inst=FN@@.handlers.FindS("Help")
+d85 1
+a85 1
+ help$=FN(inst.data.routine$)(@@,inst.data.private,x,y)
+d87 10
+a96 1
+  help$=FN@@.window.Focus(@@,inst.data.private,x,y,icon)+"|M"+MID$(help$,2)
+d99 1
+a99 1
+IF help$="" THENhelp$=FN@@.window.Focus(gotfocus,icon)
+d108 1
+a108 3
+  LOCAL inst2
+  inst2=FNinst.data.private.handlers.FindS("Click")
+  inst=FN(inst2.data.routine$)(inst.data.private,inst2.data.private,-1,-1,4)
+d117 1
+a117 3
+   LOCAL inst2,blk
+   inst2=FNinst.data.private.handlers.FindS("Click")
+   inst=FN(inst2.data.routine$)(inst.data.private,inst2.data.private,-1,-1,4)
+d126 1
+a126 1
+  inst=FN(inst.data.routine$)(@@,inst.data.private,char)
+d155 1
+d162 2
+d165 2
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 5
+a9 2
+REM $Id$
+REM $Log$
+d11 1
+a11 1
+PRINT "$Id$"
+d34 1
+a34 1
+PRINT"Constructing a WObject"
+d38 1
+a38 1
+PRINT"Destroying a WObject"
+d50 1
+a50 2
+ REM inst=FN(inst.data.routine$)(@@,private,xoff,yoff,but)
+ inst=EVAL("FN"+inst.data.routine$+"(@@,inst.data.private,xoff,yoff)")
+d60 2
+a61 3
+ REM inst=FN(inst.data.routine$)(@@,private,xoff,yoff,but)
+ PRINT"Attempt to call "+inst.data.routine$
+ inst=EVAL("FN"+inst.data.routine$+"(@@,inst.data.private,xoff,yoff,but)")
+d71 1
+a71 2
+ REM inst=FN(inst.data.routine$)(@@,private,xoff,yoff,gotfocus)
+ inst=EVAL("FN"+inst.data.routine$+"(@@,inst.data.private,gotfocus)")
+d76 13
+d97 1
+a97 1
+  inst=EVAL("FN"+inst2.data.routine$+"(inst.data.private,inst2.data.private,-1,-1,4)")
+d105 2
+a106 2
+  IF char=13 THEN
+   LOCAL inst2
+d108 1
+a108 1
+   inst=EVAL("FN"+inst2.data.routine$+"(inst.data.private,inst2.data.private,-1,-1,4)")
+d117 1
+a117 2
+  REM inst=FN(inst.data.routine$)(@@,private,xoff,yoff,char)
+  inst=EVAL("FN"+inst.data.routine$+"(@@,inst.data.private,char)")
+d148 1
+a148 1
+PRINT"Set to "+STR$@@
+d156 1
+a156 1
+PRINT"WOT_Delete"
+@

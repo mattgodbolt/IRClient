@@ -1,0 +1,236 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.02.02.16.02.43;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Logging of chat on channels, query and CTCP.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM > Logs
+REM Logs channels and chats to file
+REM (c)EVALJustin Fletcher
+REM 12 Sep 1996 - JF: Started                             v1.00
+REM 12 Sep 1996 - JF: Configuration added                 v1.01
+REM 26 Sep 1996 - JF: Debug option added                  v1.02
+REM 27 Sep 1996 - JF: Debug tied into the configuration   v1.03
+REM 28 Sep 1996 - JF: Modified for new dir structure      v1.04
+REM 26 Mar 1997 - JF: Changed PROCDisplay format          v1.05
+REM ---
+REM $Id:$
+REM $Log:$
+REM ---
+PRINT "$Id$"
+END
+:
+DEF PROCInitialiseModule
+REM Read configuration
+PROCStartupStatus("Initialising Logs...")
+Logs_channels=VAL(FNDB_ReadConfig("Logs_Channels"))
+Logs_users=VAL(FNDB_ReadConfig("Logs_Users"))
+Logs_dccchat=VAL(FNDB_ReadConfig("Logs_DCCChat"))
+Logs_other=VAL(FNDB_ReadConfig("Logs_Other"))
+Logs_dir$=FNDB_ReadConfig("Logs_Dir")
+IF Logs_dir$="" THEN
+ Logs_dir$=magrathea_user$+".Logs"
+ENDIF
+SYS "OS_File",8,Logs_dir$
+SYS "OS_File",8,Logs_dir$+".Channels"
+SYS "OS_File",8,Logs_dir$+".DCCChat"
+SYS "OS_File",8,Logs_dir$+".Other"
+REM Pass on to the next module
+PROC@@
+ENDPROC
+:
+REM ******* Overloaded configuration options ********
+:
+REM Give ourselves a sensible name
+DEF FNOverload_ScriptInfo(num)
+LOCAL ret$
+IF num=0 THEN
+ ret$="Logs v"+FNRCSVersion("$Revision$")+" (Gerph)"
+ELSE
+ ret$=FN@@(num-1)
+ENDIF
+=ret$
+:
+REM Enumerate module names
+DEF FNOverload_ConfigModName(count)
+LOCAL ret$
+IF count=0 THEN
+ ret$="Logs"
+ELSE
+ ret$=FN@@(count-1)
+ENDIF
+=ret$
+:
+REM What options do we provide ?
+DEF PROCOverload_ConfigOptions(module$)
+IF module$="Logs" THEN
+ PROCDisplayConfig("")
+ PROCDisplayConfig("-- Logs configuration --")
+ PROCDisplayConfig("You can configure :")
+ PROCDisplayConfig("  Channels  : Whether channels are logged")
+ PROCDisplayConfig("  Users     : Whether chats are logged")
+ PROCDisplayConfig("  DCCChat   : Whether DCC Chats are logged")
+ PROCDisplayConfig("  Other     : Whether other windows are logged")
+ PROCDisplayConfig("  Directory : The directory to which logs are sent")
+ELSE
+ PROC@@(module$)
+ENDIF
+ENDPROC
+:
+REM How do we configure things
+DEF PROCOverload_ConfigCommand(module$,com$,str$)
+IF module$="Logs" THEN
+ CASE com$ OF
+  WHEN "CHANNELS"
+   val=FNboolean(str$)
+   IF val=-2 THEN
+    PROCDisplayConfig("Syntax: Channels <boolean>")
+   ELSE
+    Logs_channels=val
+    PROCDB_WriteConfig("Logs_Channels",STR$ Logs_channels)
+    PROCDisplayConfig("Set Channels to "+FNbooltext(Logs_channels))
+   ENDIF
+
+  WHEN "USERS"
+   val=FNboolean(str$)
+   IF val=-2 THEN
+    PROCDisplayConfig("Syntax: Users <boolean>")
+   ELSE
+    Logs_users=val
+    PROCDB_WriteConfig("Logs_Users",STR$ Logs_users)
+    PROCDisplayConfig("Set Users to "+FNbooltext(Logs_users))
+   ENDIF
+
+  WHEN "DCCCHAT"
+   val=FNboolean(str$)
+   IF val=-2 THEN
+    PROCDisplayConfig("Syntax: DCCChat <boolean>")
+   ELSE
+    Logs_dccchat=val
+    PROCDB_WriteConfig("Logs_Users",STR$ Logs_dccchat)
+    PROCDisplayConfig("Set DCCChat to "+FNbooltext(Logs_dccchat))
+   ENDIF
+
+  WHEN "OTHER"
+   val=FNboolean(str$)
+   IF val=-2 THEN
+    PROCDisplayConfig("Syntax: Other <boolean>")
+   ELSE
+    Logs_other=val
+    PROCDB_WriteConfig("Logs_Other",STR$ Logs_other)
+    PROCDisplayConfig("Set Other to "+FNbooltext(Logs_other))
+   ENDIF
+
+  WHEN "DIRECTORY"
+   IF str$="" OR FNfiletype(str$)<>&1000 THEN
+    PROCDisplayConfig("Syntax: Directory <dir>")
+   ELSE
+    Logs_dir$=str$
+    PROCDB_WriteConfig("Logs_Dir",Logs_dir$)
+    PROCDisplayConfig("Set Directory to "+Logs_dir$)
+    SYS "OS_File",8,Logs_dir$
+    SYS "OS_File",8,Logs_dir$+".Channels"
+    SYS "OS_File",8,Logs_dir$+".DCCChat"
+    SYS "OS_File",8,Logs_dir$+".Other"
+   ENDIF
+
+  WHEN "LIST"
+   PROCDisplayConfig("")
+   PROCDisplayConfig("Channels  : "+FNbooltext(Logs_channels))
+   PROCDisplayConfig("Users     : "+FNbooltext(Logs_users))
+   PROCDisplayConfig("DCCChat   : "+FNbooltext(Logs_dccchat))
+   PROCDisplayConfig("Other     : "+FNbooltext(Logs_other))
+   PROCDisplayConfig("Directory : "+Logs_dir$)
+
+  WHEN "HELP"
+   PROCOverload_ConfigOptions(module$)
+
+  OTHERWISE
+   PROCDisplayConfig("Command not recognised")
+ ENDCASE
+ELSE
+ PROC@@(module$,com$,str$)
+ENDIF
+ENDPROC
+:
+REM *************** Logging overloads *********************
+:
+REM Main overload on PROCDisplay
+DEF PROCDisplay(mess$,to$)
+LOCAL out,channel,user,dccchat,other
+PROC@@(mess$,to$)
+REM Most of the time it's to$ that we're interested in
+IF to$<>"" AND Initialised THEN
+ channel=(LEFT$(to$,1)="#") AND (LEFT$(to$,2)<>"##")
+ user=(LEFT$(to$,1)<>"#") AND (LEFT$(to$,1)<>"=")
+ dccchat=(LEFT$(to$,1)="=")
+ other=(LEFT$(to$,2)="##") OR (INSTR(to$,".")<>0)
+ IF (channel AND Logs_channels) OR (dccchat AND Logs_dccchat) OR (user AND Logs_users) OR (other AND Logs_other) THEN
+  IF channel THEN
+   to$="Channels."+MID$(to$,2)
+  ELSE
+   IF dccchat THEN
+    to$="DCCChat."+MID$(to$,2)
+   ELSE
+    IF other THEN
+     IF INSTR(to$,".")=0 THEN
+      to$="Other."+MID$(to$,3)
+     ELSE
+      to$="Other.FromServer"
+     ENDIF
+    ENDIF
+   ENDIF
+  ENDIF
+  WHILE INSTR(to$,"#")>0
+   to$=LEFT$(to$,INSTR(to$,"#")-1)+MID$(to$,INSTR(to$,"#")+1)
+  ENDWHILE
+  WHILE INSTR(to$,"^")>0
+   to$=LEFT$(to$,INSTR(to$,"^")-1)+"+"+MID$(to$,INSTR(to$,"^")+1)
+  ENDWHILE
+  WHILE INSTR(to$,"|")>0
+   to$=LEFT$(to$,INSTR(to$,"|")-1)+"_"+MID$(to$,INSTR(to$,"|")+1)
+  ENDWHILE
+  to$=Logs_dir$+"."+to$
+  out=OPENUP(to$)
+  IF out=0 THEN
+   out=OPENOUT(to$)
+   SYS "XOS_File",18,to$,&FFF
+  ENDIF
+  PTR#out=EXT#out
+  REM Remove Bold
+  WHILE INSTR(mess$,CHR$2)
+   mess$=LEFT$(mess$,INSTR(mess$,CHR$2)-1)+"*"+MID$(mess$,INSTR(mess$,CHR$2)+1)
+  ENDWHILE
+  REM Remove Underline
+  WHILE INSTR(mess$,CHR$31)
+   mess$=LEFT$(mess$,INSTR(mess$,CHR$31)-1)+"_"+MID$(mess$,INSTR(mess$,CHR$31)+1)
+  ENDWHILE
+  REM Remove colours
+  WHILE INSTR(mess$,CHR$27)
+   mess$=LEFT$(mess$,INSTR(mess$,CHR$27)-1)+MID$(mess$,INSTR(mess$,CHR$27)+3)
+  ENDWHILE
+  REM Need code for mIRC colour removal here ...
+  BPUT#out,mess$
+  CLOSE#out
+ ENDIF
+ENDIF
+ENDPROC
+@

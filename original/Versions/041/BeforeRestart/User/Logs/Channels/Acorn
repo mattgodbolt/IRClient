@@ -1,0 +1,1643 @@
+    <TheMoog> Hi peoplings !
+The topic for channel #Acorn is If anyone has any ideas for features to add to 'Locate' for RiscOS, talk to Forr
+      <Skiff> My friend has asthma - and he's county champion !
+* Channel mode for #Acorn is +tn 
+     <MikeyW> Moogie!
+      <cod3x> It's a good excuse though
+    <TheMoog> frassen rassen lag
+    <TheMoog> re all
+      <mozes> th; I know.. but I just didn't like doing running - its just not my sorta thing :-)
+      <mozes> cos; <grin>
+      <mozes> Hiya *TheMoog*
+*** EQnox (~unset@net35.paston.co.uk) has joined channel #acorn
+    <TheMoog> Hi EQnox
+      * mozes 'd rather just program summit - it isn't tiring ;-)
+* Mode change by Subetha (+o TheMoog )
+      <mozes> Hiya EQnox
+     <MikeyW> oops.. me gotta go now.... 
+     <MikeyW> Bye :)
+      <EQnox> Peeps!!
+*** AutoGreet turned Off
+      <mozes> bye mw
+      <EQnox> Ahh *TheMoog*
+*** MikeyW (M@lon3-54.ukonline.co.uk) has left IRC (Connection reset by FBI)
+      <mozes> th; where do u live anyway?
+   <ThisHell> Hi EQnox
+      <EQnox> *TheMoog* : 0.36 and 0.37 arent strongARM complient
+      * mozes changes his nick to what it usually is..
+    * TheMoog moans about his poxy 14k4
+*** mozes (~Stuart-w@lon6-50.ukonline.co.uk) has changed his nickname to MoZes
+      <EQnox> TH!!!!!!!!!!!!!!!1
+   <ThisHell> mozes: Kent.
+*** dilemma (~dilemma@dilemma.demon.co.uk) has joined channel #acorn
+      <MoZes> th; hmm.. I've never been there - is it uur, nice? l0(
+    * TheMoog watches his 4Mb of outgoing mail slowly tricle out...
+      <MoZes> Hiya dilemma
+        <Pav> hi dil
+      <EQnox> dilemma!!
+    <dilemma> hmmm
+    <dilemma> Hi gang!!
+      <EQnox> *TheMoog* : ??
+    <TheMoog> trickle even
+      <MoZes> l0) = ;-)
+        <Pav> who wants to see my 2nd ever written java applet ?
+        <Pav> wrote it today
+*** Skiffy (~Xkiff@dismayl.demon.co.uk) has joined channel #acorn
+   <ThisHell> *TheMoog*: I send about that much a year!
+* Mode change by Subetha (+o dilemma )
+        <Pav> first was the infamous hello world
+     <Skiffy> arg !
+      <MoZes> pav; how do u use it?
+    <TheMoog> TH> :)
+      <EQnox> sKIFF!!
+*** Skiff (~Xkiff@dismayl.demon.co.uk) has left IRC (Connection reset by peer)
+     <Skiffy> fecking Termite ! :)
+* Mode change by Kri (+o Skiffy )
+*** Skiffy (~Xkiff@dismayl.demon.co.uk) has changed his nickname to Skiff
+      * MoZes sings
+        <Pav> mozes : with a web browser that can do java :)
+      <cod3x> ooh yes please
+      <EQnox> Damm
+    <TheMoog> TH> problem when co-developing software - you have to send *a lot* of stuff back and forth a lot
+      <Skiff> hey all again
+      <cod3x> ok, just let you know, i am not me
+      <Skiff> hi dilemma
+      * EQnox 's screen shaters
+      <MoZes> pav; h, ic - I aint got 1 of em , sprry ;-)
+      <EQnox> *TheMoog* : I cant use 0.36 or 0.37 of IRClient......
+    <dilemma> hi skiff
+      <EQnox> properely
+    <TheMoog> EQ> Turn cache off while you load it - and then back on once it has started up
+      <MoZes> tm; hmm - I know - thats why I usually write it on my own.  Cos u then have confilcting ideas, and someone changes part of the code, and u then have to sort of patch it in with your own, and then you want to change something which you like, and the other doesn't agggr ;-)
+      <EQnox> *TheMoog* : Thats what I do do
+    <TheMoog> EQ> Hmmm
+    <TheMoog> EQ> What ahppens?
+      <EQnox> *TheMoog* : r u going to fix it??
+*** cod3x (~codex@leetah.bogus.net) has left channel #acorn
+      <EQnox> *TheMoog* : nothin.. it works fine
+*** Rhubarb_ (~robert.bo@rossini.wor.ox.ac.uk) has joined channel #acorn
+      * MoZes hopes Alf Stewart out of H and away dies ;-)
+      <EQnox> *TheMoog* : bit of a pain though
+    <TheMoog> EQ> You just said it didn't work
+*** Beggin (~anon@ai205.du.pipex.com) has joined channel #acorn
+    <TheMoog> EQ> Oh right - yeah it's fixed now - but won't come out till the next release
+      <EQnox> Ohh
+      <EQnox> Cooll.
+   <ThisHell> Waaahhh... Sisters :((
+      * MoZes wibbles
+        <Pav> angela is/was on eh
+      * EQnox wobbles
+      * MoZes says the word "Wobbler" to Subetha
+      * Skiff has to go
+      * Skiff waves
+    * TheMoog is happy with his new key bindings
+      <MoZes> bye skiff
+*** cod3x (~codex@leetah.bogus.net) has joined channel #acorn
+      <EQnox> Bye Skiffy
+    <TheMoog> bye skiff
+      <EQnox> codex!!
+      <Skiff> cya all! and have fun :)
+    <dilemma> bye skiff xx
+*** Skiff (~Xkiff@dismayl.demon.co.uk) has left IRC (EOF From client)
+    * TheMoog beats seven kinds of hell out of his modem
+   <ThisHell> Pav: Yeah, it goes something like this "I wanna spod... <push>" And then she gives me the keyboard back... Horrible sister.
+      <MoZes> tm; oh, just out of interest - why is it that u can't do top set characters by holding down the alt key and whatever.. (Obviously cos the code don't allow it :-))  ?
+        <Pav> th :)
+      * EQnox mowes his lawns
+    * TheMoog re-kicks Freesmtp
+        * Pav sings
+*** cod3x (~codex@leetah.bogus.net) has left IRC (EOF From client)
+      * MoZes dances
+*** EQnox (~unset@net35.paston.co.uk) has left IRC (EOF From client)
+        <Pav> 6 more days till my b'day...6 more days till my b'day
+      * MoZes sings "Wooooooo"
+     <Beggin> Help! IRClient .37 hates me!! :(
+*** Pav (pav@tao.btc.uwe.ac.uk) has changed the topic to:
+                       *** Don't forget March 12th ! ***
+    <TheMoog> Begg> Turn off the cache when you load it, then turn it back on when you;ve loaded
+   <ThisHell> Pav: Does that mean I have to send a card?
+      <MoZes> [MoZes:] hears next door neighbour with his shit obsession with minis - all that I can hear is shitty engines which are really loud..
+        <Pav> th : not really
+    * TheMoog shivers
+      * MoZes hears next door neighbour with his shit obsession with minis - all that I can hear is shitty engines which are really loud..
+        <Pav> i'm to old for cards
+        * Pav will be 23
+    <dilemma> 23?
+*** EQnox (~unset@net35.paston.co.uk) has joined channel #acorn
+     <Beggin> TM: What will that do?
+      * MoZes will be 16, still :-)
+      <EQnox> Oooops
+    <dilemma> EQnox!!!
+   <ThisHell> re EQnox
+      <MoZes> Hiya EQnox
+    <TheMoog> begg> Cause it to load...
+      <EQnox> dilemma !!
+      <EQnox> TH!!
+    <TheMoog> begg> I presume you are on a Strong ARM?
+    * dilemma shakes her head
+        <Pav> dil : yes 23 comes after 22 :)
+   * ThisHell writes down her options.. Wheeee... 
+      <EQnox> MoZes!
+*** CTCP CLIENTINFO reply received from Beggin (ECHO PING VERSION ACTION FINGER USERINFO MACHINEINFO CLIENTINFO TIME IRCTIME)
+*** CTCP MACHINEINFO reply received from Beggin (4Mb, 12 tasks running under Risc OS 3.66)
+      * EQnox thumbs !Fresco
+    <dilemma> TH> HI!!
+        <Pav> y u shaking your head for ?
+*** CTCP VERSION reply received from Beggin ((0.24) (unregistered)(VH0.18b))
+    <dilemma> didn't see you
+   <ThisHell> Hi dilemma :)
+    <dilemma> children....you're all children!!!
+      * EQnox thumps Ant
+*** CTCP VERSION received from Beggin
+       <hick> "Teletext"
+    * TheMoog sucks his thumb
+      * MoZes still can't understand why the AgroNetzip driver is so craply written
+    <dilemma> and so b8888y clever
+      * MoZes kicks ANT cos its fun :-)
+        <Pav> the oldest here is prolly tjor fresco or frauke
+    <dilemma> b****y
+      <MoZes> * ANT crashes 
+      <EQnox> Pav??
+      <MoZes> :-)
+        <Pav> well apart from you and dm
+    <dilemma> no i am
+      <EQnox> Dammmn
+      <EQnox> must go
+     <Beggin> TM: It loads ok, but commands don't work (even /raw...etc)
+      <MoZes> bye eq
+      <EQnox> T to haVE
+    <dilemma> oh?
+      <EQnox> Bye MoZes
+        <Pav> the oldies are pretty new
+      * EQnox wave
+    <dilemma> hehe
+      <EQnox> s
+      * MoZes sings like a beegee...
+    <dilemma> bye EQnox
+      <MoZes> #Ha ha ha ha stayin' alive
+      <EQnox> Byyyyyyyyyyyeeeeeeeeeeeeeeeeeeeeeeeeeeeeee!!
+        <Pav> out of the people on the channel atm i've been the longest irc'er
+*** _Henry (twoflower@dial1013.dialup.warwick.ac.uk) has joined channel #acorn
+      <EQnox> AAAAAHhhhhhhh Beegggeeeeees
+     <_Henry> hi all
+    <TheMoog> brb - SMTP buggered
+      * EQnox leaves
+        <Pav> been #acorning since 1993
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    * TheMoog mumbles about odd SMTP problems
+*** AutoGreet turned Off
+    <TheMoog> Hi peoplings !
+           The topic for channel #Acorn is Don't forget March 12th !
+* Channel mode for #Acorn is +tn 
+    * TheMoog mutters darkly about SMTP strangeness
+*** WhoIs> twoflower dial1013.dialup.warwick.ac.uk * Henry Cooke
+*** WhoIs> #acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 49 seconds idle
+*** WhoIs> End of /WHOIS list.
+*** WhoIs> ~TheMoog willothewisp.demon.co.uk * Matthew Godbolt
+*** WhoIs> #acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 0 seconds idle
+*** WhoIs> End of /WHOIS list.
+*** Sprocket (guest@rossini.wor.ox.ac.uk) has joined channel #acorn
+    <TheMoog> Have I crashed or has it gone quiet?
+     <_Henry> quiet
+     * _Henry drops a pin
+*** CTCP VERSION reply received from Pav (Running *PhoEniX* v2.00 by Vassago)
+    <TheMoog> *phew*
+*** CTCP VERSION reply received from Rhubarb_ (mIRC32 v3.92 IRC Client K.Mardam-Bey)
+*** CTCP VERSION reply received from ThisHell ((0.22) (unregistered)(VH0.15) )
+*** CTCP VERSION reply received from _Henry (mIRC32 v4.7 K.Mardam-Bey)
+*** CTCP VERSION reply received from hick (ircII 2.8 Linux 2.0.0 :ircii 2.8: almost there...)
+*** CTCP VERSION reply received from Sprocket (mIRC32 v4.72 K.Mardam-Bey)
+*** CTCP VERSION reply received from Subetha (**BitchX-68d* by panasync *-* SunOS 5.5.1 :* Keep it to yourself!**)
+*** Beggin (~dave@ai205.du.pipex.com) has joined channel #acorn
+       <hick> Crashed
+   <ThisHell> Hi Sprocket
+     <_Henry> anyone know?
+   <Sprocket> hello
+    <TheMoog> yo Sprocket
+   * ThisHell considers doing her homework.
+    <TheMoog> TH> Don't do it
+     <_Henry> nah
+   <Rhubarb_> Yo Sprockit
+       <hick> Burn your books
+     * _Henry hates homework
+    <TheMoog> humph
+   <ThisHell> TM: OK :)  It's a tiny little bit of French I don't understand.
+     <_Henry> with a vengance
+       <hick> Chuck them over that bridge
+   <Sprocket> Yo Rhubarb_ & *TheMoog*
+     * _Henry is currently trying to get his head around triginometry
+*** CTCP VERSION reply received from Beggin (IRClient v.37  (Unregistered), Magrathea v1.19 (Gerph+Zarni).)
+*** dilemma (~dilemma@dilemma.demon.co.uk) has left IRC (Ping timeout)
+    <TheMoog> beggin> Working now?
+   <ThisHell> hick: Noooo, I can't do that... My French book is too neat and tidy and brilliant with 10/10 written all over it.
+   <Sprocket> How do you get 6 random numbers?
+*** CTCP PING reply received from Beggin (185 centi-seconds)
+   <Rhubarb_> ask a PC owner to count to 10
+     <_Henry> this: I'm doing french GCSE...need help?
+   <ThisHell> Hahahahahaha.
+    <TheMoog> *rofl*
+   <ThisHell> Henry: Narr, tis OK.
+   <ThisHell> Henry: Thanks anyway.
+     * _Henry looks all huffy...and what's wrong with pc's..? :)
+    * TheMoog feels very old suddenly
+   * ThisHell likes Rhubarbs attitude.
+   <Sprocket> There crap :)
+   <ThisHell> Henry: What isn't?!
+     <_Henry> points taken
+       <hick> Don't worry TM, you'll be dead soon
+    <TheMoog> oh great
+    <TheMoog> I wanna get IRClient finished before then tho
+   * ThisHell calls Gerph.
+       <hick> No chance, make sure you get tiling done
+     <_Henry> so anyone know how to make a basic program un-exitable?
+    <TheMoog> TH> Tell him to check his mail - most of the $mb was for him
+     <Beggin> TM: sorta,but some commands don't work like they used to, and I have to be honest that I don't quite understand these CTCP things (me thicko!) 
+    <TheMoog> begg> Hmmm
+    <TheMoog> begg> Can you be more specific?
+    * TheMoog goes into Eliza mode
+   <ThisHell> TM: OK, I will see if I can get through first.
+    <TheMoog> TH> :)
+*** LoneGunma (~Richard@engtc105.cf.ac.uk) has joined channel #acorn
+    <TheMoog> m-x doctor
+    <TheMoog> :)
+*** LoneGunma (~Richard@engtc105.cf.ac.uk) has left channel #acorn
+    <TheMoog> (emacs joke)
+     <_Henry> I want to make to make this unexitable:
+     <_Henry> 10 MOUSE TO RND(900), RND(900)
+     <_Henry> 20 GOTO 10
+     <_Henry> :)
+   <Sprocket> Why?
+    <TheMoog> _henry> Try *fx 200 1 at the beginning
+    <TheMoog> if not *fx200 3
+   <ThisHell> TM: Gerph says OK... :)  I got through *first time!*
+   * ThisHell is off now..
+   <ThisHell> Byeeeeeeeeee.
+    <TheMoog> that'll stop escape, break clears memory
+    <TheMoog> TH> :) ta
+   <ThisHell> TM: He says he just tried to call you :)
+     <_Henry> to watch the expression on my lame classmates faces as they go 'what's wrong with my mouse?'
+    <TheMoog> th> *rofl*
+    <TheMoog> th> Can you tell him to call me after?
+    <TheMoog> (phone call by proxy here)
+     <_Henry> bye hell
+    <TheMoog> ThisHell phone proxy v0.2
+*** aok (~InLine@ppp420.enterprise.net) has joined channel #acorn
+     <_Henry> thanx moog
+   <ThisHell> TM: Right, I have just finished with Gerph because poopa scoopa wants to use the phone.
+   <Rhubarb_> Rhubarb is Sprocket 
+   <ThisHell> TM: He says he will call/you call him ASAP.
+   <Sprocket> Sprocket is Rhubarb
+        <aok> March 12th ??? What is it ???
+    <TheMoog> _hen> There's always a way out, unless you drop into SVC mode, and disable interrupts - but then you'll have to move the mouse cursor yourself, as I don't think OS_Mouse likes interrupts off
+   <ThisHell> aok: Pav's birthday.
+*** Pav (pav@tao.btc.uwe.ac.uk) has changed the topic to:
+             *** Don't forget March 12th - Pav's 23rd B'day !!! ***
+        <Pav> :)
+    <TheMoog> That's beter
+   <Rhubarb_> Rhubarb is Sprocket 
+   <Sprocket> Sprocket is Rhubarb
+     <_Henry> erk...sounds too complicated for my poor , pc-rotted brain ;)
+    <TheMoog> ^ter^tter
+    <TheMoog> _henry> *rofl&
+    * TheMoog goes to the little boys' room
+   <ThisHell> Why are Green Day soooo brilliant... I can't work it out.
+        * aok usually goes to the mens room (-:
+   <Sprocket> Rhubarb goes to the little ladies room
+   <Rhubarb_> No I Don't
+   <Sprocket> :}
+   <Rhubarb_> :)
+    <TheMoog> th> Tell Gerph that JFProxy works...
+     <_Henry> anyone actually care about the new website devoted to our wonderfully parasitic royal family?
+    <TheMoog> th> Demo coming up (Forrey's about to log on via my modem via Ethernet)
+   <ThisHell> TM: He has gone now.. Angela wanted to speak to Jamesss so I had to give the phone up.  She is really winding me up today.  I couldn't get some IT homework into school because she wanted to be ontime.. ;\
+*** Forrey (~Phil@willothewisp.demon.co.uk) has joined channel #Acorn
+     <Forrey> Hi peoplings !
+   <ThisHell> Hi Forrey :)
+     <Forrey> hiya all
+     <Forrey> hey!  helen!!!!!!!!1
+*** Rhubarb_ (~robert.bo@rossini.wor.ox.ac.uk) has left IRC (Leaving)
+   * ThisHell finds a spare floppy disc.
+    <TheMoog> TH> OIC :)
+    <TheMoog> For> Is it me or is our house cold?
+   <ThisHell> TM: I did have to put half of BrainStorm on a floppy though, it might have taken a while.. :-)
+     <Forrey> TM> yep, very cold
+*** Sprocket (guest@rossini.wor.ox.ac.uk) has left IRC (Leaving)
+     * Forrey changes from his RiscPC jumper to his ultra-thick wooly jumper
+       <hick> Dance round the room naked
+     <Forrey> errr. I don't think that would help
+     * Forrey arboresces
+    <TheMoog> OT?
+*** hick (hick@muddy.mojo.org) has left IRC (Leaving)
+     <Forrey> yep :-)
+   * ThisHell finds a piccie of Juggler and Lublin.
+    <TheMoog> Good
+    * TheMoog plays Death Metal very loudly
+     * Forrey changes CD
+        <aok> Who's got this month's Acorn User?
+     <Forrey> WAH!!!!!!!!!!!!!!!!!!!!!!
+    <TheMoog> not me
+     <Forrey> Errr... btw, when *TheMoog* has his stereo on LOUD, my room acts as a bass port!
+     * Forrey wibbles
+    <TheMoog> rofl
+     <Forrey> yu sadist!
+   * ThisHell is off now.
+    <TheMoog> *wave* TH
+     <_Henry> bye th
+   * ThisHell waves and hugs to everyone.
+   <ThisHell> Byeeeeeeee.
+    <TheMoog> I'd better get off the phone if Gerphy is trying to ring...
+     <Forrey> byte th
+     <Forrey> TM> oh :-(
+*** JAY-C (~james@carecote.demon.co.uk) has joined channel #Acorn
+    <TheMoog> Soorrrry
+*** ThisHell (~Helly@pilgrim.demon.co.uk) has left IRC (Connection reset by peer)
+     <Forrey> hiya JayC
+    <TheMoog> re jc
+     * Forrey copmlains
+     <Forrey> hehe
+      <JAY-C> hey
+     <Forrey> stack
+*** WhoIs> ~james carecote.demon.co.uk * CaN't KnOcK ThE HuStLe...
+*** WhoIs> #acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 11 seconds idle
+*** WhoIs> End of /WHOIS list.
+*** CTCP PING reply received from Forrey (166 centi-seconds)
+     <Forrey> STMFD r13!,{r0-r7,r14}
+*** CTCP PING received from Forrey
+*** CTCP PING received from Forrey
+    <TheMoog> RSBLE R0,R0,#ASC"Z"
+*** _Henry (twoflower@dial1013.dialup.warwick.ac.uk) has left IRC (Leaving)
+*** CTCP PING received from Forrey
+*** CTCP PING received from Forrey
+     <Forrey> weird
+     <Forrey> *TheMoog*> IRClient's ping is weird
+    <TheMoog> eh?
+     <Forrey>  /ctcp ping themoog 0
+    <TheMoog> CMP     R2,#ASC "z"             ; if this char below "z" ?
+    <TheMoog> RSBLE   R14,R2,#ASC"z"
+    <TheMoog> CMPLE   R14,#25
+    <TheMoog> RSBLE   R2,R14,#ASC"Z"
+    <TheMoog> aha!
+    <TheMoog> There it is
+     <Forrey> 
+    <TheMoog> tolower() in four ARM instructions...that's 20nanoseconds on Forrey's CPU
+*** CTCP PING received from Forrey
+*** CTCP PING received from Forrey
+     <Forrey> hehe
+     * Forrey grins
+    <TheMoog> OK Fozza - time to go
+        <aok> Bye...
+*** aok (~InLine@ppp420.enterprise.net) has left channel #acorn
+     <Forrey> *TheMoog*> never mind, some day you'll aspire to a strongARM
+     <Forrey> ok
+     <Forrey> bye all
+     * Forrey waves and encourages ppl to LLAP \//
+     <Forrey> \
+*** Forrey (~Phil@willothewisp.demon.co.uk) has left IRC (off to see the lizard...)
+    <TheMoog> Hi peoplings !
+                The topic for channel #Acorn is McLaren 1 & 3!!!
+* Channel mode for #Acorn is +tn 
+*** AutoGreet turned Off
+    <TheMoog> e
+    <TheMoog> re
+    <TheMoog>  even
+        <Toz> Hi *TheMoog*
+     <Jaffa_> Woo Moog
+*** #acorn is not on IRC at present
+*** WhoIs> End of /WHOIS list.
+        * aok REPEAT: PRINT"How's zarni today? It's Spring you know": UNTIL 0
+      <zarni> busy but ok
+     <Jaffa_> Imagine running an IRC client which could be programmed remotely like that... Cool.
+    <TheMoog> or not...as the case may be
+    <TheMoog> Can you say virus?
+        <Toz> *FORMAT ADFS::4?
+     <Jaffa_> Moog: OK - maybe only for printing messages - limited access to OS
+    <TheMoog> Hmmm - sounds liek JAVA to me...
+     <Jaffa_> Which brings me onto the subject: lets write a Java byte-code compiler from BBC Basic -> Byte code...
+    <TheMoog> No
+    <TheMoog> Let's not
+    <TheMoog> BBC BASIC != Object orientated!
+     <Jaffa_> 'tis easy
+    <TheMoog> Java = Object orientated only
+    <TheMoog> Pah
+    <TheMoog> :-)
+     <Jaffa_> My BBC Basic == Object oriented...
+    <TheMoog> You use IRBasic then?
+     <Jaffa_> Basic++ == Object orientated...
+*** WhoIs> csube bookbind.dcs.warwick.ac.uk * Andrew J Flegg
+*** WhoIs> #acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 12 seconds idle
+*** WhoIs> End of /WHOIS list.
+    * TheMoog looks confused
+     <Jaffa_> Moog: IRBasic?
+    <TheMoog> ? This is a new one on me
+     <Jaffa_> Never heard of it...
+    <TheMoog> IRBasic = my OO version of Basic 5 as used in IRClient
+     <Jaffa_> Wassat?
+    <TheMoog> DEF PROCList_Iterate(function$)
+    <TheMoog>  LOCAL next,list
+     <Jaffa_> Moog: Nope don't use that - is the code accessible, I might get IRClient to have a look (don't need it - don't have Acorn net access)
+    <TheMoog>  list = @
+    <TheMoog>  WHILE list<>0
+    <TheMoog>   REM next is used in case function$ changes the state of the
+    <TheMoog>   REM linked list
+    <TheMoog>   next = list.next
+    <TheMoog>   PROC(function$)(list.data)
+    <TheMoog>   list = next
+    <TheMoog>  ENDWHILE
+    <TheMoog> ENDPROC
+    <TheMoog> Jagfa_: That's code from the next release, user editable and all
+     <Jaffa_> Moog: Looks quite cool...
+    <TheMoog> It's a bit stuck in IRClient atm, although I forsee it becoming a standalone
+     <Jaffa_> No, but I use Basic++ which I was going to release comercially (or summit) which is an OO version of BBC Basic, 
+    <TheMoog> Cool
+     <Jaffa_> 'cept it twas too slow
+    <TheMoog> Great minds think alike
+    <TheMoog> Oh right
+    <TheMoog> IRBasic isn't the speediest of implementations, but then it was kinda made up as I went along
+    * TheMoog grins
+     <Jaffa_> The ideas learnt are being used in WimpWorks v2 though...
+    <TheMoog> Fast enough, anyway
+    <TheMoog> JafF> I forsee IRBasic becoming a nice RAD tool
+    <TheMoog> Has wuite a lot of the JAVA introspection kind of stuff which can be used in GUI buiklders
+    <TheMoog> Replace Acorn's awful toolbox
+     <Jaffa_> Like I see WimpWorks
+    * TheMoog hsan't seen WW - what is it?
+*** aok (~InLine@max04-210.enterprise.net) has left channel #acorn
+     <Jaffa_> Might be useful for WW v00 then...
+     <Jaffa_> (ie. in 2000 or whenever)
+     <Jaffa_> Similar idea to VB but for ROS.
+    <TheMoog> Hmmm
+    <TheMoog> Yeah - that was my goal for IRBasic too
+     <Jaffa_> VB = Visual Basic
+    <TheMoog> We need RAD tools to get ppl programming again for the acorn series...Toolbox is *shite*
+*** CTCP VERSION reply received from Jaffa_ (ircII 2.8.2 SunOS 5.5.1 :ircii 2.8: almost there...)
+    <TheMoog> IMHO, of course
+     <Jaffa_> Toolbox is bloated on anything other than RO 3.7
+    <TheMoog> Does anyone out there like the toolbox?
+    <TheMoog> Jaff> *nod*
+    <TheMoog> Why on earth are they imp'd in C which is *hooj* ?
+     <Jaffa_> No, I agree - I don't like it (then again, I can't write Desktop apps in C :-( )
+    <TheMoog> Ynot?
+*** WhoIs> csube bookbind.dcs.warwick.ac.uk * Andrew J Flegg
+*** WhoIs> #acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 19 seconds idle
+*** WhoIs> End of /WHOIS list.
+     <Jaffa_> Moog: If they'd been done in assmbler they might be quite cool...
+    <TheMoog> My thoughts the same
+     <Jaffa_> Moog: Too much effort to learn - I will do one day
+    <TheMoog> My housemate Forrey has considered re-writing the in ARMcode
+     <Jaffa_> What is IRBasic written in then?
+    <TheMoog> Pure ARMcode
+     <Jaffa_> that would be cool
+*** Skiff (~Xkiff@dismayl.demon.co.uk) has joined channel #acorn
+    <TheMoog> re Skiff
+     <Jaffa_> Woo Skiff
+      <Skiff> aaaaaaaaaa !!!!
+     <Jaffa_> BRB
+* Mode change by Kri (+o Skiff )
+      <Skiff> hi *TheMoog*
+        <Toz> Skiff!!
+    <TheMoog> nod
+      <Skiff> hi Jaffa
+      <Skiff> hey Toz
+      <Skiff> did everyone see the GP ?
+    * TheMoog didn't
+      <Skiff> and has XORcist been in yet ?
+        <Toz> nope
+      <Skiff> I cannot BELEIVE JEAN ALESI !
+      <Skiff> WHAT A FOOL ! 
+        <Toz> Skiff: he has
+      <Skiff> HOW CAN I SUPPORT HIM !
+      <Skiff> ARG !
+      <Skiff> :)
+    * TheMoog grins happily
+      * Skiff stops shouting
+*** CTCP VERSION reply received from BigBird (mIRC32 v4.72 K.Mardam-Bey)
+*** CTCP VERSION reply received from Skiff (ircII 2.2.9.dis *IX :Are we there yet ?)
+*** CTCP VERSION reply received from zarni (ircII 2.2.9 *IX :Are we there yet ?)
+*** CTCP VERSION reply received from Jaffa_ (ircII 2.8.2 SunOS 5.5.1 :ircii 2.8: almost there...)
+*** CTCP VERSION reply received from Subetha (**BitchX-68d* by panasync *-* SunOS 5.5.1 :* Keep it to yourself!**)
+*** CTCP VERSION reply received from Toz (iXRC version 0.53 by QuadWorks 1997 for RISC OS (ª±­º¸¶¬«º­º»ßßßßßßßßßßßßßßßßßßßÿ))
+*** MikeyW (M@lon7-51.ukonline.co.uk) has joined channel #acorn
+      <Skiff> does everyone know what Alesi did ?
+     <Jaffa_> I'm back
+        <Toz> drive a car round a race track?
+     <Jaffa_> Skiff: Nope
+     <MikeyW> Anyone here on a PC?...
+    <TheMoog> re Jafs
+     <Jaffa_> Toz :-)
+    <TheMoog> MW> Nope
+      <Skiff> he ignored his pit in board !
+      <Skiff> for 4 laps !
+     * Jaffa_ now has chocolate :-)
+      <Skiff> and RAN OUT OF FECKING PETROL 
+      <Skiff> !
+      * Skiff calms down
+        <Toz> hehe
+     <Jaffa_> Skiff: ROTFL!
+    <TheMoog> Jaff> I take it you're in a computer Lab
+      <Skiff> bastard !
+    <TheMoog> ROFL re Alesi
+     <Jaffa_> Moog: Yep - SPARCstations
+    <TheMoog> Jaff> Git - got RealAudio working on them yet?
+     <Jaffa_> Mmm, A lovely Bounty
+      <Skiff> he's a brilliant driver, sometimes, but he can be a bit of a pratt
+     <MikeyW> Hmmm....
+    <TheMoog> Jaff> Always good to listen to the radio while you spod
+      <Skiff> just because he was happy with the car, he ignores his signals !
+     <Jaffa_> Moog: No - speaker's have been disconected - too annyoing apparently
+    <TheMoog> Bah!
+    <TheMoog> Headphones!
+     <Jaffa_> Moog: Nod.
+     <Jaffa_> I know...
+        * Toz just watches TV :)
+      <Skiff> XORcist wasn't happy either I imagine
+      <Skiff> Verstappen spun off
+     <MikeyW> Ohh dear...
+     <Jaffa_> Hill broke down on practice lap!
+      <Skiff> yep
+      <Skiff> bit of a reprieve really
+     * MikeyW played a game of Quake earlier...
+     <MikeyW> over TCP./IP :)
+     <Jaffa_> MikeyW: On Acorn or PC or Amiga?
+     <Jaffa_> MikeyW: Been there, done that... Cool :-)
+      <Skiff> hmmm
+      <Skiff> has XORcist been in ?
+     <Jaffa_> Skiff: Not that I've seen
+     <MikeyW> PC
+        <Toz> Skiff: about an hour ago IIRC
+     <MikeyW> I just applied for a DynDNS.com address....
+      <Skiff> oh
+    * TheMoog presses Shift-F12 and the debugger interrupts - bah!
+    <TheMoog> When will some1 write a decent debugger :)
+    <TheMoog> I ought to really
+     * MikeyW has a quake server up at 194.6.114.51
+*** Mechanoid (~DanielMal@ac099.du.pipex.com) has joined channel #Acorn
+*** CTCP PING received from TheMoog
+*** CTCP PING reply received from TheMoog (128 centi-seconds)
+    <TheMoog> re Mehcanoid
+     <Jaffa_> Woo Mechanoid!
+     * Jaffa_ grins
+  <Mechanoid> Woo all
+*** MikeyW (M@lon7-51.ukonline.co.uk) has left IRC (Leaving)
+  * Mechanoid wonders what everyone is doing
+  <Mechanoid> Jaffa> Why the underscore?
+     <Jaffa_> Jaffa is being used by some1 else
+  <Mechanoid> Ah
+  <Mechanoid> No it isn't!
+     <Jaffa_> It was
+*** Jaffa_ (csube@bookbind.dcs.warwick.ac.uk) has changed his nickname to Jaffa
+      <Jaffa> Cool.
+    <TheMoog> Thass better
+      <Jaffa> I thank you.
+  * Mechanoid claps
+*** Nai (~Whibble@stratego.demon.co.uk) has joined channel #acorn
+    * TheMoog is off
+    <TheMoog> Byesy bye, all
+      <Jaffa> Moog: Bye!
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> dgs
+    <TheMoog> dfg
+    <TheMoog> df
+    <TheMoog> g/quit
+*** You have been killed by TheMoog (Console request)
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> yo
+* Channel mode for #Acorn is +t
+*** CTCP PING received from TheMoog
+*** CTCP PING reply received from TheMoog (68 centi-seconds)
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> FFGFG
+    <TheMoog> Oh, that works then
+    <TheMoog> arse
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> hello
+*** Unknown command 'BIND'
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> FDS
+    <TheMoog> BAR
+    <TheMoog> SON
+    <TheMoog> FOO bar sOn
+    <TheMoog> Hi peoplings !
+    <TheMoog> HAR HAR
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> At bloody last
+    <TheMoog> Hi peoplings !
+The topic for channel #Acorn is Fresco streaks across the channel. orf laffs her ass off;))
+* Channel mode for #Acorn is +tn 
+    <TheMoog> re all
+    <XORcist> moog!!!
+      <zarni> hi matt
+    <TheMoog> re alex
+     * Fresco gives *TheMoog* a *SuperTightHuggingReallySuperEroticGropingFondlingEarthShatteringSonicBoomOhGawdIfYouStopI'llKillYouBetterThanHeavenYetHotterThanHellWatchWhereYaStickYerHandsSuperHugeOhGawdOhGawdOhGawdDon'tYaDareStopTouchingMeKneesAreShakingEarthIsTremblingMyHeartHasStopBeatingKneesShakingWasThatTheGroundHUG!!!
+*** squi__ (~squi__@al218.du.pipex.com) has joined channel #acorn
+    * TheMoog sighs
+    <TheMoog> Hi squi__
+* Mode change by Fresco (+oo RiscTaker TheMoog )
+*** AutoGreet turned Off
+*** squi__ has been kicked off channel #acorn by XORcist (XORcist)
+    <TheMoog> I must really get rid of this autogreet script
+     <Fresco> feck off squiril!
+* Mode change by zarni (+b *!*@al???.du* )
+    <Imajica> did i miss something ?
+   <ThisHell> TM: RR says Hiya!
+      <zarni> hi imajica
+     <Fresco> yeh alex!!!
+    <Imajica> hey zarni
+    <TheMoog> TH> Say Hi back :)
+    <XORcist> who's RR
+     * Fresco gives XORcist a *BIG SLAP!
+      <zarni> robby record? ;)
+*** BigBird (+g.balls@pool37.netcom.co.uk) has left channel #acorn
+   <ThisHell> zarni: RedRum.
+      <zarni> robbie even
+      <zarni> ah
+    <XORcist> fresco: what took you so long ? :)
+  * RiscTaker shakes the ground
+   <ThisHell> :-)
+   * ThisHell falls over.
+       <Mags> Someone tell me what Squirrel has done ?
+    <wazling> Wazling shakes
+    * TheMoog is lagged to fuck
+     * Fresco is drooling over pics
+   <ThisHell> Mags: He has just been his usual self.
+     * Fresco snogs wazling
+       <Mags> *TheMoog*: You still inExeter ?
+   <ThisHell> Mags: RR says Hi!:-)
+       <Mags> TH: Whats that !!! 
+       <Mags> What ?
+    <XORcist> fres: I wonder what kind of pics :)
+       * Mags looks for redRum
+    <TheMoog> Mags> Yup - for a few more weeks
+      * zarni wonders how to get 6mb into a 10mb quota with only 500k free:)
+     <Fresco> xor - take that pics
+*** dilemma (~dilemma@dilemma.demon.co.uk) has joined channel #acorn
+   <ThisHell> Mags: He is standing next to me.
+     * Fresco runs and hides
+    <XORcist> dilemma!!
+* Mode change by Subetha (+o dilemma )
+  <RiscTaker> hi dilemma
+   <ThisHell> Hiya dilemma :)
+    <dilemma> Hi XOR
+    <XORcist> fres: aaarrrrggghhh
+    <Imajica> hi dilemma
+    <dilemma> HI TH!!
+    <dilemma> Hi Imajica
+     <Fresco> xor - tj here fresco has got her head stuck down her t-shirt in shame
+    <dilemma> *TheMoog*!!!!
+    <TheMoog> Re dilemma!!!! You should have an email....
+    <wazling> See yawll, It's time to get up!!
+    <Imajica> fresco: i added you and tj to the winners on my page :)
+    <XORcist> tj: yeah, she should :)
+  * RiscTaker poiuytrewqs
+     <Fresco> ta imaj
+    <dilemma> hehe
+    * XORcist snogs TJ
+*** wazling (mit@cowgate.demon.co.uk) has left channel #acorn
+    <XORcist> ima: what's your URL again ?
+    <Imajica> xor: http://www.tip.nl/users/maarten.avontuur
+     <Fresco> http://www1.tip.nl/users/t498103/
+    <Imajica> or that
+    <XORcist> :-)
+     * Fresco has returned
+    * XORcist fires up netscape, hoping it won't crash
+    <Imajica> xor: enter the sound contest. big price to be won
+     * Fresco realises she needs to get a new bra!
+*** aok (~InLine@ppp65.enterprise.net) has joined channel #acorn
+   <ThisHell> He just called me the little !"$%^.
+   <ThisHell> Hi aok!
+  <RiscTaker> TH: who? RR?
+   <ThisHell> RT: Squirrel.
+  <RiscTaker>  oh
+   <ThisHell> I'm really sorry about this everyone,
+    <XORcist> hi aok!
+       <Mags> zarni: gzip -9 is how
+       <Mags> zarni: or ftp it to somewhere else :)
+   <ThisHell> Most of my ex's don't normally do this.
+        <aok> Hello, folkines
+    <XORcist> fres: I'll hold them for you for free ;)
+        <aok> +s
+    <Imajica> xor: you naughty guy
+     <Fresco> helen - don't worry about it - most of my x's are maniacs
+    <XORcist> I know :)
+    <XORcist> I'm only like this on IRC :)
+     <Fresco> xor - yeh right! U think your hands are big enuf!
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hab
+    <TheMoog> Bah eveb
+    <TheMoog> even
+The topic for channel #Acorn is Fresco streaks across the channel. orf laffs her ass off;))
+    <Imajica> xor: ah, need to download it then
+  <RiscTaker> re mog
+    <TheMoog> Oops
+    * dilemma hugs *TheMoog*
+    <Imajica> fresco: your name on my page is the price
+    <XORcist> ima: what are the direct links ?
+* Channel mode for #Acorn is +tn 
+    <TheMoog> Wrong button :)
+     <Fresco> imaj - u gonna change it?
+     <Fresco> so that tj & I can keep winning!
+    <XORcist> ima: it's prize :)
+   * ThisHell is really angry now.
+    <Imajica> fresco: change what ?
+    * TheMoog will bop gerph when he next sees him
+    <dilemma> TH?
+     <Fresco> the sounds for different comps
+    <Imajica> xor: is it ?
+  * RiscTaker poiuytrewqs ThisHell
+    <TheMoog> 1.5Mb of mail bounced back from him and I'm having to re-download it :|
+*** qsundel (~gdavid@max04-206.enterprise.net) has joined channel #Acorn
+    <XORcist> English has 2 words where Dutch only has one  (prijs -> price or prize)
+   <ThisHell> dilemma: The little prat you saw on Saturday is upto his tricks again.
+    <dilemma> bugger
+  <RiscTaker> XOR: german only has one too
+    <Imajica> xor: bloody english
+  <RiscTaker> TH: I had to walk all the way back to the station with him
+    * qsundel worships themoog
+   <ThisHell> RT: Poor you!
+    <XORcist> oh, I *hate* scrolltext at the bottom of the netscape window
+    * TheMoog looks confused
+    <Imajica> xor: why ?
+    * dilemma too
+*** MuffinMan (~MuffinMan@193.114.114.222) has joined channel #acorn
+   * ThisHell is going out now.
+*** gsundel is not on IRC at present
+*** WhoIs> End of /WHOIS list.
+  <MuffinMan> TH!!
+  <RiscTaker> LLAP TH
+    <XORcist> ima: then you can't see what the URL is where you point the mouse
+   <ThisHell> I am gonna say something I will regret soon.
+  <MuffinMan> I'm Cocodude at Muffin's place!
+*** WhoIs> ~gdavid max04-206.enterprise.net * David Gamble
+*** WhoIs> #acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 9 seconds idle
+*** WhoIs> End of /WHOIS list.
+    <XORcist> (without clicking)
+    <XORcist> cu TH!!
+    <Imajica> xor: aha
+  <MuffinMan> And I'm MuffinMan at Muffin's place
+   * ThisHell waves, hugs and wibbles to everyone.
+    <XORcist> hi coco!!!
+  <MuffinMan> #
+    <dilemma> bye TH
+*** ThisHell (~Helly@pilgrim.demon.co.uk) has left IRC (Connection reset by peer)
+  <MuffinMan> hi XOR and all!
+  <MuffinMan> Here is Cocodude, MuffinMan, Ace, and Ginger
+    * TheMoog *needs* an ISDN line....
+    <dilemma> Hi MuffinMan
+  <MuffinMan> hi dilemma
+    <dilemma> Hi guys
+  * MuffinMan 's phone bill is kin high!
+    <dilemma> party?
+*** gerph is not on IRC at present
+*** WhoIs> End of /WHOIS list.
+    <XORcist> ima: where can I download the wavs directly ?
+     * Fresco & tj are having a party
+    <qsundel> is muffinman cocodude?
+  <MuffinMan> qs: Yup!
+*** WhoWas> End of WHOWAS
+  <MuffinMan> qs: Only now, not all the time. I'm round his house.
+    <Imajica> xor: dont think you can. not from my page
+    <dilemma> where is that....can I come?
+    * XORcist grouphugs TJ&Fresco
+  <RiscTaker> does anyone know when the tunnel will be fully operational again?
+    <TheMoog> Hi peoplings !
+                 The topic for channel #Acorn is Mars Attacks!!
+* Channel mode for #Acorn is +tn 
+  <RiscTaker> hi moog
+      <zarni> hi matt
+    <TheMoog> re all
+    <davemac> Hi moog
+      <voodu> moooooooooogy!
+*** CTCP VERSION received from voodu
+    * TheMoog grins happily
+    <TheMoog> 0.41 should be releasable very soon
+      * voodu does too
+    <davemac> Moog: 0.41 of what?
+    <TheMoog> IRClient
+  * RiscTaker presumes IRClient
+      * voodu chuckles
+    <TheMoog> RT> *grin*
+        * orf has cold hands:((
+    <davemac> Moog: Oh right thanks :)
+      * voodu throws orf some gloves
+*** viking (~dbolt@aj195.du.pipex.com) has joined channel #Acorn
+*** Toxics (~Toxics@ak038.du.pipex.com) has joined channel #acorn
+  <RiscTaker> ;hands orf a bunsen burner
+*** Forrey (~Phil@willothewisp.demon.co.uk) has joined channel #Acorn
+     <Forrey> Hi peoplings !
+    <TheMoog> RT> Wrong one
+      <voodu> Toxics!!!!!! !!!!!!!
+  <RiscTaker> hi
+*** CTCP VERSION reply received from Mags (ircII 2.9_roof SunOS 5.5.1 :ircii 2.9: This is It.)
+*** CTCP VERSION reply received from davemac (ircII 2.2.9.dis *IX :Are we there yet ?)
+*** CTCP VERSION reply received from Toxics (!IRClient (0.16) Beta (unregistered), Copyright Matthew Godbolt 1995/6)
+*** CTCP VERSION reply received from Forrey (IRClient v.40 , Magrathea v1.19 (Gerph+Zarni).)
+*** CTCP VERSION reply received from zarni (ircII 2.2.9 *IX :Are we there yet ?)
+*** CTCP VERSION reply received from Subetha (**BitchX-68d* by panasync *-* SunOS 5.5.1 :* Keep it to yourself!**)
+*** CTCP VERSION reply received from hick (ircII 2.8 Linux 2.0.0 :ircii 2.8: almost there...)
+*** CTCP VERSION reply received from viking (IRClient v0.32 (Unregistered), Magrathea v1.18r (Gerph+Zarni).)
+*** CTCP VERSION reply received from voodu (iXRC version 0.52 by QuadWorks 1997 for RISC OS (Jacques Williamson))
+*** CTCP VERSION reply received from orf (mIRC32 v4.6 IRC Client K.Mardam-Bey)
+*** CTCP VERSION reply received from RiscTaker (ircII 2.9_roof HP-UX A.09.05 :ircii 2.9: This is It.)
+     * Forrey eats *TheMoog*'s bandwidth
+        <orf> oooh. bunsen burner
+    <TheMoog> Bah!
+     <Forrey> yum yum
+        <orf> hi forrey:))
+     <Forrey> hiy orfey
+     <Forrey> a
+      * voodu 6grins
+    * TheMoog hopes demon will send him his email soon...
+  <RiscTaker> hmmm
+  <RiscTaker> anyone got a map of blackpool?
+      <zarni> heh
+       <hick> Isn't there a Blackpool website ?
+     * Forrey grins at RiscTaker
+    <davemac> RT: Again !
+      <zarni> there'll be a web map
+    <TheMoog> ok guys - lag while I disco and reco nect
+  <RiscTaker> hick: yes
+    <TheMoog> :)
+  <RiscTaker> it sucks though
+  <RiscTaker> and has no decent map
+     * Forrey grins
+    <TheMoog> Aha
+    <TheMoog> That's better - just as well TCP/IP can cope with a link going up and down
+  * RiscTaker has checked all th emap web sites he could find too
+*** Cocodude (~Xalphapro@dismayl.demon.co.uk) has joined channel #acorn
+  <RiscTaker> hi coco
+    <TheMoog> re Coc
+    <TheMoog> o
+     <Forrey> hiya cocodude
+   <Cocodude> hi!
+    <davemac> Hi coco
+* Mode change by Subetha (+o TheMoog )
+   <Cocodude> hi!
+    * TheMoog looks annoyed as his key bindings decide to go wrong again
+   * Cocodude 's terminal's slow. Lots of news.
+    <TheMoog> Bah
+     <Forrey> oh no :-(
+        * orf does a hawiian dance thing
+    <TheMoog> shift-up and down work, but nowt else atm
+       <hick> Nice legs
+    <TheMoog> Pah - bloody language problems
+*** You have changed the topic to:
+                *** Mars Attacks, but is defended by Nestlé ***
+        * orf waves
+   <Cocodude> bye orf!
+        <orf> byee
+       <hick> Bye O
+*** hick (hick@muddy.mojo.org) has left IRC (Leaving)
+    <TheMoog> Bugger bugger bugger
+    <TheMoog> 'scuse ne
+    <TheMoog> me even
+*** darcman (~Xnumedia@dismayl.demon.co.uk) has joined channel #acorn
+    <darcman> hi
+     * Forrey goes
+    <davemac> hi darcman
+     * Forrey goes to load a new verison of IRClient
+*** Forrey (~Phil@willothewisp.demon.co.uk) has left IRC (Leaving)
+*** orf (bollox@modem31.networx.net.au) has left channel #acorn
+    <TheMoog> brb
+    <TheMoog> Hi peoplings !
+    <TheMoog> re again
+    The topic for channel #Acorn is Mars Attacks, but is defended by Nestlé
+    <davemac> Coco: Plug a hand set in to the back! Very easy ;)
+    <TheMoog> yo
+  <RiscTaker> theoretically
+  <RiscTaker> open it up
+     <Forrey> re moogy
+   <Cocodude> dm: Through the modem, not telephone!
+* Channel mode for #Acorn is +tn 
+  <RiscTaker> errrr
+  <RiscTaker> you still need a microphone
+   <Cocodude> Rt: Not be opening it up. By using a microphone and issuing some commands
+  <RiscTaker> modems don't have them
+   <Cocodude> Rt: I have one!
+  <RiscTaker> ummmm
+  <RiscTaker> you cn't do that
+   <Cocodude> Y?
+  <RiscTaker> cos modems aren't designed for it
+    <TheMoog> R> Some are
+     <viking> hi folks
+*** CTCP VERSION reply received from Forrey (IRClient v.41 , Magrathea v1.19 (Gerph+Zarni).)
+  <RiscTaker> or do you have a weird one?
+   <Cocodude> Aparantly, they work.
+   <Cocodude> Rt: A Rockwell one.
+   <Cocodude> Does anyone know the command to put the modem into Voice mode?
+*** Toxics (~Toxics@ak038.du.pipex.com) has left IRC (Ping timeout)
+    <TheMoog> C> Nope
+    <davemac> Coco: Wouldn't it break tha lincence that all things connected to Telecom need using  a modem as a telephone?
+   <Cocodude> dm: Pah!
+    <TheMoog> Toxics crashed then - prob IRClient
+  <RiscTaker> voice mode?
+  <RiscTaker> ummm
+   <Cocodude> Rt: TO make the mic. work.
+     <viking> My sportster Voice modem has a microphone but I don't know how to use it as a telephone
+  <RiscTaker> isn't that for using it as an answering machine?
+   <Cocodude> Rt: Yes, but why not a telephone! ;-)
+    <darcman> Anyone heard of Navaho?
+    <TheMoog> RT> My friend uses his modem as a 'phone all the time
+   <Cocodude> Moog: Do you know the command?
+    <TheMoog> Coco> Nope, sorry
+*** CTCP PING reply received from Forrey (1565 centi-seconds)
+* Mode change by Subetha (+o TheMoog )
+    <davemac> darcman: Yep .... http://www.navaho.co.uk/
+   <Cocodude> Moog: Can you ask him/her?
+*** Gromit (~Gromit@al083.du.pipex.com) has joined channel #acorn
+    <TheMoog> Coco> I assure you my friend won't know - it's all done via a Windoze program
+  <RiscTaker> moog: oh
+     <Gromit> THEMOOG!!!!!!!!!
+     <Gromit> RT!!!!!!!!!!!!!!!!
+    <TheMoog> re Gromit
+  <RiscTaker> hi gromit
+     <Gromit> Voodu!!!!!!!
+    <darcman> davemac: I'm there ATM. Have you used the software?
+   <Cocodude> Moog: Oh well!
+     <Gromit> forrey!!!!!!!!!!!!!!
+      <voodu> gromit!!!!!!!!!
+*** CTCP VERSION reply received from Gromit (!IRClient (0.16) Beta (unregistered), Copyright Matthew Godbolt 1995/6)
+     <Gromit> NE1 here got artworks?
+     <Forrey> hiya gomit
+     <Forrey> r
+*** ^nC^ (93456.284@async6.nottm.pobox.co.uk) has joined channel #acorn
+   <Cocodude> nc!!
+       <^nC^> hiya
+     <Gromit> hi nc
+       <^nC^> coco!!
+    <davemac> Hi nc
+       <^nC^> hiya gromit, dazvemac!
+       <^nC^> hmm... has hick been on today?
+*** viking (~dbolt@aj195.du.pipex.com) has left IRC (EOF From client)
+     <Gromit> Ne1 here got artworks?
+   <Cocodude> Not me!
+    <TheMoog> Nor me
+    <davemac> nC: Think you missed hick by about 5 mins.
+      <zarni> ^nC^ why bother with an account on subetha?
+      <zarni> -Subetha- [hick] Prod me: I hurt
+      <zarni> -Subetha- [hick] email: hick@pobox.co.uk
+      <zarni> -Subetha- [hick] Last seen on #acorn Mar 16 13:54  (is a global op)
+      <zarni> although, ill admit, she'`s a bit shafted atm
+       <^nC^> zarni, i'n not hick@pobox.co.uk...
+     <Gromit> Coco,TM: U should get it...
+    <TheMoog> Pah
+   <Cocodude> Gromit: Not that much into graphics.
+       <^nC^> ahh.. :) ic :)
+     <Gromit> coco: ah...
+       <^nC^> take me off iy ya want..
+     * Gromit needs 2 know something..
+    <TheMoog> Was@?
+   <Cocodude> Woo! Woo! My site's at 1283!!
+     <Gromit> TM: it's about artworks, so u probably wouldn't know?
+    <TheMoog> Grom> Try me
+   <Cocodude> Gotta go!
+     * Gromit thinks he will check his site..
+     * Forrey congratulates Cocodude
+*** Cocodude (~Xalphapro@dismayl.demon.co.uk) has left channel #acorn
+    <TheMoog> Bah lag
+     <Gromit> TM: I need to know whether U can move objects between layers, or make the envelope tool symetrical..
+     <Forrey> Moog> can you see my msgs now?
+      <zarni> arghhhhhhhhhhhh i hate NFS
+      <zarni> NFS server monge.brunel.ac.uk not responding still trying
+     * Gromit requests his counter page from geocities.
+*** Rootje (R.L.A.Voss@zd99-17.Zaandam.NL.net) has joined channel #acorn
+     <Rootje> BBC
+     <Rootje> 6502
+     <Rootje> 1 k
+     <Rootje> those were the days
+    <TheMoog> Gr> Use cut/paste for objs between layers, env tool you can remove and re-apply warp to symetricalise it ISTR
+    <TheMoog> Root> I agree
+     <Gromit> TM: thankx a lot!
+*** Rootje (R.L.A.Voss@zd99-17.Zaandam.NL.net) has left channel #acorn
+*** Mwongozi (glover@aj208.du.pipex.com) has joined channel #acorn
+     <Gromit> TM: how do U remove warp, and re-apply?
+   <Mwongozi> Moog!
+     * Forrey boggles at Rootje
+   <Mwongozi> I've been looking for you...
+   <Mwongozi> Moog: Have you had any experience with MUCKs?
+    <TheMoog> Gr> Can't remember offhand...
+    <TheMoog> Mwo> Not really, no
+   <Mwongozi> :(
+    <TheMoog> Gr> There is a toolbox button 'remove' istr
+* Mode change by zarni (+b *!*t96aah@*.br?ne?.ac.uk )
+* Mode change by Subetha (-b *!*t96aah@*.br?ne?.ac.uk )
+    <TheMoog> zarn> *rofl*
+     <Forrey> Mwongozi> do you mean MUDs?
+   * Mwongozi needs a "dummies guide to...". :)
+     <Gromit> TM: thankx NE way...
+   <Mwongozi> No. MUCKs.
+     <Forrey> ok
+     <Gromit> TM: oh...
+      <zarni> grrr, get off the pc with psp on its HD
+     <Gromit> TM: I've got that bit, but how do U make it symetrical on the other side?
+      * voodu waves
+     <Gromit> NE1 here running netscrape?
+     <Forrey> byevoodu
+   * Mwongozi is running IE...
+*** voodu (~jacquesw@wilhome.demon.co.uk) has left IRC (Connection reset by peer)
+     <Forrey> eeeuuuugh
+    <TheMoog> Gr> You can draw the shape you want using the lines tool, and then paste the shape
+     <Gromit> mw: could U check my site 4 me?
+      <zarni> argh, dont use msie
+  * RiscTaker is running netcrao
+    <davemac> Oh well, gotta go and finish HTMLType and Collage
+     <Gromit> MT: oh, thanks!
+   <Mwongozi> What's the address?
+    <davemac> See ya
+      <zarni> netscape is good damnit
+*** davemac (~Xrylands@dismayl.demon.co.uk) has left IRC (Leaving)
+    <TheMoog> Gr> The envelope tool has a 'paste the clipboard as the envelope shape' button I think
+     <Forrey> MicroSoft are the spawn of Satan (ie Bill Gates is Satan)
+      <zarni> infact, you should all grow the fuck up and buy a pentium
+     <Gromit> mw: http://www.geocities.com/SiliconValley/Pines/6813/
+*** Cheese (M@lon5-58.ukonline.co.uk) has joined channel #acorn
+*** Cheese (M@lon5-58.ukonline.co.uk) has changed his nickname to MikeyW
+   <Mwongozi> Grom: Loading...
+       <Mags> zarn: BUy a Pentium _
+       <Mags> ?
+     <Forrey> hiya MW
+   <Mwongozi> Grom: Hmm - a Netscape button in an Acorn filer window. :)
+  * RiscTaker sticks zarni's hand ro==to a hot pentium for half an hour for say in that
+     <Gromit> mw: will U tell me if the window opens if U press the navigation button in IE?
+    * TheMoog needs ISDN yesterday
+     <Forrey> Pentiums don't run RiscOS - that rules 'em out for me
+    <TheMoog> 136cps anyone?
+     <Gromit> Forrey: U sed it :)
+     <MikeyW> Gromit: What?
+     <Forrey> (or should it be Pentia?)
+      <zarni> RiscOS dont run netscape, rules em out for me.
+   <Mwongozi> Grom: Which button?
+  * RiscTaker needs a net connection to plug into his brain yesterday ;)
+    <TheMoog> zarn> No platform runs Netscape, for long anyway - I always get it to crash :)
+     <Gromit> mw: the one right at the bottom of the right hand frame..
+     <Forrey> Nutscoop is horribly slow, buggy and crashes a lot.  That rules it out for me
+     <MikeyW> Sorry, I dont use MS IE :-\
+     <Gromit> TM: LOL
+      <zarni> hasnt crashed once on me on this Sun
+      <zarni> and it's an old shitty IPC
+    <TheMoog> zarn> Try LiveTopics on AltaVista - that always kills my browser
+      <zarni> ok
+   <Mwongozi> Grom: "Object doesn't support this property or method at line 18".
+     <Gromit> mw: i thort so, u need netscrape..
+   <Mwongozi> Grom: But the window still opens.
+     <Gromit> mw: does it?
+   <Mwongozi> Grom: Yup - looks like it works otherwise.
+      <zarni> arghhhhhhhhhhhhhh
+     <Gromit> mw: try going somewhere..
+     * Forrey thinks people should write pages for browser independance
+     <Gromit> mw: which object doesn't work/
+   <Mwongozi> Yup - it works.
+     <Gromit> ?
+     <Gromit> mw: go to the java script bit, and try the windoze 95 in javascript :)
+   <Mwongozi> Hang on.
+      <zarni> is it NFS or brunel,. i mean, is NFS good or is that an odd question to ask?
+*** CTCP PING received from TheMoog
+     <MikeyW> what windoze 95 in javascript?
+    <TheMoog> NFS is shite, big overheads on packets
+*** CTCP PING reply received from TheMoog (2182 centi-seconds)
+     * Forrey wonders whether 'mw' refers to 'MikeyW' or 'Mwongozi'
+*** Lois (~hel@carecote.demon.co.uk) has joined channel #Acorn
+    <TheMoog> Shit am I lagged - I'm getting a 2182 cent-second ping from myself
+     <Gromit> Mike: the PD program I converted 2 javascript..
+*** darcman (~Xnumedia@dismayl.demon.co.uk) has left IRC (EOF From client)
+     <Forrey> hiya lois
+   <Mwongozi> Grom: Hee hee!
+*** Lois (~hel@carecote.demon.co.uk) has left channel #Acorn
+     <MikeyW> Grom: Where is it?
+     <Gromit> Mike: http://www.geocities.com/SiliconValley/Pines/6813/
+      <zarni> thought id heard you say NFS was crap before
+     <MikeyW> it'd better not crash netscape.. I'm starting a 3Mb download
+     <Gromit> Mike: U need netscrape 3...
+     <MikeyW> Grom: Got NS 4 Beta 2
+    <TheMoog> zarn> It's not that bad, but eg to get a file requires around 7-8 transactions (depending on how deep it is in the file structure)
+     <MikeyW> How does frames work in ArcWeb?
+     <Gromit> Mike: have they released a Win3.1 version of that yet?
+      <zarni> im at livetopics
+     <Gromit> mike; badly
+     <Forrey> Moog> got your mail working yet?
+*** Mwongozi (glover@aj208.du.pipex.com) has left channel #acorn
+  * RiscTaker is off home
+     <Forrey> bye RT
+      <zarni> ah, so /woop/woop/woop/woop/woop/woop/dt/dt96/dt96aah/woop 
+    <TheMoog> zarn> Instead of 'I'd like /foo/bar/son.tgz' it's 'gimme handle for foo', 'using foo, gimme handle for bar', using handle for '/foo/bar' gimme son.tgz
+     <Forrey> LLAP \\//
+      <zarni> is quite deep? ;pp
+  <RiscTaker> LLAP \\//
+    <TheMoog> zarn> nod
+*** RiscTaker (un9l@rzstud2.rz.uni-karlsruhe.de) has left IRC (*POP*)
+      <zarni> Alex-> pwd
+      <zarni> Alex-> 
+      <zarni> argh:
+      <zarni> : /a/walter/vol/fileservers/walter/walter6/dt96/dt96aah
+    <TheMoog> indeed
+     * Forrey clicks on the wrong MusicCD icon
+     <Gromit> MW: ave U got to my site yet?
+     <MikeyW> Grom: Yeah,,
+     <MikeyW> Heh heh
+     <Gromit> MW: have U seen Win95?
+     <Forrey> Moog> btw, you know the old version grabbed input focus when it opened its window?
+      <zarni> livetopics with netscape 3 running on solaris is fine
+     <Gromit> Mike; U wanna see the pic of lottie i have on there.
+    <TheMoog> zarn> Kills Macs dead
+      <zarni> ah, macs :)
+     <MikeyW> Grom: No....
+    <TheMoog> fozz> Hmm?
+     <Gromit> MW: U open the navigation bar by clicking on the bottom icon at the right, and choose javascript..
+     <MikeyW> ok
+     <Gromit> MW: then scroll down, and choose Windoze 95
+      <zarni> fozzey:)
+    <TheMoog> fozz> Nice backdrop :)
+*** ^nC^ (93456.284@async6.nottm.pobox.co.uk) has left IRC (Connection reset by peer)
+     <MikeyW> Got it
+*** zarni (dt96aah@kmws-12.brunel.ac.uk) has changed the topic to:
+       *** NFS server monge.brunel.ac.uk not responding still trying ***
+*** CTCP PING reply received from Forrey (1490 centi-seconds)
+      <zarni> argh
+      * zarni woops
+    <TheMoog> Sad when it takes 1490cs to get to and from Phil's machine which is in the room next door
+     <MikeyW> I've read these jokes somewhere before...
+     <Forrey> *TheMoog*> it now (giggle) gives it back again when it closes its window
+     <Forrey> *TheMoog*> or rather the new verson under development does anyway
+     <Gromit> Mike: it's a conversion from a PD program, so U probably have.
+     <Gromit> Mike: but PC people can't see the pD one :)
+      <zarni> TM> i've met nick before right?
+     <MikeyW> ahhh
+    <TheMoog> zarn> I think you've met Nick, who's next door the other way to fill
+     <MikeyW> I think I have that program.. somewhere...
+    <TheMoog> fill = Phil
+     <Forrey> fill?  shah!
+     <Forrey> it's only one l
+     <Forrey> fil
+     * Forrey grins
+      <zarni> top of the stairs, gut 
+      <zarni> fuck
+      <zarni> guy with pc?
+    <TheMoog> zarn> Nod
+     <Forrey> zarni> I'm in that room now, he's in the big front room
+      <zarni> ah
+    <TheMoog> zarn> Nick is now in the 'Big' room t'other side of mine
+     * Forrey has the tiny room with Winnie the Pooh characters all over the walls
+      <zarni> think i know who he is then
+*** Gromit (~Gromit@al083.du.pipex.com) has left channel #acorn
+      <zarni> added luxury of being next to the bog ;)
+     <Forrey> hi gromit
+*** WhoIs> dt96aah kmws-06.brunel.ac.uk * A really hoopy frood
+*** WhoIs> @#acorn 
+*** WhoIs> ircnet.demon.co.uk Demon Internet Ltd, London, UK.
+*** WhoIs> 82 seconds idle
+*** WhoIs> End of /WHOIS list.
+     <Forrey> hehe
+     * Forrey removes the files hello, hello2 and hello3 from his hard disc
+     * Forrey bops Justin
+    <TheMoog> Zarn> I see sub's telnet talker is still there :)
+      <zarni> if she's online then you can dc/telnet to her, yes
+    <TheMoog> Right -all mail in
+    <TheMoog> Time to go :)
+      <zarni> c
+     <Forrey> ok - see ya everyone
+    <TheMoog> Byesy bye everyone!
+     * Forrey waves
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> WOOO
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 2 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Re!
+    <TheMoog> Woo - that's a good sign
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** Unknown command 'FOO'
+*** Unknown command 'BAR'
+* Mode change by TheMoog (+v TheMoog)
+*** CTCP PING received from TheMoog
+*** CTCP PING reply received from TheMoog (80 centi-seconds)
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** CTCP FINGER received from TheMoog
+*** CTCP FINGER reply received from TheMoog (TheMoog(Matthew Godbolt))
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** CTCP SCRIPTS reply received from TheMoog (1: DCCSend v1.06 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (2: SMTP v1.07 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (3: AutoGreet v1.03 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (4: CD v1.00 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (5: DCC v1.11 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (6: EmailDB v1.00 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (7: HTTP v1.11 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (8: List v1.00 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (9: Logs v1.04 (Gerph))
+*** CTCP SCRIPTS reply received from TheMoog (10: MOTD v1.00 (TheMoog))
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** Unknown command 'GO'
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 12 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 9 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 6 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 2 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 11 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 4 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 4 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 2 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 2 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 4 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+* Channel #acorn has no topic
+* Channel mode for #acorn is +t
+* Channel #acorn has no topic
+* Channel mode for #acorn is +t
+* Channel #acorn has no topic
+* Channel mode for #acorn is +t
+* Channel #acorn has no topic
+* Channel mode for #acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+* Channel #acorn has no topic
+* Channel mode for #acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+        <foo> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+        <FOO> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+       <arse> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+*** WhoIs> TheMoog loopback * Matthew Godbolt
+*** WhoIs> tantric RiscOS IRServer, Gerph's house
+*** WhoIs> 4 seconds idle
+*** WhoIs> @#Acorn
+*** WhoIs> End of /WHOIS list
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+    <TheMoog> Hi peoplings !
+* Channel #Acorn has no topic
+* Channel mode for #Acorn is +t
+* Channel #acorn has no topic
+* Channel mode for #acorn is +t

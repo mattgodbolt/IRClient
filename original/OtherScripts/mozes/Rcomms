@@ -1,0 +1,50 @@
+Ok, heres the list of new commands which are in the
+program which are associated with the Remote stuff..
+
+
+/STATUS
+This displays the current status of all of the 
+Remote commands, and some of the other ones which
+I have added to the script.
+
+
+/RIPTOG 
+This command toggles whether or not the RIPP is allowed to take
+place.  If for some odd reason, you _really_ want people to be able
+to do this then set it.
+
+/NOTE <user> <Message>
+This produces the nice little window.
+
+/NOTETOG
+This either enables or disables whether the messages will come up or
+not from the other user sending the command.
+
+/RJOIN <user> <channel>
+This command remotely joins a user to another channel, and _now_ it
+shows on your screen in the little window who actually did it :-)
+
+Remember though, you don't include the " # " character.
+
+/RLEAVE <user> <channel>
+This is the opposite of /RJOIN
+
+
+/RTOG
+
+This command dictates whether or not remote users will be able to
+send remote commands through you or not.
+
+
+/RME <user> <text>
+
+Performs a /ME from the remote user
+
+
+/RTEXT <user> <text/command line>
+
+This is a _pretty_damn_useful_command in that not only can you just
+send text messgaes to the screen through the other person, but you
+can also perform commands.
+
+E.g. /RTEXT <person_with_this_script> /kick <user_u_don't_like>

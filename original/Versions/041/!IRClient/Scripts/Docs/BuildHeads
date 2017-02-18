@@ -1,0 +1,39 @@
+| Build the database of all the file headers
+Set This$Dir <Obey$Dir>
+Create <This$Dir>.Heads
+Echo Magrathea modules currently available (<Sys$Date> <Sys$Time>) { >> <This$Dir>.Heads }
+Echo ===================================== { >> <This$Dir>.Heads }
+
+| The internal routines
+Alias DBHead "Echo|MBasHead "
+Echo { >> <This$Dir>.Heads }
+Echo Internals { >> <This$Dir>.Heads }
+Echo --------- { >> <This$Dir>.Heads }
+Repeat DBHead <This$Dir>.^.Internal -Type FFB -CommandTail "{ >> <This$Dir>.Heads }"
+
+| The default modules
+Echo { >> <This$Dir>.Heads }
+Echo Default Magrathea { >> <This$Dir>.Heads }
+Echo ----------------- { >> <This$Dir>.Heads }
+Repeat DBHead <This$Dir>.^.Default -Type FFB -CommandTail "{ >> <This$Dir>.Heads }"
+
+| Magrathea modules
+Echo { >> <This$Dir>.Heads }
+Echo Magrathea Modules { >> <This$Dir>.Heads }
+Echo ----------------- { >> <This$Dir>.Heads }
+
+Repeat DBHead <This$Dir>.^.Modules -Type FFB -CommandTail "{ >> <This$Dir>.Heads }"
+Alias DBHead "Echo|MBasHead %%0.!Module"
+Repeat DBHead <This$Dir>.^.Modules -Directories -CommandTail "{ >> <This$Dir>.Heads }"
+
+| Obsolete modules
+Echo { >> <This$Dir>.Heads }
+Echo Obsolete Modules { >> <This$Dir>.Heads }
+Echo ---------------- { >> <This$Dir>.Heads }
+
+Alias DBHead "Echo|MBasHead "
+Repeat DBHead <This$Dir>.^.Obsolete -Type FFB -CommandTail "{ >> <This$Dir>.Heads }"
+Alias DBHead "Echo|MBasHead %%0.!Module"
+Repeat DBHead <This$Dir>.^.Obsolete -Directories -CommandTail "{ >> <This$Dir>.Heads }"
+
+Settype <This$Dir>.Heads Text

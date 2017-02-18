@@ -1,0 +1,1034 @@
+head     1.7;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.7
+date     97.12.29.14.53.45;  author gerph;  state Exp;
+branches ;
+next     1.6;
+
+1.6
+date     97.07.15.15.08.44;  author matt;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     97.04.16.01.31.17;  author gerph;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     97.04.15.22.19.47;  author gerph;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     97.04.13.23.52.47;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.04.13.18.22.10;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.12.45.57;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Base window handling class
+Primitive WObjects and base overloads
+@
+
+
+1.7
+log
+@Fixed bugs, Added PROCWindow_Resize/Fullsize
+Added Close handler, PROCWindow_Shrink and
+FNnewWindowBlank.
+@
+text
+@REM >Internal.Classes.Windows
+REM LEN 1997 Matthew Godbolt (Wide)
+REM Windowing system using Classes
+REM ---
+REM $Id: Windows 1.6 97/07/15 15:08:44 matt Exp $
+REM $Log:	Windows $
+REM Revision 1.6  97/07/15  15:08:44  matt
+REM Changed to fit new @@ paradigm
+REM
+REM Revision 1.5  97/04/16  01:31:17  gerph
+REM Handler 'lists' now work in anticipation of multiple pane handling.
+REM
+REM Revision 1.4  97/04/15  22:19:47  gerph
+REM Broken handler code :
+REM For some reason this doesn't work because AddHandler dies with
+REM an error about non-existant 'data' property.
+REM
+REM Revision 1.3  97/04/13  23:52:47  gerph
+REM Window handlers added and a few major fixes for naff code -
+REM lots of inst.data.private's were left as private.
+REM
+REM Revision 1.2  97/04/13  18:22:10  gerph
+REM Implemented WObject handlers
+REM ---
+PRINT "$Id: Windows 1.6 97/07/15 15:08:44 matt Exp $"
+END
+:
+LOCAL listOfWindows
+LOCAL WindowTop
+:
+DEF PROCOverload_Classes_Initialise
+REM The 'window' class
+Class_Window = FNRegisterClass("Window")
+REM The window handle, as given by the Wimp
+PROCAddField(Class_Window,"handle")
+REM The block encapsulating the indirection data
+PROCAddField(Class_Window,"indir")
+REM The linked list of all the 'objects' in the window
+PROCAddField(Class_Window,"objects")
+REM The linked list of all the 'objects' in the window
+PROCAddField(Class_Window,"handlers")
+REM Flag showing if we are inside a window
+PROCAddField(Class_Window,"inside")
+:
+REM The linked list of windows we've created
+listOfWindows = FNnewList
+:
+REM Window constants
+win_behind_top=-1
+win_behind_bot=-2
+win_behind_hide=-3
+REM Mouse buttons
+win_none=0
+win_adjust=1
+win_select=4
+win_shift=&1000
+REM Window positions
+win_left=1
+win_xcentre=2
+win_right=3
+win_top=4
+win_ycentre=8
+win_bottom=12
+win_front=16
+win_back=32
+:
+Class_Handler=FNRegisterClass("Handler")
+REM The name of the handler
+PROCAddField(Class_Handler,"name$")
+REM Their private word
+PROCAddField(Class_Handler,"private")
+REM Their routine to call FN(routine$)(object,private,...)
+PROCAddField(Class_Handler,"routine$")
+:
+REM The top most position of the window (should reset to be higher next time)
+WindowTop=-1
+:
+REM Pass on to any other initialisation routines
+PROC@@
+ENDPROC
+:
+DEF PROCWindow_Construct
+REM PRINT"Construct window"
+@@.objects=FNnewList
+@@.handlers=FNnewHandlerList
+@@.inside=0
+ENDPROC
+:
+DEF PROCWindow_AddHandler(name$,routine$,private)
+PROC@@.handlers.AddHandler(name$,routine$,private)
+ENDPROC
+:
+DEF PROCWindow_Destruct
+LOCAL block
+REM Finally, destroy the window
+block=FNnewBlock(4)
+!(block.data)=@@.handle
+SYS "XWimp_DeleteWindow",,block.data
+PROC@@
+ENDPROC
+:
+REM Call this to destroy a window - you'll need to remove your
+REM own references to it by nulling them
+DEF PROCWindow_Destroy
+REM Send the message that we've left the window
+IF @@.inside THEN PROC@@.wPointer(0)
+REM Remove all the handlers
+@@.handlers=FNnewHandlerList
+REM Close the window to prevent anything horrid happening
+PROC@@.wClose(0)
+REM Delete the window from the linked list of windows
+PROClistOfWindows.Delete(@@)
+REM Remove IRClients hooks from it
+PROCwDissociateWindow(@@.handle)
+REM Iterates down the linked list destroying the objects
+PROC@@.objects.Destroy
+REM Pass on to other destroy handlers
+PROC@@
+ENDPROC
+:
+REM Register an object as a member of this window
+DEF PROCWindow_AddObject(object)
+PROC@@.objects.Add(object)
+ENDPROC
+:
+REM Remove an object from a window
+DEF PROCWindow_RemoveObject(object)
+PROC@@.objects.Delete(object)
+ENDPROC
+:
+REM Create a new blank window
+REM flags% as used by window flags
+DEF FNnewWindowBlank(title$,flags,sprite)
+LOCAL buf,window,ypos
+buf=FNnewBlock(88)
+window =  %s, author %s, and state %s. Class_Window
+IF WindowTop <256 THEN WindowTop=(Screen.height*3)/4
+ypos=WindowTop
+IF ypos>Screen.height THEN ypos=(Screen.height*3)/4
+WindowTop=ypos-44
+REM Position on screen
+!(buf.data+0)=256
+!(buf.data+4)=ypos-128
+!(buf.data+8)=640
+!(buf.data+12)=ypos
+REM Scroll offsets
+!(buf.data+16)=0
+!(buf.data+20)=0
+REM Open at top
+!(buf.data+24)=-1
+REM Flags
+!(buf.data+28)=flags
+REM Some colours
+?(buf.data+32)=7
+?(buf.data+33)=2
+?(buf.data+34)=7
+?(buf.data+35)=1
+?(buf.data+36)=3
+?(buf.data+37)=1
+?(buf.data+38)=12
+?(buf.data+39)=0
+REM Minimum is 0
+!(buf.data+40)=0
+!(buf.data+44)=-1024
+REM Maximum is about screen sized
+!(buf.data+48)=1024
+!(buf.data+52)=0
+REM Title bar flags (centred and indirected)
+!(buf.data+56)=281
+!(buf.data+60)=10<<12
+!(buf.data+64)=sprite
+REM Minimum width = 0
+!(buf.data+68)=0
+REM Title text
+window.indir = FNnewBlock(LEN(title$)+1)
+$window.indir.data=title$
+!(buf.data+72)=window.indir.data
+!(buf.data+76)=0
+!(buf.data+80)=LEN(title$)+1
+!(buf.data+84)=0
+SYS "Wimp_CreateWindow",,buf.data TO handle
+window.handle = handle
+
+PROClistOfWindows.Add(window)
+PROCwAssociateWindow(window.handle,window)
+
+=window
+:
+REM Create a new window, as described in the template file,
+REM with name window$
+DEF FNnewWindow(template$,window$)
+LOCAL buffer,bufsize,indsize,window
+LOCAL namebuffer
+LOCAL handle
+
+namebuffer       = FNnewBlock(16)
+$namebuffer.data = window$
+
+SYS "Wimp_OpenTemplate",,template$
+window =  %s, author %s, and state %s. Class_Window
+SYS "Wimp_LoadTemplate",,0,0,0,-1,namebuffer.data,0 TO ,bufsize,indsize
+window.indir = FNnewBlock(indsize)
+buffer       = FNnewBlock(bufsize)
+
+SYS "Wimp_LoadTemplate",,buffer.data,window.indir.data,window.indir.data+indsize,-1,namebuffer.data,0
+
+SYS "Wimp_CreateWindow",,buffer.data TO handle
+window.handle = handle
+
+PROClistOfWindows.Add(window)
+PROCwAssociateWindow(window.handle,window)
+=window
+:
+REM Get a window state, into a WIMPblock formatted Block
+DEF FNWindow_GetState
+LOCAL block
+block=FNnewBlock(36)
+!block.data = @@.handle
+SYS "Wimp_GetWindowState",,block.data
+=block
+:
+REM Shrink wrap the window
+DEFPROCWindow_Shrink
+LOCAL item,bounds,bnd
+REM First find the bounds
+item=FN@@.objects.First
+IF item<>0 THEN
+ bounds=FNitem.data.Bounds
+ item=item.next
+ WHILE item<>0
+  bnd=FNitem.data.Bounds
+  bounds=FNbounds.Composite(bnd)
+  item=item.next
+ ENDWHILE
+ELSE
+ bounds=FNnewBounds(0,0,0,0)
+ENDIF
+REM Now extend it by a little
+PROCbounds.Border(16,16)
+PROC@@.Resize(bounds)
+ENDPROC
+:
+REM ****** Class overload routines to process Wimp calls ******
+:
+REM Open a window
+REM behind = handle, or win_behind_*
+DEF PROCWindow_wOpen(x0,y0,x1,y1,sx,sy,behind)
+LOCAL mem
+mem=FNnewBlock(32)
+!(mem.data+0)=@@.handle
+!(mem.data+4)=x0
+!(mem.data+8)=y0
+!(mem.data+12)=x1
+!(mem.data+16)=y1
+!(mem.data+20)=sx
+!(mem.data+24)=sy
+!(mem.data+28)=behind
+SYS "Wimp_OpenWindow",,mem.data
+ENDPROC
+:
+REM Close a window
+REM Flags : b0  = adjust
+REM         b16 = win_shift
+DEF PROCWindow_wClose(flags)
+LOCAL inst
+inst=FN@@.handlers.FindS("Close")
+IF inst THEN
+ inst=FNinst.data.IterateFNs2(@@,flags)
+ENDIF
+IF inst=0 THEN
+ mem=FNnewBlock(4)
+ !(mem.data)=@@.handle
+ SYS "Wimp_CloseWindow",,mem.data
+ENDIF
+ENDPROC
+:
+REM Redraw a window
+DEF PROCWindow_wRedraw(x0,y0,x1,y1)
+LOCAL inst
+inst=FN@@.handlers.FindS("Redraw")
+IF inst<>0 THEN
+ inst=FN(inst.data.routine$)(@@,inst.data.private,x0,y0,x1,y1)
+ENDIF
+ENDPROC
+:
+REM Menu clicked over an item
+REM Icons which match will be trapped first
+REM Otherwise, <instance>_Menu will be called
+DEF PROCWindow_wMenu(x,y,icon)
+LOCAL inst
+inst=FN@@.objects.Find(icon)
+IF inst<>0 THEN
+ PROCinst.data.Menu(x,y,icon)
+ELSE
+ PROC@@.Menu(x,y,icon)
+ENDIF
+ENDPROC
+:
+REM This is the end of the chain for menu clicks
+DEF PROCWindow_Menu(x,y,icon)
+LOCAL inst
+inst=FN@@.handlers.FindS("Menu")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs4(inst.data.routine$,@@,x,y,icon)
+ENDIF
+ENDPROC
+:
+REM Select/Adjust clicked over an item
+REM Icons which match will be trapped first
+REM Otherwise, <instance>_Click will be called
+DEF PROCWindow_wClick(xoff,yoff,but,icon)
+LOCAL inst
+REM PRINT"Window, wClick on "+STR$icon
+inst=FN@@.objects.Find(icon)
+IF inst<>0 THEN
+ REM PRINT"Instance found "+inst.classname$
+ PROCinst.data.Click(xoff,yoff,but,icon)
+ELSE
+ PROC@@.Click(xoff,yoff,but,icon)
+ENDIF
+ENDPROC
+:
+REM This is the end of the chain for other clicks
+DEF PROCWindow_Click(xoff,yoff,but,icon)
+LOCAL inst
+inst=FN@@.handlers.FindS("Click")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs5(@@,xoff,yoff,but,icon)
+ENDIF
+ENDPROC
+:
+DEF PROCWindow_wPointer(inside)
+LOCAL inst
+REM PRINT"Inside = "+STR$inside
+@@.inside=inside
+inst=FN@@.handlers.FindS("Pointer")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs2(@@,inside)
+ENDIF
+ENDPROC
+:
+REM Icon has had a key pressed in it
+REM Icons which match will be trapped first
+REM Otherwise, <instance>_Key will be called
+DEF PROCWindow_wKey(char,icon)
+LOCAL inst
+inst=FN@@.objects.Find(icon)
+IF inst<>0 THEN
+ PROCinst.data.Key(char,icon)
+ELSE
+ PROC@@.Key(char,icon)
+ENDIF
+ENDPROC
+:
+REM This is the end of the chain for key presses
+DEF PROCWindow_Key(char,icon)
+LOCAL inst
+REM PRINT"Key handler called"
+inst=FN@@.handlers.FindS("Key")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs3(@@,char,icon)
+ENDIF
+ENDPROC
+:
+REM Focus given/taken from icon
+DEF PROCWindow_wFocus(gotfocus,icon)
+LOCAL inst
+inst=FN@@.objects.Find(icon)
+IF inst<>0 THEN
+ REM PRINT"Giving focus to object "+inst.data.classname$
+ PROCinst.data.Focus(gotfocus,icon)
+ELSE
+ PROC@@.Focus(gotfocus,icon)
+ENDIF
+ENDPROC
+:
+REM This is the end of the chain for focus changes
+DEF PROCWindow_Focus(gotfocus,icon)
+LOCAL inst
+inst=FN@@.handlers.FindS("Focus")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs2(@@,gotfocus)
+ENDIF
+ENDPROC
+:
+REM Help request coming in
+DEF PROCWindow_wHelp(x,y,icon)
+LOCAL inst,help$
+inst=FN@@.objects.Find(icon)
+IF inst<>0 THEN
+ REM PRINT"Getting help for object "+inst.data.classname$
+ help$=FNinst.data.Help(x,y,icon)
+ELSE
+ help$=FN@@.Help(x,y,icon)
+ENDIF
+IF help$<>"" THEN PROCwHelpReply(help$)
+ENDPROC
+:
+REM This is the end of the chain for help changes
+DEF FNWindow_Help(x,y,icon)
+LOCAL inst,help$
+inst=FN@@.handlers.FindS("Help")
+IF inst<>0 THEN
+ help$=FNinst.data.IterateFNs4S("|M",@@,x,y,icon)
+ENDIF
+=help$
+:
+REM ***** Class overload routines for programmer interface *****
+:
+REM Open a window 'somewhere' on the screen
+DEF PROCWindow_Open(where)
+LOCAL limit,loc,eig,blk,flags
+LOCAL x0,y0,x1,y1,sx,sy,behind
+blk=FN@@.GetState
+x0=!(blk.data+4)
+y0=!(blk.data+8)
+x1=!(blk.data+12)
+y1=!(blk.data+16)
+sx=!(blk.data+20)
+sy=!(blk.data+24)
+behind=!(blk.data+28)
+flags=!(blk.data+32)
+IF (where AND (3<<0)) THEN
+ limit=x1-x0
+ CASE (where AND (3<<0)) OF
+  WHEN win_left
+   x0=0
+  WHEN win_xcentre
+   x0=(Screen.width-limit)/2
+  WHEN win_right
+   x0=Screen.width-limit
+ ENDCASE
+ x1=x0+limit
+ENDIF
+IF (where AND (3<<2)) THEN
+ limit=y1-y0
+ CASE (where AND (3<<2)) OF
+  WHEN win_top
+   y1=Screen.height-limit
+  WHEN win_ycentre
+   y1=(Screen.height+limit)/2
+  WHEN win_bottom
+   y1=limit
+ ENDCASE
+ y0=y1-limit
+ENDIF
+IF (where AND win_front) THEN
+ behind=win_behind_top
+ELSE
+ IF (where AND win_back) THEN
+  behind=win_behind_bot
+ ELSE
+  IF (flags AND (1<<16))=0 THEN
+   REM If closed force it to the top
+   behind=win_behind_top
+  ENDIF
+ ENDIF
+ENDIF
+PROC@@.wOpen(x0,y0,x1,y1,sx,sy,behind)
+ENDPROC
+:
+DEFPROCWindow_Resize(bounds)
+LOCAL block
+block=FNnewBlock(16)
+!(block.data)=bounds.xmin
+!(block.data+4)=bounds.ymin
+!(block.data+8)=bounds.xmax
+!(block.data+12)=bounds.ymax
+SYS "Wimp_SetExtent",@@.handle,block.data
+block=FN@@.GetState
+IF (!(block.data+32)) AND (1<<16) THEN
+ SYS "Wimp_OpenWindow",,block.data
+ENDIF
+ENDPROC
+:
+DEFPROCWindow_Fullsize
+LOCAL block
+block=FNnewBlock(92)
+!block.data = @@.handle
+SYS "Wimp_GetWindowInfo",,block.data+1
+IF ((!(block.data+32)) AND (1<<16)) = 0 THEN !(block.data+28)=-3
+!(block.data+8)=(!(block.data+16))-((!(block.data+56))-(!(block.data+48)))
+!(block.data+12)=(!(block.data+4))+((!(block.data+52))-(!(block.data+44)))
+SYS "Wimp_OpenWindow",,block.data
+ENDPROC
+:
+REM Close a window
+DEF PROCWindow_Close
+PROC@@.Close(win_select)
+ENDPROC
+@
+
+
+1.6
+log
+@Changed to fit new @@ paradigm
+@
+text
+@d2 1
+a2 1
+REM (c) 1997 Matthew Godbolt
+d5 1
+a5 1
+REM $Id: Windows 1.5 97/04/16 01:31:17 gerph Exp $
+d7 3
+d25 1
+a25 1
+PRINT "$Id: Windows 1.5 97/04/16 01:31:17 gerph Exp $"
+d29 1
+d75 3
+d86 1
+a94 1
+PRINT "About to destroy the window"
+a95 1
+PRINT "iam "+FNGetClassName(@@)+" ("+STR$@@+") ref "+STR$ FNGetRefCount(@@)
+d105 4
+a112 2
+REM Send the message that we've left the window
+IF @@.inside THEN PROC@@.wPointer(0)
+d117 1
+a117 1
+PRINT "iam "+FNGetClassName(@@)+" ("+STR$@@+") ref "+STR$ FNGetRefCount(@@)
+a127 2
+PRINT "About to remove an object from a window :"
+PRINT "@@="+STR$@@+", object="+STR$ object
+a128 1
+PRINT "after remove @@="+STR$@@+", object="+STR$ object
+d131 58
+d200 1
+a200 1
+window = FNnew(Class_Window)
+a209 3
+REM The following two REM's are there to prevent us being unable
+REM to delete the window by <instance>=0. Since these are not
+REM implemented I've commented them out.
+d222 21
+d265 10
+a274 4
+LOCAL mem
+mem=FNnewBlock(4)
+!(mem.data)=@@.handle
+SYS "Wimp_CloseWindow",,mem.data
+d283 1
+a283 1
+REM ENDIF
+d442 1
+a442 1
+  WHEN win_right
+d460 25
+@
+
+
+1.5
+log
+@Handler 'lists' now work in anticipation of multiple pane handling.
+@
+text
+@d5 1
+a5 1
+REM $Id: Windows 1.4 97/04/15 22:19:47 gerph Exp $
+d7 3
+d22 1
+a22 1
+PRINT "$Id: Windows 1.4 97/04/15 22:19:47 gerph Exp $"
+d75 1
+a75 1
+DEFPROCWindow_Construct
+d81 1
+a81 1
+DEFPROCWindow_AddHandler(name$,routine$,private)
+d87 3
+a92 1
+REM Perform any other destroys required
+d98 5
+a102 1
+DEFPROCWindow_Destroy
+d104 1
+a104 1
+IF @@.inside THENPROC@@.wPointer(0)
+a107 1
+PRINT@@.objects.classname$
+d109 1
+a109 3
+REM Removes the window from the list of our windows
+PROClistOfWindows.Delete(@@)
+REM Finally, destroy the window
+d120 2
+d123 1
+d191 1
+a191 1
+DEFPROCWindow_wRedraw(x0,y0,x1,y1)
+d202 1
+a202 1
+DEFPROCWindow_wMenu(x,y,icon)
+d213 1
+a213 1
+DEFPROCWindow_Menu(x,y,icon)
+d224 1
+a224 1
+DEFPROCWindow_wClick(xoff,yoff,but,icon)
+d237 1
+a237 1
+DEFPROCWindow_Click(xoff,yoff,but,icon)
+d245 1
+a245 1
+DEFPROCWindow_wPointer(inside)
+d258 1
+a258 1
+DEFPROCWindow_wKey(char,icon)
+d269 1
+a269 1
+DEFPROCWindow_Key(char,icon)
+d274 1
+a274 1
+ inst=FNinst.data.IterateFNs2(@@,char,icon)
+d279 1
+a279 1
+DEFPROCWindow_wFocus(gotfocus,icon)
+d291 1
+a291 1
+DEFPROCWindow_Focus(gotfocus,icon)
+d300 1
+a300 1
+DEFPROCWindow_wHelp(x,y,icon)
+d309 1
+a309 1
+IF help$<>"" THENPROCwHelpReply(help$)
+d313 1
+a313 1
+DEFFNWindow_Help(x,y,icon)
+d324 1
+a324 1
+DEFPROCWindow_Open(where)
+d376 1
+a376 1
+DEFPROCWindow_Close
+@
+
+
+1.4
+log
+@Broken handler code :
+For some reason this doesn't work because AddHandler dies with
+an error about non-existant 'data' property.
+@
+text
+@d5 1
+a5 1
+REM $Id: Windows 1.3 97/04/13 23:52:47 gerph Exp $
+d7 5
+d19 1
+a19 1
+PRINT "$Id: Windows 1.3 97/04/13 23:52:47 gerph Exp $"
+a81 2
+REM Call this to destroy a window - you'll need to remove your
+REM own references to it by nulling them
+d91 2
+d99 2
+a100 1
+@@.objects=0
+d187 1
+a187 1
+ENDIF
+d208 1
+a208 1
+ inst=FNinst.IterateFNs4(inst.data.routine$,@@,x,y,icon)
+d232 1
+a232 1
+ inst=FNinst.IterateFNs5(@@,xoff,yoff,but,icon)
+d242 1
+a242 1
+ inst=FNinst.IterateFNs2(@@,inside)
+d265 1
+a265 1
+ inst=FNinst.IterateFNs2(@@,char,icon)
+d286 1
+a286 1
+ inst=FNinst.IterateFNs2(@@,gotfocus)
+d304 1
+a304 1
+DEFFNWindow_Help(gotfocus,icon)
+d308 1
+a308 1
+ help$=FNinst.IterateFNs4S("|M",@@,x,y,icon)
+@
+
+
+1.3
+log
+@Window handlers added and a few major fixes for naff code -
+lots of inst.data.private's were left as private.
+@
+text
+@d5 1
+a5 1
+REM $Id: Windows 1.2 97/04/13 18:22:10 gerph Exp $
+d7 4
+d14 1
+a14 1
+PRINT "$Id: Windows 1.2 97/04/13 18:22:10 gerph Exp $"
+d70 1
+a70 1
+@@.handlers=FNnewBTree("Handler_Compare")
+d74 1
+a74 1
+PROC@@.handlers.Add(FNnewHandler(name$,routine$,private))
+d85 1
+d202 1
+a202 1
+ inst=FN(inst.data.routine$)(@@,inst.data.private,x,y,icon)
+d226 1
+a226 1
+ inst=FN(inst.data.routine$)(@@,inst.data.private,xoff,yoff,but,icon)
+d236 1
+a236 1
+ inst=FN(inst.data.routine$)(@@,inst.data.private,inside)
+d259 1
+a259 1
+ inst=FN(inst.data.routine$)(@@,inst.data.private,char,icon)
+d280 1
+a280 1
+ inst=FN(inst.data.routine$)(@@,inst.data.private,gotfocus)
+d302 1
+a302 1
+ help$=FN(inst.data.routine$)(@@,inst.data.private,x,y,icon)
+@
+
+
+1.2
+log
+@Implemented WObject handlers
+@
+text
+@d5 4
+a8 2
+REM $Id$
+REM $Log$
+d10 1
+a10 1
+PRINT "$Id$"
+d26 2
+d64 2
+d84 2
+a126 2
+window.objects=FNnewList
+
+d136 4
+a139 4
+ LOCAL block
+ block=FNnewBlock(36)
+ !block.data = @@.handle
+ SYS "Wimp_GetWindowState",,block.data
+d147 11
+a157 11
+ LOCAL mem
+ mem=FNnewBlock(32)
+ !(mem.data+0)=@@.handle
+ !(mem.data+4)=x0
+ !(mem.data+8)=y0
+ !(mem.data+12)=x1
+ !(mem.data+16)=y1
+ !(mem.data+20)=sx
+ !(mem.data+24)=sy
+ !(mem.data+28)=behind
+ SYS "Wimp_OpenWindow",,mem.data
+d161 2
+a162 2
+REM Flags : b0-b1 = button (win_select, win_adjust)
+REM         b2    = win_shift
+d164 4
+a167 4
+ LOCAL mem
+ mem=FNnewBlock(4)
+ !(mem.data)=@@.handle
+ SYS "Wimp_CloseWindow",,mem.data
+d172 5
+d182 1
+a182 1
+DEFPROCWindow_wMenu(xoff,yoff,icon)
+d186 1
+a186 1
+ PROCinst.data.Menu(xoff,yoff,icon)
+d188 1
+a188 1
+ PROC@@.Menu(xoff,yoff,icon)
+d193 6
+a198 6
+DEFPROCWindow_Menu(xoff,yoff,icon)
+LOCAL info
+info = FN@@.GetState
+xoff+=(!(info.data+4)-!(info.data+20))
+yoff+=(!(info.data+16)-!(info.data+24))
+PROCMenu_OpenMenu("_Iconbar",xoff-64,yoff)
+d206 1
+a206 1
+PRINT"Window, wClick on "+STR$icon
+d209 1
+a209 1
+ PRINT"Instance found "+inst.classname$
+d218 5
+a222 2
+REM LOCAL foo
+REM foo = FN@@.AddWLabel("aha!",4,FNnewCoords(xoff,yoff),0)
+d225 8
+a232 8
+REM Mouse has entered a window
+DEFPROCWindow_wEnter
+SYS "XWimp_SpriteOp",36,,"ptr_menu",1
+ENDPROC
+:
+REM Mouse has left a window
+DEFPROCWindow_wLeave
+SYS "XWimp_SpriteOp",36,,"ptr_default",1
+d237 1
+a237 1
+REM Otherwise, <instance>_Click will be called
+d250 6
+d263 1
+a263 1
+ PRINT"Giving focus to object "+inst.classname$
+d272 18
+d292 9
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+REM LEN 1997 Matthew Godbolt
+d4 5
+a8 5
+REM 04 Feb 1997 : MG - Started                             v1.00
+REM 18 Feb 1997 : JF - modified for new 'stuff'            v1.01
+REM 29 Mar 1997 : JF - restarted afresh                    v1.02
+REM 31 Mar 1997 : JF - uses 'Screen' class                 v1.03
+REM 12 Apr 1997 : JF - uses Destruct over Destroy          v1.04
+d22 2
+a45 5
+
+REM The WObject class from which window objects are derived
+Class_WObject=FNRegisterClass("WObject")
+REM The window handle that the object lives in (the main one)
+PROCAddField(Class_WObject,"window")
+d47 7
+a53 3
+REM WOTemplate class - Window Object Template icon
+Class_WOTemplate=FNRegisterSubclass(Class_WObject,"WOTemplate")
+PROCAddField(Class_WOTemplate,"icon")
+d59 2
+a60 58
+DEFPROCWObject_Construct
+PRINT"Constructing a WObject"
+ENDPROC
+:
+DEFPROCWObject_Destruct
+PRINT"Destroying a WObject"
+ENDPROC
+:
+REM Pass on any unknown menu clicks
+DEFPROCWObject_Menu(xoff,yoff,icon)
+PROC@@.window.Menu(xoff,yoff,icon)
+ENDPROC
+:
+REM Pass on any unknown clicks
+DEFPROCWObject_Click(xoff,yoff,but,icon)
+PROC@@.window.Click(xoff,yoff,but,icon)
+ENDPROC
+:
+REM Pass on any unknown focus
+DEFPROCWObject_Menu(gotfocus,icon)
+PROC@@.window.Menu(gotfocus,icon)
+ENDPROC
+:
+REM Pass on any unknown icon things
+DEFPROCWObject_Key(char,icon)
+PROC@@.window.Key(char,icon)
+ENDPROC
+:
+REM We need to find if this is the icon we wanted
+REM Always returns FALSE - you should supply your own 'finder'
+DEFFNWObject_Compare(key)
+=FALSE
+:
+REM Add a template icon as an object
+DEF FNWindow_AddTIcon(icon)
+LOCAL inst
+inst=FNnew(Class_WOTemplate)
+inst.window=@@
+inst.icon=icon
+PROC@@.AddObject(inst)
+=inst
+:
+DEFPROCWOTemplate_Construct
+REM Default is 'no window', 'no icon'
+@@.window=-1
+@@.icon=-1
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEFPROCWOTemplate_Destruct
+REM Pass it on
+PROC@@
+PRINT"Set to "+STR$@@
+ENDPROC
+:
+DEFPROCWOTemplate_Destroy
+PROC@@.window.RemoveObject(@@)
+d63 2
+a64 45
+DEFPROCWOTemplate_Delete
+PRINT"WOT_Delete"
+LOCAL block
+block.data=FNnewBlock(8)
+!(block.data)=@@.window.handle
+!(block.data+4)=@@.icon
+SYS "Wimp_DeleteIcon",,block.data
+REM And destroy
+PROC@@.Destroy
+ENDPROC
+:
+DEFPROCWOTemplate_SetUnknownVarStr(var$,val$)
+CASE var$ OF
+ WHEN "text$"
+  LOCAL block,flags
+  block=FNnewBlock(40)
+  !(block.data)=@@.window.handle
+  !(block.data+4)=@@.icon
+  SYS "Wimp_GetIconState",,block.data
+  flags=!(block.data+24)
+  IF (flags AND 1)=0 THENENDPROC
+  IF (flags AND 8)<>0 THEN
+   LOCAL maxlen
+   maxlen=!(block.data+36)
+   REM Set the text
+   $(!(block.data+28))=LEFT$(val$,maxlen)
+  ELSE
+   LOCAL block,icon
+   block.data=FNnewBlock(8)
+   !(block.data)=@@.window.handle
+   !(block.data+4)=@@.icon
+   REM Delete the icon
+   SYS "Wimp_DeleteIcon",,block.data
+   REM Re-create with new data
+   $(block.data+28)=LEFT$(val$,11)
+   SYS "Wimp_CreateIcon",,block.data+8 TO icon
+   @@.icon=icon
+  ENDIF
+  REM Cause it to be redrawn
+  !(block.data+8)=0
+  !(block.data+12)=0
+  SYS "Wimp_SetIconState",,block.data
+ 
+  PROC@@(var$,val$)
+ENDCASE
+a66 3
+DEFFNWOTemplate_Compare(key)
+=(@@.icon=key)
+:
+d175 1
+a175 1
+ PROCinst.Menu(xoff,yoff,icon)
+d195 1
+d198 2
+a199 1
+ PROCinst.Click(xoff,yoff,but,icon)
+d228 1
+a228 1
+ PROCinst.Key(char,icon)
+d243 2
+a244 1
+ PROCinst.Focus(gotfocus,icon)
+@

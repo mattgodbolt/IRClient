@@ -1,0 +1,5 @@
+|
+| !IRClient by Matthew Godbolt © 1995
+|
+Set IRClient$Dir <Obey$Dir>
+IconSprites <IRClient$Dir>.!Sprites

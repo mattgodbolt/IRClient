@@ -1,0 +1,217 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     97.04.13.12.44.11;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Classes directly related to IRC
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >IRCClasses
+REM Channel and User classes and support
+REM LEN Matthew Godbolt & Justin Fletcher
+REM Note: This is only in the Internal.Classes directory until
+REM       there is a proper 'Modules' structure for it to live in
+REM 09 Mar 1997 - MG: started                                v1.00
+REM 31 Mar 1997 - JF: fiddled ;-)                            v1.01
+REM 12 Apr 1997 - JF: Changed to use destruct over destroy   v1.02
+ERROR 0,"Running me implies that you consent to giving Justin lots of money"
+END
+:
+LOCAL Channels,Users
+:
+DEFPROCOverload_Classes_Initialise
+REM The class which holds the database information on a user
+Class_UserInfo=FNRegisterClass("UserInfo")
+PROCAddField(Class_UserInfo,"nick$")
+PROCAddField(Class_UserInfo,"login$")
+PROCAddField(Class_UserInfo,"host$")
+PROCAddField(Class_UserInfo,"server$")
+PROCAddField(Class_UserInfo,"comment$")
+:
+REM The class which holds the information on a channel on IRC
+Class_Channel=FNRegisterClass("Channel")
+PROCAddField(Class_Channel,"name$")
+PROCAddField(Class_Channel,"topic$")
+PROCAddField(Class_Channel,"flags")
+PROCAddField(Class_Channel,"users")
+:
+REM Information related to a user on a channel
+Class_ChannelUser=FNRegisterClass("ChannelUser")
+PROCAddField(Class_ChannelUser,"user")
+PROCAddField(Class_ChannelUser,"flags")
+:
+REM The lists of channels
+Channels=FNnewList
+Users=FNnewList
+:
+REM Pass it on
+PROC@@
+ENDPROC
+:
+REM A user has joined a channel
+DEFPROCUserInfo_Join(channel$)
+LOCAL chan,cuser
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ cuser=FNnew(Class_ChannelUser)
+ cuser.user=@@
+ PROCchan.data.users.Add(cuser)
+ELSE
+ ERROR "No such channel '"+channel$+"'"
+ENDIF
+ENDPROC
+:
+REM A user has left a channel
+DEFPROCUserInfo_Part(channel$)
+LOCAL chan,list
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ list=FNchan.data.users.Find(@@)
+ IF list<>0 THEN
+  PROCchan.data.users.Delete(list.data)
+ ELSE
+  PRINT"Wasn't in "+channel$
+ ENDIF
+ELSE
+ ERROR "No such channel '"+channel$+"'"
+ENDIF
+ENDPROC
+:
+DEFFNnewUser(id$)
+LOCAL inst,list,nick$
+nick$=LEFT$(id$,INSTR(id$+"!","!")-1)
+REM If they already exist return the instance
+list = FNUsers.FindS(nick$)
+IF list THEN =list.data
+REM A new instance
+inst=FNnew(Class_UserInfo)
+inst.nick$=nick$
+id$=MID$(id$,INSTR(id$+"!","!")+1)
+inst.login$=LEFT$(id$,INSTR(id$+"@@","@@")-1)
+id$=MID$(id$,INSTR(id$+"@@","@@")+1)
+inst.host$=id$
+REM And add him to the list of users
+PROCUsers.Add(inst)
+=inst
+:
+DEFPROCUserInfo_Destruct
+PROCUsers.Delete(@@)
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEFFNnewChannel(name$)
+LOCAL inst
+inst=FNnew(Class_Channel)
+inst.name$=name$
+inst.topic$="[ waiting ]"
+inst.users=FNnewList
+REM And add him to the list of users
+PROCChannels.Add(inst)
+REM And we need some way of dereferencing this instance
+PROCdereference(inst)
+=inst
+:
+DEFPROCChannel_Destruct
+PROCChannels.Delete(@@)
+REM Pass it on
+PROC@@
+ENDPROC
+:
+REM Find a ChannelUser block
+DEFFNChannelUser_Compare(key)
+IF @@.user=key THEN=TRUE
+=FALSE
+:
+REM Is a user on the channel
+DEFFNChannelUser_CompareS(key$)
+IF FNCapitalise(@@.name$)=FNCapitalise(key$) THEN=TRUE
+=FALSE
+:
+REM Find a channel
+DEFFNChannel_CompareS(key$)
+IF FNCapitalise(@@.name$)=FNCapitalise(key$) THEN =TRUE
+=FALSE
+:
+REM Some variable overloads to make life easier
+DEFFNChannelUser_GetUnknownVar(a$)
+CASE a$ OF
+ WHEN "op"
+  =(@@.flags AND U_HasOps)<>0
+ WHEN "voice"
+  =(@@.flags AND U_HasVoice)<>0
+ENDCASE
+=FN@@(a$)
+:
+REM Some variable overloads to make life easier
+DEFFNChannel_GetUnknownVar(a$)
+CASE a$ OF
+ WHEN "topiclocked"
+  =(@@.flags AND CF_Topic)<>0
+ WHEN "nomessages"
+  =(@@.flags AND CF_Msgs)<>0
+ WHEN "moderated"
+  =(@@.flags AND CF_Moderated)<>0
+ WHEN "secret"
+  =(@@.flags AND CF_Secret)<>0
+ WHEN "inviteonly"
+  =(@@.flags AND CF_Invite)<>0
+ WHEN "private"
+  =(@@.flags AND CF_Private)<>0
+ WHEN "limited"
+  REM This is slightly different to the current internal IRClient
+  REM format
+  =@@.flags DIV CF_Limited
+ENDCASE
+=FN@@(a$)
+:
+REM This is a temporary routine for testing purposes
+DEFPROCIRCClasses_ShowAllUsers
+LOCAL head
+PRINT"Listing Users :"
+head=FNUsers.First
+WHILE head
+ PRINT"  "+head.data.nick$
+ head=head.next
+ENDWHILE
+PRINT"End of list"
+ENDPROC
+:
+REM Another temporary routine
+DEFPROCIRCClasses_ShowAllChannels
+LOCAL head,users
+PRINT"Listing Channels :"
+head=FNChannels.First
+WHILE head
+ PRINT"  "+head.data.name$
+  users=FNhead.data.users.First
+  WHILE users
+   IF users.data.op THEN
+    PRINT"  - (op) "+users.data.user.nick$
+   ELSE
+    PRINT"  - "+users.data.user.nick$
+   ENDIF
+   users=users.next
+  ENDWHILE
+ head=head.next
+ENDWHILE
+PRINT"End of list"
+ENDPROC
+@

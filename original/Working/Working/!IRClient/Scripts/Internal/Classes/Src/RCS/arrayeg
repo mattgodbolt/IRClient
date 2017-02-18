@@ -1,0 +1,78 @@
+head     1.4;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.4
+date     97.04.13.13.05.18;  author gerph;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     97.04.13.13.03.40;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.04.13.13.02.49;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.13.02.12;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@this is a test.
+@
+
+
+1.4
+log
+@testing...
+@
+text
+@REM >ArrayEg
+END
+
+DEFPROCinit
+handlers=FNnewStrArray
+handlers["justin"]="hello"
+handlers[a$]="hello"
+handlers[6]="what?"
+handlers[a]="what ?"
+handlers=FNnewIntArray
+handlers["justin"]=FNnewStrArray
+handlers["justin"]["hello"]="what?"
+ENDPROC
+:
+@
+
+
+1.3
+log
+@testing 2
+@
+text
+@@
+
+
+1.2
+log
+@testing
+@
+text
+@@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@@

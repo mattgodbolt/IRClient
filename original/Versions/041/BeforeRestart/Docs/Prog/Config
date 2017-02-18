@@ -1,0 +1,103 @@
+Programing configuration routines
+=================================
+Because the configuration of modules is handled by a single module you should
+provide an interface to that module similar to the way in which other
+extensions are added. Basically there are three things you need to do :
+
+  1. Make the configure module aware that you provide commands
+  2. Provide a standard help message when the configuration mode is entered.
+  3. Process the users configuration request
+
+These are increasingly awkward as you might expect.
+
+Making module aware that you accept configuration options is relatively easy.
+You simply provide a function to return the name like so :
+
+  DEFFNOverload_ConfigModName(count)
+  LOCAL ret$
+  IF count=0 THEN
+   ret$="<modname>"
+  ELSE
+   ret$=FN@(count-1)
+  ENDIF
+  =ret$
+
+The name given will be the name passed to you on subsequent calls and which
+you MUST recognise.
+
+The second thing - displaying a help message - is also relatively simple.
+Basically you provide a function called PROCOverload_ConfigOptions which is
+supplied with the module name. If this is your module then you should respond
+by displaying a message similar to the following :
+
+  -- <mod name> configuration --
+  You can configure :
+    <opt1>     : <what it means>
+    <opt2>     : <what it means>
+
+You should leave a blank line before displaying this message. Otherwise, you
+should pass the call on to another module. The code will be something like :
+
+  DEFPROCOverload_ConfigOptions(module$)
+  IF module$="<modname>" THEN
+   PROCDisplayConfig("")
+   PROCDisplayConfig("-- <modname> configuration --")
+   PROCDisplayConfig("You can configure :")
+   PROCDisplayConfig("  <opt1>     : <what it does>")
+   ... etc ...
+  ELSE
+   PROC@(module$)
+  ENDIF
+  ENDPROC
+
+Finally, to accept the users input you should again recognise your module
+name. The commands passed will always be capitalised and will contain the
+first word entered on the line. You should recognise null variables and
+return a syntax string in the form 'Syntax: <command> <params>'. After
+setting a variable you should confirm the configuration with a message in the
+form 'Set <var> to <value>' or similar depending on how you parse commands.
+
+You should ALWAYS recognise LIST to provide a list of the current
+configuration options and HELP to provide help on either commands or the
+general module. Help may simply be in the form of a call to
+PROCOverload_ConfigOptions, but must do something. All unrecognised commands
+must give a message similar to 'Command not recognised'.
+
+The code should be something like :
+
+  DEFPROCOverload_ConfigCommand(module$,com$,str$)
+  IF module$="<modname>" THEN
+   CASE com$ OF
+    WHEN "<opt1>"
+     ... whatever ...
+     PROCDisplayConfig("Set <opt1> to <value>")
+    WHEN "LIST"
+     ... list the current status, preceeded by blank line ...
+    WHEN "HELP"
+     PROCOverload_ConfigOptions(module$)
+     
+    OTHERWISE
+     PROCDisplayConfig("Command not recognised")
+   ENDCASE
+  ELSE
+   PROC@(module$,com$,str$)
+  ENDIF
+  ENDPROC
+
+Additional notes
+----------------
+You will never receive the command QUIT as this is dealt with externally for
+speed.
+
+To display messages in the configuration window, use :
+  PROCDisplayConfig(message$)
+
+To store a configuration option in the configuration file you should use :
+  PROCDB_WriteConfig(var$,value$)
+var$ should usually be the modules name followed by an underscore and the
+variable name, eg Web_Homepage.
+
+When you initialise your module you should read in any configuration options
+you have placed in the file, unless you wish to access them directly at
+runtime (not recommended). You should use :
+  value$=FNDB_ReadConfig(var$)

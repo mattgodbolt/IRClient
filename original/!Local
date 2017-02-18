@@ -1,0 +1,17 @@
+| Local Start internet stack
+
+Set This$Dir <Obey$Dir>
+
+| Load the stack
+Run <This$Dir>.^.^.Scripts.!Startup
+
+Dir <This$Dir>
+| Testing IRClient
+Filer_Run <This$Dir>.!IRClient
+Filer_Run <This$Dir>.^.^.Servers.!IRServer
+
+| With FreeSMTP
+|Filer_Run <This$Dir>.^.^.Servers.!FreeSMTP
+
+| Testing TelnetD
+|Filer_Run <This$Dir>.^.^.Servers.!TelnetD

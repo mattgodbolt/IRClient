@@ -1,0 +1,130 @@
+JF: Justin Fletcher (Gerph)
+AH: Alex Howarth    (Zarni)
+MG: Matthew Godbolt (TheMoog)
+
+16 Jul 1996 - JF: Nick added to window displays
+                  Bug fix for nick name changes
+17 Jul 1996 - JF: Columns mode added
+                  Fixes to naming and window titles
+                  Aliases section added
+                  Replaced old FNcapitalise
+                  Initial script                    		(v1.01)
+18 Jul 1996 - AH: Notify list added + OS_Args			(v1.02)
+21 Jul 1996 - JF: Modifications to Notify
+                  Help text for commands added			(v1.03)
+                  Bug fixes to the ACTION stuff
+03 Aug 1996 - JF: Bug fixes for Notice and FNAtEOF		(v1.04)
+04 Aug 1996 - JF: Change overload structure
+                  /MODE fixed at last !
+05 Aug 1996 - JF: /TOPIC now can view topic
+                  Version text added				(v1.05)
+06 Aug 1996 - AH: Improved NOTIFY
+                  Modularised script				(v1.06)
+07 Aug 1996 - JF: Moved HELP to a library 
+                  SET command overloaded			(v1.07)
+09 Aug 1996 - JF: GDBMLib added to handle databases
+                  added PROCInitialiseModule
+10 Aug 1996 - JF: ConfigLib added
+11 Aug 1996 - JF: Now allows overloading on IRCServer chat
+12 Aug 1996 - JF: Moved MOTD into MotdLib and added
+                  PROCShutdownModule
+13 Aug 1996 - JF: ListLib written to speed up /LIST
+14 Aug 1996 - MG: Delivered 0.24 to Gerph
+15 Aug 1996 - JF: Changed routines to use new calls
+15 Aug 1996 - JF: DCC library (Moog's) modularised and added	(v1.08)
+16 Aug 1996 - JF: DCC's now fixed (!) and overloaded
+                  Some docs changed, /SET removed
+                  HTTPLib started in BASIC, then converted to IRClient
+17 Aug 1996 - JF: HTTPLib improved by 3x, moving FNgetword to MC.
+18 Aug 1996 - JF: Moving attribute routines to MC gives further 37% increase
+26 Aug 1996 - JF: Added case insensitivity to /LIST.
+                  'Lib' removed from all names
+27 Aug 1996 - JF: Script info moved to overload routine
+                  Massive changes to HTTPLib and a few to SMTP.	(v1.09)
+                  Changes to work with NetPlex (© DT)
+                  History added to HTTP				(v1.10)
+31 Aug 1996 - JF: Fixed Scripts bug
+                  Unknown CTCP request changed
+                  Added Juggler's Headlines library		(v1.11)
+05 Sep 1996 - JF: Added DCCSend Library, works for sending to 0.16
+06 Sep 1996 - JF: Altered lots of PROCDisplay's to :
+                  PROCDisplayError,PROCDisplayWarning,PROCDisplayInfo
+                  to try to have some kind of standard.
+07 Sep 1996 - JF: Added Samples for operations - I don't like it
+                  though.
+                  Fixed the nasty msgbeep code which was broken	(v1.12)
+                  Moved some utilities into Utils file
+                  Fixed nasty DCC bug which meant that chat/send
+                  didn't work
+10 Sep 1996 - JF: Added DCC Get and Close support
+                  First >1024b file received at 6:27 pm :-)
+11 Sep 1996 - JF: Nickname changing actually works now !
+                  changed format of Display<x> procs again.
+12 Sep 1996 - JF: Added configuration to DCCSend		(v1.13)
+14 Sep 1996 - JF: Added Logging
+                  Discovered why DCC Send was failing (512b bug)
+20 Sep 1996 - MG: Sent 0.25 to Gerph
+23 Sep 1996 - JF: 0.25 /very/ unstable on my machine :-(
+                  Switching back to 0.24 in the meantime
+                  Logs fixed to work with users
+                  Rudimentary Flood protection added
+                  CTCP SOURCE added.
+24 Sep 1996 - MG: Sent 0.26 to Gerph to fix variable probs
+              JF: 0.26 still unstable, sticking with 0.24,
+                  new features on 0.26 look very nice though...
+27 Sep 1996 - JF: Scheduler works, FloodProt works, DCC Send
+                  for filetypes added plus extra validation of
+                  send's.					(v1.14)
+28 Sep 1996 - JF: New structure for scripts devised at MG's
+                  suggestion. Hopefully this will lead to more
+                  modular upgrade routes...
+                  Massive updates to the ReleasNote file, and
+                  modifications marking inconsistancies in the
+                  other Docs.					(v1.15)
+28 Sep 1996 - JF: New structure required a Dependancy checker
+                  such that modules load in the correct order.
+                  Current implementation in Default.Dependancy
+                  should cope with most combinations and report
+                  errors safely.				(v1.16)
+03 Oct 1996 - JF: Added HTMLDecode 1.05 which should fix --> bug
+                  which lynx used to suffer from.
+12 Dec 1996 - MG: Delivered 0.27 to Gerph to fix long standing probs
+24 Dec 1996 - JF: Restructured to get rid of 'irclib' - Magrathea
+                  is now the /only/ script usable with IRClient	(v1.17)
+24 Dec 1996 - JF: Began using 0.27 after a few stability tests
+24 Dec 1996 - JF: Got hold of 'new' scripts by Bruce and Winter.
+                  Incorporated nice 'colours' hack into Colours
+                  module
+25 Dec 1996 - JF: Added some 'on' routines, Join, Part, Kick, Nick
+26 Dec 1996 - JF: Added signatures to SMTP
+27 Dec 1996 - JF: HTTP fetcher accepts authentication for one
+                  realm in the current session.
+27 Dec 1996 - JF: Added Quote, fixed AutoGreet, other minor tidy ups
+                  Dependency improved with statistics and configuration
+                  CallBacks somewhat broken.
+30 Dec 1996 - JF: Fixed AutoGreet again and added configuration plus
+                  wrote example of how to write the module and added
+                  callback to it.
+03 Jan 1997 - JF: FTP works locally and /should/ work on 'real' servers
+                  Little bits of tidying up done on the main IRC program
+                  and some internal changes.
+                  Released to DT, AH and CJ for comments whilst Matt
+                  is here.					(v1.18)
+04-06 Jan 1997 - JF/MG:
+                  Lots of work done. Bug fixes for memory claims/guard
+                  words added, GLocals implemented, menu overload
+                  implemented and used, Evaluatable function names added
+                  (eg PROC(a$)(b$)). Limit on number of scripts upped
+                  to 64. HTTP now has Links and History lists on a menu.
+                  Scheduler now be redundant.
+07 Jan 1997 - JF: Channel menu options re-implemented 'script-side'.
+07 Jan 1997 - JF: WTF did MG add the WimpMessage_Received !!!!!
+                  (discovered today, started ExtEdit)
+18 Jan 1997 - JF: Re-written most of the DCC library, DCC Chat seems
+                  stable again. Menus re-organised to look 'better'.
+                  Updated the ReleasNote file and this help.    (v1.19)
+09 Mar 1997 - JF: Got 0.40 to play with.
+26 Mar 1997 - JF: Got 0.43 to play with.
+              JF: Rewrote Dependency as a class.
+                  Note: User.Excludes format has now changed !
+                  Various mini additions to the internal classes files.

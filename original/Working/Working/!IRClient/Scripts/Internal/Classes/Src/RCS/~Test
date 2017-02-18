@@ -1,0 +1,869 @@
+head     1.6;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.6
+date     98.02.01.16.11.38;  author gerph;  state Exp;
+branches ;
+next     1.5;
+
+1.5
+date     98.01.23.03.00.29;  author gerph;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     97.04.16.02.37.51;  author gerph;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     97.04.16.01.32.55;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.04.13.23.54.58;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.12.47.16;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@TEST ! This is ONLY used to test the classes.
+Try not to distribute it - it'll confuse people...
+@
+
+
+1.6
+log
+@Added test routines for Network and Draw/DrawFile.
+@
+text
+@REM >~Test
+REM This is NOT for distribution - it is the development 'test' (Wide)
+REM version for checking the Class libraries.
+REM I'm hoping that this will be loaded /first/ and hence be
+REM called /last/ in the initialisation chain
+REM ---
+REM $Id: ~Test 1.5 98/01/23 03:00:29 gerph Exp $
+REM $Log:	~Test $
+REM Revision 1.5  98/01/23  03:00:29  gerph
+REM Many changes for various routines; UID, Colours,
+REM Draw, UserDB, etc...
+REM
+REM Revision 1.4  97/04/16  02:37:51  gerph
+REM Added test routines for SpriteF
+REM
+REM Revision 1.3  97/04/16  01:32:55  gerph
+REM Handler tests re-instated. Remove the 'icon' handler stuff (REM it out)
+REM to see 'working' version. Problems with Redraw are countered by not
+REM making the window UserRedraw.
+REM
+REM Revision 1.2  97/04/13  23:54:58  gerph
+REM multiple window and wobject handlers installed.
+REM
+REM ---
+PRINT "$Id: ~Test 1.5 98/01/23 03:00:29 gerph Exp $"
+END
+:
+LOCAL RootWindow,SpriteF
+:
+DEF PROCOverload_Classes_Initialise
+REM -- Uncomment the test you wish to run --
+REM PROCTest_List
+REM PROCTest_DLList
+REM PROCTest_BTree
+REM PROCTest_Rets
+REM PROCTest_Vars
+REM PROCTest_Dependency
+REM PROCTest_Screen
+REM PROCTest_Array
+REM PROCTest_IRCClasses
+REM PROCTest_SpriteF
+REM PROCTest_UserDB
+REM PROCTest_Colours
+REM PROCTest_Fonts
+REM PROCTest_DrawPath
+REM PROCTest_DrawFile
+PROCTest_Network
+ENDPROC
+:
+DEF PROC_Test_Head(a$)
+PRINT
+PRINT FNColour(10)+"*** Start testing of "+a$
+ENDPROC
+:
+DEF PROCTest_Vars
+ LOCAL str
+ PROC_Test_Head("Dynamic variable reading")
+ REM Simple string stuff
+ str=FNnewString("This is a test string")
+ PRINT "The string is '"+str.data$+"'"
+ PRINT "I can use IRClient to get its type: "+FNGetClassName(str)
+ PRINT "I can use the object's implicit data type too: "+str.classname$
+ PRINT "I can set the object's 'trevor$' string:"
+ str.trevor$="Hello"
+REM This next bit needs a bit of fixing in order for it to daisy-chain properly
+REM and also ExpDotLookup needs to work
+PRINT "Checking that 'this' works:"
+PRINT "  str            = "+STR$ str
+PRINT "  str.this       = "+STR$ str.this
+PRINT "  str.this.this  = "+STR$ str.this.this
+PRINT "  str.this.data$ = "+str.this.data$
+PRINT "We can generate errors too:"
+PRINT str.arse$
+ENDPROC
+:
+:
+DEF PROCTest_Rets
+ PROC_Test_Head("Return parameters")
+ PRINT "gcd of 1152 and 456 is "+STR$(FNgcd(1152,456))
+ENDPROC
+:
+DEF FNgcd(a,b)
+ IF (a<>b) THEN
+  IF (a>b) THEN =FNgcd(a-b,b)
+  =FNgcd(a,b-a)
+ ENDIF
+=a
+:
+DEF PROCOverload_AddMenuEntries(menu$)
+IF menu$="_Iconbar" THEN
+ PROCAddMenuEntry("Destroy window","Test_KillWin",0-(RootWindow=0),0,"")
+ENDIF
+PROC@@(menu$)
+ENDPROC
+:
+DEF PROCTest_KillWin
+PRINT"Trying to destroy window - "+STR$ RootWindow
+PROCRootWindow.Destroy
+ENDPROC
+
+DEF PROCchom(foo)
+ PRINT foo
+ENDPROC
+:
+REM Test the List class
+DEF PROCTest_List
+LOCAL list,s
+PROC_Test_Head("List class")
+list=FNnewList
+PROClist.Add(FNStrdup("$.hello"))
+PROClist.Add(FNStrdup("$.hello2"))
+PROClist.Add(FNStrdup("$.hello3"))
+PROClist.Iterate("Test_List_Write")
+PRINT"Check the root of the hard-disc for 3 'hello' files"
+ENDPROC
+:
+DEF PROCTest_List_Write(data)
+LOCAL file
+file=FNnewFile($(data),">")
+PROCfile.WriteLine("Hello")
+ENDPROC
+:
+REM Doubly linked list class test
+DEF PROCTest_DLList
+LOCAL list,s
+PROC_Test_Head("Doubly-linked list class (DLList)")
+list=FNnewDLList
+PROClist.Add(FNnewString("Hello"))
+PROClist.Add(FNnewString("There"))
+PROClist.Add(FNnewString("Justin"))
+PRINT">"+FNlist.First.data.data$
+PRINT">"+FNlist.Firstlist.next.data.data$
+PRINT">"+FNlist.Firstlist.next.next.data.data$
+PRINT">"+FNlist.Firstlist.next.next.prev.data.data$
+PRINT">"+FNlist.Firstlist.next.next.prev.prev.data.data$
+ENDPROC
+:
+REM BTree class test routines
+DEF PROCTest_BTree
+LOCAL list,s
+PROC_Test_Head("Binary tree class (BTree)")
+list=FNnewBTree("BTree_CompareStrings")
+PROClist.Add(FNnewString("Hello"))
+PROClist.Add(FNnewString("There"))
+PROClist.Add(FNnewString("Justin"))
+PROClist.Add(FNnewString("Zebedee"))
+PROClist.Iterate("Test_BTree_Write")
+PRINT"Or as text : "+FNlist.String
+REM Now test two - deletions !
+PROC_Test_Head("Binary tree class (BTree deletions)")
+list=FNnewBTree("BTree_CompareNumbers")
+REM              5
+REM            /   \
+REM          3       8
+REM        /  \    /   \
+REM      2     4  6      10
+REM    /           \    /   \
+REM   1             7  9      11
+PROClist.Add(5)
+PROClist.Add(3)
+PROClist.Add(2)
+PROClist.Add(1)
+PROClist.Add(4)
+PROClist.Add(8)
+PROClist.Add(6)
+PROClist.Add(7)
+PROClist.Add(10)
+PROClist.Add(9)
+PROClist.Add(11)
+PROClist.Iterate("Test_BTree_WriteN")
+REM Replace this number with one of your choice
+PROClist.Delete(5)
+PROClist.Iterate("Test_BTree_WriteN")
+ENDPROC
+:
+DEF PROCTest_BTree_WriteN(val)
+PRINT val
+ENDPROC
+:
+DEF PROCTest_BTree_Write(val)
+PRINT val.data$
+ENDPROC
+:
+REM Dependency test routines
+REM Don't use these unless you've disabled the magrathea loading
+DEF PROCTest_Dependency
+PROC_Test_Head("Dependency class")
+PROCDependency_LoadModules("<IRClient$Dir>.Scripts.Modules","<IRClient$Dir>.Scripts.User.Excludes",1)
+ENDPROC
+:
+DEF PROCIconbarClick
+PROCTest_Windows
+ENDPROC
+:
+REM Screen test routines
+DEF PROCTest_Screen
+PROC_Test_Head("Screen class")
+PRINT"The current mode is "+STR$ Screen.width+"x"+STR$ Screen.height
+PRINT"and has "+STR$ Screen.colours+" colours"
+ENDPROC
+:
+REM Array test routines ;-)
+DEF PROCTest_Array
+PROC_Test_Head("Array class")
+REM Now let's test it
+new=FNnewArray
+REM Create an array name
+PROCnew.AddName("hello")
+REM Some variables to use as indices
+there$="7"
+test$="wibble"
+flibble$="33"
+wobble$="8"
+incywincyspider=8
+REM Add some strings to it (the things added can be any class)
+REM and test it -
+REM 1) Explicit definitions
+new.hello[when]=FNnewString("You ate my arm")
+PRINT"Why ? (You ate my arm) "+(new.hello[when].data$)
+REM 2) Variable substitution in both read and write
+new.hello[there$]=FNnewString("Hello")
+PRINT"Erm... Did it work ? (Hello) "+(new.hello[there$].data$)
+REM 3) Variable substitution in one part
+new.hello[test$]=FNnewString("Testing")
+PRINT"Still working ? (Testing) "+(new.hello[wibble].data$)
+REM 4) String variable substitution with numeric
+new.hello[flibble$]=FNnewString("Yippee")
+PRINT"Really ? (Yippee) "+(new.hello[33].data$)
+REM 5) Integer subsitution to store with a string to read
+new.hello[incywincyspider%]=FNnewString("Womble")
+PRINT"Seems to ! (Womble) "+(new.hello[wobble$].data$)
+ENDPROC
+:
+REM IRCClasses routine
+DEF PROCTest_IRCClasses
+LOCAL moog,acorn
+PROC_Test_Head("IRC Classes")
+REM Create a user
+PRINT"Creating TheMoog"
+moog=FNnewUser("TheMoog!moogy@@titus.priory.com")
+REM Show it
+PROCIRCClasses_ShowAllUsers
+REM Create a channel
+PRINT"Creating #Acorn"
+acorn=FNnewChannel("#Acorn")
+REM Make one join the other
+PRINT"Joining #Acorn"
+PROCmoog.Join("#Acorn")
+REM Show it
+PROCIRCClasses_ShowAllChannels
+REM Make TheMoog leave #Acorn
+PROCmoog.Part("#Acorn")
+REM Now delete TheMoog
+PRINT"Deleting TheMoog"
+moog=0
+REM Show who's here
+PROCIRCClasses_ShowAllUsers
+PROCIRCClasses_ShowAllChannels
+REM Delete #Acorn
+PRINT"Deleting #Acorn"
+acorn=0
+REM Show who's here
+PROCIRCClasses_ShowAllUsers
+PROCIRCClasses_ShowAllChannels
+ENDPROC
+:
+REM Test the Windows class
+DEF PROCTest_Windows
+LOCAL icon_ok,icon_cancel,other
+REM PRINT"Create window"
+IF RootWindow<>0 THEN PROCRootWindow.Destroy
+RootWindow=FNnewWindow("<IRClient$Dir>.Scripts.Internal.Templates","foo")
+REM The Ok button
+REM PRINT"Take an icon as an object"
+icon_ok=FNRootWindow.AddTIcon(3)
+REM PRINT"Attach Click Handler to it"
+PROCicon_ok.AddHandler("Click","Test_Ok_Click",8)
+REM PRINT"Set the text"
+icon_ok.text$="Wo"
+REM The Cancel button
+icon_cancel=FNRootWindow.AddTIcon(4)
+PROCicon_cancel.AddHandler("Click","Test_Cancel_Click",8)
+REM PRINT"Attempt to attach a keydefault & keycancel handler"
+other=FNRootWindow.AddTIcon(5)
+PROCother.AddHandler("KeyDefault","",icon_ok)
+PROCother.AddHandler("KeyCancel","",icon_cancel)
+PROCicon_ok.AddHandler("HelpIs","*\Sconfirm this operation",0)
+PROCicon_cancel.AddHandler("HelpIs","*\Scancel this operation",0)
+
+REM Add some catching handlers for the main window
+PROCRootWindow.AddHandler("Pointer","Test_Pointer",0)
+PROCRootWindow.AddHandler("Pointer","Test_Pointer2",0)
+PROCRootWindow.AddHandler("Key","Test_Key",0)
+PROCRootWindow.AddHandler("Click","Test_Click",0)
+PROCRootWindow.AddHandler("Help","Test_Help",0)
+PROCRootWindow.AddHandler("Redraw","Test_Redraw",0)
+PROCRootWindow.AddHandler("Open","Test_Open",0)
+PROCRootWindow.AddHandler("Menu","Test_Menu",0)
+
+PROCRootWindow.Open(win_right OR win_ycentre)
+ENDPROC
+:
+DEFPROCTest_Menu(menu$,private)
+PROCNewMenu("Testing",menu$)
+PROCAddMenuEntry("Dummy","",0,0,"")
+ENDPROC
+:
+DEF FNTest_Ok_Click(private,wobject,xoff,yoff,but)
+PRINT"Clicked Ok !"
+PROCRootWindow.Destroy
+RootWindow = 0
+=TRUE
+:
+DEF FNTest_Cancel_Click(private,wobject,xoff,yoff,but)
+PRINT"Clicked Cancel !"
+PROCRootWindow.Destroy
+RootWindow = 0
+=TRUE
+:
+DEF FNTest_Key(private,window,char,icon)
+REM PRINT"Window got key from icon "+STR$icon+" of "+STR$char
+=TRUE
+:
+DEF FNTest_Click(private,window,x,y,but,icon)
+REM PRINT"Window click in "+STR$icon
+=TRUE
+:
+DEF FNTest_Pointer(private,window,inside)
+PRINT"1st Test_Pointer inside="+STR$ inside
+IF inside THEN
+ SYS "XWimp_SpriteOp",36,,"ptr_menu",1,8,6
+ELSE
+ SYS "XWimp_SpriteOp",36,,"ptr_default",1
+ENDIF
+=FALSE
+:
+DEF FNTest_Pointer2(private,window,inside)
+PRINT"2nd Pointer inside = "+STR$ inside
+=FALSE
+:
+DEF FNTest_Open(private,window,x0,y0,x1,y1,sx,sy,behind)
+PRINT"Opening at "+STR$ x0+","+STR$ y0
+=FALSE
+:
+DEF FNTest_Help(private,window,x,y,icon)
+="This is a test window"
+:
+DEF FNTest_Redraw(private,window,l,t,x0,y0,x1,y1)
+x0+=l:x1+=l:y0+=t:y1+=t
+SYS "OS_Plot",4,l,t
+SYS "OS_Plot",5,l+64,t-64
+SYS "OS_SetColour",(1<<4),11
+SYS &100+16
+spr=FNSpriteF.FindSprite("mylogo")
+PROCspr.Plot(l+64,t-256,0)
+SYS "OS_SetColour",(1<<4),1
+=TRUE
+:
+DEF PROCTest_SpriteF
+LOCAL num,spr,x,y
+PROC_Test_Head("Sprite files")
+PRINT"Creating SpriteF"
+SpriteF=FNnewSpriteF("<IRClient$Dir>.Resources.Sprites")
+PRINT"Reading number of sprites"
+num=SpriteF.sprites
+PRINT"number = "+STR$ num
+:
+PRINT"Finding mylogo sprite"
+spr=FNSpriteF.FindSprite("mylogo")
+PRINT"Reading size"
+PRINT"Is "+STR$ spr.width+" by "+STR$ spr.height
+SYS &100+26
+PROCspr.Plot(0,0,0)
+PROCspr.Plot(256,0,FNnewScale(2,1))
+ENDPROC
+:
+DEFPROCTest_UserDB
+LOCAL user
+PROCUserDB_AddMask("Gerph","*!*jrflet@@*.essex.ac.uk")
+PROCUserDB_AddMask("cmj","*!*cmjohnj@@*.essex.ac.uk")
+PROCUserDB_Configure
+user=FNUserDB_MatchUID(FNnewUID("gerph!jrflet@@sunlab1.essex.ac.uk"))
+IF user<>0 THEN
+ PRINT"User nick is "+user.nick$
+ELSE
+ PRINT"User not known"
+ENDIF
+ENDPROC
+:
+DEFPROCTest_Colours
+LOCAL new
+PROC_Test_Head("Colours")
+new=FNnewColourRGB(128,0,0)
+PRINT "Palette entry = "+STR$~(new.palette)
+PRINT "Closest wimp colour = "+STR$FNnew.ClosestWimp
+PRINT "HSV = "+STR$new.hue+","+STR$new.saturation+", "+STR$new.value
+ENDPROC
+:
+DEFPROCTest_Fonts
+LOCAL font
+PROC_Test_Head("Fonts")
+SYS &100+26
+SYS &100+12
+font=FNnewFont("Trinity",12*12,0)
+PROCfont.Plot("Normal",256,256)
+font=FNfont.Bigger(1)
+PROCfont.Plot("Bigger",512,256)
+font=FNfont.Bold(TRUE)
+PROCfont.Plot("Bold",768,256)
+font=FNfont.Italic(TRUE)
+PROCfont.Plot("BoldItalic",256,512)
+font=FNfont.Bold(FALSE)
+PROCfont.Plot("Italic",512,512)
+font.colour=FNnewColourNamed("red")
+IF font.colour=0 THEN font.colour=FNnewColourRGB(0,0,255)
+PRINT"Red = "+STR$font.colour.red
+PRINT"Green = "+STR$font.colour.green
+PRINT"Blue = "+STR$font.colour.blue
+PROCfont.Plot("Red if RGB, blue otherwise",768,512)
+SYS "XOS_ReadC"
+ENDPROC
+:
+DEFPROCTest_DrawPath
+PROC_Test_Head("DrawPath")
+LOCAL path,new
+path=FNnewDrawPath
+PROCpath.Move(256,256)
+PROCpath.Draw(256,512)
+PROCpath.Draw(512,512)
+PROCpath.Draw(512,256)
+PROCpath.Draw(256,256)
+SYS &100+26
+PROCpath.Plot
+ENDPROC
+:
+DEFPROCTest_DrawFile
+PROC_Test_Head("DrawFile")
+LOCAL file,path,new
+file=FNnewDrawFile("IRClient")
+path=FNnewDrawPath
+PROCpath.Move(256,256)
+PROCpath.Draw(256,512)
+PROCpath.Draw(512,512)
+PROCpath.Draw(512,256)
+PROCpath.Draw(256,256)
+PROCfile.Add(path)
+new=FNfile.Generate
+REM And save it
+PRINT"Start addr = "+STR$~FNBufferAddr(new)
+PRINT"Length = "+STR$~FNBufferLength(new)
+SYS "OS_File",10,"$.Draw",&AFF,,FNBufferAddr(new),FNBufferAddr(new)+FNBufferLength(new)
+ENDPROC
+:
+DEFPROCTest_Network
+LOCAL list,a$,dummy
+list=FNnewBTree("BTree_CompareStringsI")
+LOCAL file,a$,root$
+file=FNnewFile("<IRClient$Dir>.Scripts.Internal.Classes.host-demon","<")
+WHILE NOT FNfile.Eof
+ a$=FNfile.ReadLine
+ PROClist.Add(FNtest_name(a$))
+ IF INSTR(a$," :0")<>0 THENroot$=LEFT$(a$,INSTR(a$," ")-1)
+ENDWHILE
+LOCAL network,host
+network=FNnewNetworkMap(root$)
+PROClist.Iterate("test_makenet",network)
+REM An example user on the network
+host=FNnetwork.Add("irc.stealth.net","gerph.gerph.winsley.org")
+host.linecolour=FNnewColourRGB(0,0,255)
+REM Create a drawfile
+LOCAL drawfile,new
+drawfile=FNnewDrawFile("")
+PROCnetwork.Generate(drawfile,768,640)
+new=FNdrawfile.Generate
+REM And save it
+PRINT"Start addr = "+STR$~FNBufferAddr(new)
+PRINT"Length = "+STR$~FNBufferLength(new)
+SYS "OS_File",10,"$.Draw",&AFF,,FNBufferAddr(new),FNBufferAddr(new)+FNBufferLength(new)
+ENDPROC
+:
+REM "<host> <uplink> :<num> *"
+DEFFNtest_name(a$)
+LOCAL n$
+n$=MID$(a$,INSTR(a$,":")+1)
+n$=LEFT$(n$,INSTR(n$+" "," ")-1)
+a$=n$+" "+LEFT$(a$,INSTR(a$," :")-1)
+=FNnewString(a$)
+:
+DEFPROCtest_makenet(str,network)
+LOCAL a$,b$,dummy
+a$=MID$(str.data$,INSTR(str.data$," ")+1)
+b$=MID$(a$,INSTR(a$," ")+1)
+a$=LEFT$(a$,INSTR(a$," ")-1)
+IF a$<>b$ THEN dummy=FNnetwork.Add(b$,a$)
+ENDPROC
+:
+REM Old routine comment out the following line to use the new stuff above
+REM DEFPROCTest_Network
+LOCAL network,host,dummy
+REM SYS &100+26
+REM SYS &100+12
+network=FNnewNetworkMap("ircnet.demon.co.uk")
+dummy=FNnetwork.Add("ircnet.demon.co.uk","eris.bt.net")
+dummy=FNnetwork.Add("ircnet.demon.co.uk","*.il")
+dummy=FNnetwork.Add("ircnet.demon.co.uk","irc.easynet.co.uk")
+dummy=FNnetwork.Add("ircnet.demon.co.uk","webbernet.net")
+dummy=FNnetwork.Add("webbernet.net","*.nl")
+dummy=FNnetwork.Add("webbernet.net","irc.stealth.net")
+dummy=FNnetwork.Add("webbernet.net","*.jp")
+dummy=FNnetwork.Add("webbernet.net","*.anet-chi.net")
+dummy=FNnetwork.Add("irc.stealth.net","irc.siol.net")
+dummy=FNnetwork.Add("irc.stealth.net","irc.cifnet.com")
+dummy=FNnetwork.Add("eris.bt.net","irc.netcom.net")
+dummy=FNnetwork.Add("eris.bt.net","irc.u-net.com")
+dummy=FNnetwork.Add("eris.bt.net","chat.bt.net")
+dummy=FNnetwork.Add("eris.bt.net","chat.btinternet.com")
+dummy=FNnetwork.Add("irc.u-net.com","irc.warwick.ac.uk")
+LOCAL drawfile,new
+drawfile=FNnewDrawFile("")
+PROCnetwork.Generate(drawfile,768,640)
+new=FNdrawfile.Generate
+REM And save it
+PRINT"Start addr = "+STR$~FNBufferAddr(new)
+PRINT"Length = "+STR$~FNBufferLength(new)
+SYS "OS_File",10,"$.Draw",&AFF,,FNBufferAddr(new),FNBufferAddr(new)+FNBufferLength(new)
+ENDPROC
+@
+
+
+1.5
+log
+@Many changes for various routines; UID, Colours,
+Draw, UserDB, etc...
+@
+text
+@d7 1
+a7 1
+REM $Id: ~Test 1.4 97/04/16 02:37:51 gerph Exp $
+d9 4
+d25 1
+a25 1
+PRINT "$Id: ~Test 1.4 97/04/16 02:37:51 gerph Exp $"
+d45 3
+a47 1
+PROCTest_DrawPath
+d425 1
+a425 1
+LOCAL path
+d434 92
+@
+
+
+1.4
+log
+@Added test routines for SpriteF
+@
+text
+@d2 1
+a2 1
+REM This is NOT for distribution - it is the development 'test'
+d7 1
+a7 1
+REM $Id: ~Test 1.3 97/04/16 01:32:55 gerph Exp $
+d9 3
+d21 1
+a21 1
+PRINT "$Id: ~Test 1.3 97/04/16 01:32:55 gerph Exp $"
+d24 1
+a24 1
+LOCAL RootWindow
+d27 1
+a27 1
+REM New
+d37 5
+a41 1
+PROCTest_SpriteF
+d44 1
+a44 1
+DEFPROC_Test_Head(a$)
+d46 1
+a46 1
+PRINTFNColour(10)+"*** Start testing of "+a$
+d62 3
+a64 3
+PRINT "  str            = "+STR$str
+PRINT "  str.this       = "+STR$str.this
+PRINT "  str.this.this  = "+STR$str.this.this
+d91 1
+a91 1
+PRINT"Trying to destroy window - "+STR$RootWindow
+d125 5
+a129 5
+PRINT">"+list.data.data$
+PRINT">"+list.next.data.data$
+PRINT">"+list.next.next.data.data$
+PRINT">"+list.next.next.prev.data.data$
+PRINT">"+list.next.next.prev.prev.data.data$
+d136 1
+a136 1
+list=FNnewBTree("Test_BTree_Compare")
+d142 30
+a177 11
+DEF FNTest_BTree_Compare(v1,v2)
+LOCAL ret
+IF v1.data$<v2.data$ THEN
+ ret=-1
+ELSE
+ IF v1.data$>v2.data$ THEN
+  ret=1
+ ENDIF
+ENDIF
+=ret
+:
+d180 1
+a180 1
+DEFPROCTest_Dependency
+d182 1
+a182 1
+PROCDependency_LoadModules("<IRClient$Dir>.Scripts.Modules","<IRClient$Dir>.Scripts.User.Excludes")
+d185 1
+a185 1
+DEFPROCIconbarClick
+d190 1
+a190 1
+DEFPROCTest_Screen
+d192 2
+a193 2
+PRINT"The current mode is "+STR$Screen.width+"x"+STR$Screen.height
+PRINT"and has "+STR$Screen.colours+" colours"
+d197 1
+a197 1
+DEFPROCTest_Array
+d229 1
+a229 1
+DEFPROCTest_IRCClasses
+d262 1
+a262 1
+DEFPROCTest_Windows
+d265 1
+a265 1
+IF RootWindow<>0 THENPROCRootWindow.Destroy
+d292 1
+d297 6
+a302 1
+DEFFNTest_Ok_Click(private,wobject,xoff,yoff,but)
+d305 1
+d308 1
+a308 1
+DEFFNTest_Cancel_Click(private,wobject,xoff,yoff,but)
+d311 1
+d314 1
+a314 1
+DEFFNTest_Key(private,window,char,icon)
+d318 1
+a318 1
+DEFFNTest_Click(private,window,x,y,but,icon)
+d322 2
+a323 2
+DEFFNTest_Pointer(private,window,inside)
+PRINT"1st Test_Pointer inside="+STR$inside
+d331 2
+a332 2
+DEFFNTest_Pointer2(private,window,inside)
+PRINT"2nd Pointer inside = "+STR$inside
+d335 2
+a336 2
+DEFFNTest_Open(private,window,x0,y0,x1,y1,sx,sy,behind)
+PRINT"Opening at "+STR$x0+","+STR$y0
+d339 1
+a339 1
+DEFFNTest_Help(private,window,x,y,icon)
+d342 1
+a342 1
+DEFFNTest_Redraw(private,window,l,t,x0,y0,x1,y1)
+d344 7
+a350 4
+SYS "OS_Plot",4,x0,y0
+SYS "OS_Plot",5,x1,y1
+SYS "OS_Plot",4,x0,y1
+SYS "OS_Plot",5,x1,y0
+d353 3
+a355 15
+REM Old test
+PRINT"Creating, was "+STR$RootWindow
+RootWindow = FNnewWindow("<IRClient$Dir>.Scripts.Internal.Templates","blank")
+PRINT"Opening"
+PROCRootWindow.Open(win_xcentre OR win_ycentre)
+REM LOCAL label,info
+REM label=FNRootWindow.AddWLabel("Hello",8,FNnewCoords(36,-288),0)
+REM REM info=FNRootWindow.AddWInfo("Hello",FNlabel.RightOf,20)
+REM REM bar=FNRootWindow.AddWProgress(10,FNinfo.Below,20)
+REM REM PROCbar.Percentage(50*100)
+ENDPROC
+:
+DEFPROCTest_SpriteF
+LOCAL sprf,num,spr,x,y
+PROC_Test_Head("Dynamic variable reading")
+d357 1
+a357 1
+sprf=FNnewSpriteF("<IRClient$Dir>.Resources.Sprites")
+d359 2
+a360 2
+num=sprf.sprites
+PRINT"number = "+STR$num
+d363 1
+a363 1
+spr=FNsprf.FindSprite("mylogo")
+d365 61
+a425 1
+PRINT"Is "+STR$spr.width+" by "+STR$spr.height
+d427 1
+a427 2
+PROCspr.Plot(0,0)
+PROCspr.PlotScaled(256,0,2,2,1,1)
+@
+
+
+1.3
+log
+@Handler tests re-instated. Remove the 'icon' handler stuff (REM it out)
+to see 'working' version. Problems with Redraw are countered by not
+making the window UserRedraw.
+@
+text
+@d7 1
+a7 1
+REM $Id: ~Test 1.2 97/04/13 23:54:58 gerph Exp $
+d9 5
+d18 1
+a18 1
+PRINT "$Id: ~Test 1.2 97/04/13 23:54:58 gerph Exp $"
+d34 1
+d44 1
+a44 1
+ PROC_Test_Head("Unknown variable reading (needs a new name!)")
+d326 18
+@
+
+
+1.2
+log
+@multiple window and wobject handlers installed.
+@
+text
+@d7 5
+a11 2
+REM $Id$
+REM $Log$
+d13 1
+a13 1
+PRINT "$Id$"
+d249 2
+d254 1
+d259 1
+d264 1
+a264 1
+DEFFNTest_Ok_Click(wobject,private,xoff,yoff,but)
+d269 1
+a269 1
+DEFFNTest_Cancel_Click(wobject,private,xoff,yoff,but)
+d274 1
+a274 1
+DEFFNTest_Key(window,private,char,icon)
+d278 1
+a278 1
+DEFFNTest_Click(window,private,x,y,but,icon)
+d282 2
+a283 2
+DEFFNTest_Pointer(window,private,inside)
+REM PRINT"Test_Pointer inside="+STR$inside
+d285 1
+a285 1
+ SYS "XWimp_SpriteOp",36,,"ptr_menu",1
+d289 9
+a297 1
+=TRUE
+d299 1
+a299 1
+DEFFNTest_Help(window,private,x,y,icon)
+d302 2
+a303 1
+DEFFNTest_Redraw(window,private,x0,y0,x1,y1)
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 3
+REM 21 Feb 1997 JF - created from the !Module file           v1.00
+REM 30 Mar 1997 JF - various small changes and new heading   v1.01
+ERROR 0,"This is an IRClient module; please don't run it"
+d45 7
+a51 7
+REM PRINT "Checking that 'this' works:"
+REM PRINT "  str            = "+STR$str
+REM PRINT "  str.this       = "+STR$str.this
+REM PRINT "  str.this.this  = "+STR$str.this.this
+REM PRINT "  str.this.data$ = "+str.this.data$
+REM PRINT "We can generate errors too:"
+REM PRINT str.arse$
+d228 26
+a253 11
+LOCAL icon
+PRINT"Create window"
+RootWindow = FNnewWindow("<IRClient$Dir>.Scripts.Internal.IRCClasses","WhoIs")
+PRINT"Take an icon as an object"
+icon=FNRootWindow.AddTIcon(1)
+PRINT"Set the text"
+icon.text$="Gerph"
+REM PRINT"Fail to delete"
+REM icon=0
+PRINT"Really delete (only the reference, not icon)"
+PROCicon.Destroy
+d256 37
+@

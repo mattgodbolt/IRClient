@@ -1,0 +1,59 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     97.12.29.14.58.23;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Pointer location on the screen.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM > Pointer
+REM Pointer management
+REM (c) Justin Fletcher
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+DEFPROCOverload_Classes_Initialise
+REM A class to handle bounding boxes - just a container really
+Class_Pointer=FNRegisterClass("Pointer")
+PROCAddField(Class_Pointer,"x")
+PROCAddField(Class_Pointer,"y")
+PROCAddField(Class_Pointer,"buttons")
+PROCAddField(Class_Pointer,"win")
+PROCAddField(Class_Pointer,"icon")
+:
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEFFNnewPointer
+LOCAL new,buf
+new=  Class_Pointer
+buf=FNnewBlock(20)
+SYS "XWimp_GetPointerInfo",,buf.data
+new.x=!(buf.data)
+new.y=!(buf.data+4)
+new.buttons=!(buf.data+8)
+new.win=!(buf.data+16)
+new.icon=!(buf.data+16)
+=new
+@

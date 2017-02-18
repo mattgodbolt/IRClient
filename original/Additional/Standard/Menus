@@ -1,0 +1,167 @@
+# Menu file for IRClient
+
+Menu "Iconbar"
+ Title "IRClient"
+ Entries :
+  "Info"             : >"Info"
+  "Hotlist..."       : \"Hotlist"
+  "Connect"          : >"Connect" \"Connect" *"!Connected"
+  "Disconnect"       : *"Connected" \"Disconnect"
+  "Preferences..."   : \"Preferences"
+  "Quit"             : \"Quit"
+ End
+End
+
+Menu "CTCPList"
+ Title "CTCP"
+ Entries :
+  "ClientInfo"           : \"CTCP_ClientInfo"
+  "Finger"               : \"CTCP_Finger"
+  "Ping"                 : \"CTCP_Ping"
+  "Time"                 : \"CTCP_Time"
+  "UserInfo"             : \"CTCP_UserInfo"
+  "Version"              : \"CTCP_Version"
+ End
+End
+
+Menu "DisplayMenu"
+ Title "IRClient"
+ Entries :
+  "Save"                 : >"SaveBox"
+  "Edit"                 : /"Edit"
+ End
+End
+
+Menu "ChannelDisplayMenu"
+ Title "IRClient"
+ Entries :
+  "Channel"              : /"ChannelMenu"
+  "Save"                 : >"SaveBox"
+  "Edit"                 : /"Edit"
+ End
+End
+
+Menu "Edit"
+ Title "Edit"
+ Entries :
+  "Clear Selection       ^Z": \"ClearSelection"
+  "Copy to clipboard    ^‹C": \"CopyClipboard"
+  "Paste from clipboard ^‹V": \"PasteClipboard"
+ End
+End
+
+Menu "SingleUser"
+ Title "User"
+ Entries :
+  "User '%0'"            : /"UserActions" *"SomeoneSelected"
+  "Select all"           : \"SelectAllUsers"
+  "Clear selection"      : \"ClearUsers"
+ End
+End
+
+Menu "UserActions"
+ Title "User"
+ Entries :
+  "CTCP"                 : /"CTCPList"
+  "Send file..."         : \"DCCSend"
+  "Private message..."   : \"Privmsg"
+  "Secure messages..."   : \"DCCChat"
+  "Op"                   : \"Op" *"YouGotOps"
+  "Deop"                 : \"Deop" *"TheyGotOps"
+  "Kick"                 : \"Kick" *"YouGotOps"
+ End
+End
+
+Menu "ManyUsers"
+ Title "Users"
+ Entries :
+  "Selection"            : /"UsersActions"
+  "Select all"           : \"SelectAllUsers"
+  "Clear selection"      : \"ClearUsers"
+ End
+End
+
+Menu "UsersActions"
+ Title "Selection"
+ Entries :
+  "CTCP"                 : /"CTCPList"
+  "Send file..."         : \"DCCSend" *"never"
+  "Private message..."   : \"Privmsg"
+  "Secure messages..."   : \"DCCChat" *"never"
+  "Op"                   : \"Op" *"YouGotOps"
+  "Deop"                 : \"Deop" *"YouGotOps"
+ End
+End
+
+Menu "HotlistOne"
+ Title "Hotlist"
+ Entries :
+  "Entry '%0'"           : /"HotlistEnt" *"HotlistEnt"
+  "Select all"           : \"SelectAllHotlist"
+  "Clear selection"      : \"ClearHotlist"
+  "Add entry..."         : \"AddHotlist"
+ End
+End
+
+Menu "HotlistSel"
+ Title "Hotlist"
+ Entries :
+  "Selection"            : /"HotlistEntSel"
+  "Select all"           : \"SelectAllHotlist"
+  "Clear selection"      : \"ClearHotlist"
+  "Add entry..."         : \"AddHotlist"
+ End
+End
+
+Menu "HotlistEnt"
+ Title "Entry"
+ Entries :
+  "Connect"              : \"HotConnect" *"!Connected"
+  "Edit..."              : \"EditHotlist"
+  "Make default"         : \"HotDefault"
+  "Delete"               : \"DeleteHotlist"
+ End
+End
+
+Menu "HotlistEntSel"
+ Title "Selection"
+ Entries :
+  "Connect"              : *"never"
+  "Edit..."              : *"never"
+  "Make default"         : *"never"
+  "Delete"               : \"DeleteHotlist"
+ End
+End
+
+Menu "ChannelsMenu"
+ Title "IRC"
+ Entries :
+  "Channel '%0'"        : *"ChanSelected" /"ChannelMenu"
+  "Join new..."         : >"JoinChannel"
+  "Leave IRC"           : \"LeaveIRC"
+ End
+End
+
+Menu "ChannelMenu"
+ Title "Channel"
+ Entries :
+  "CTCP"                : /"CTCPList"
+  "Change topic"        : >"ChangeTopic"
+  "Ban..."              : \"Ban"
+  "Leave"               : \"LeaveChannel"
+ End
+End
+
+#If you add new fonts, change the following lines :
+
+Menu "FontList"
+ Title "Fonts"
+ Entries :
+  "PC(italic)"           : \"#PC(italic)"
+  "PC-like"              : \"#PC-like"   
+  "PC-s-serif"           : \"#PC-s-serif"
+  "Script"               : \"#Script"
+  "System"               : \"#System"
+  "X-Windows"            : \"#X-Windows" 
+ End
+End

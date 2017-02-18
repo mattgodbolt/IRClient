@@ -1,0 +1,29 @@
+# This is a bindings file for IRClient
+# The format is :
+# [^][‹]<key> <functions>
+# Where <key> is a key, such as A, B, F1, DELETE, BACKSPACE, RETURN etc
+# <functions> is a list of functions, each separated by ' :: '
+# A function with no parameters calls the IRBasic PROCedure directly, such
+# as 'CycleFocusForwards'
+# A function with parameters is called with one parameter pointing to a linked
+# list of the supplied parameters, which will either be integer values, or
+# String objects.  String objects are created only if the first character of
+# a parameter is a string, so to pass string variables to the procedure you
+# must use Function(""+variable$)
+# There are a number of callback functions defined in Scripts.KeyBinder, which
+# the default binding file uses.
+# Note that you must use spaces between the key and the commands - not TAB
+# characters
+
+# Control Q closes a window, Control Shift Q also leaves it if were a channel
+^Q      CycleFocusForwards :: _CloseDisplay(""+Display$)
+^‹Q     CycleFocusForwards :: _Leave(""+Display$)
+
+# Shift up and down move the focus from window to window
+‹Up     CycleFocusForwards
+‹Down   CycleFocusBackwards
+
+# Clipboard and selection control
+^‹C     CopySelection
+^‹V     PasteSelection
+^Z      ClearSelection

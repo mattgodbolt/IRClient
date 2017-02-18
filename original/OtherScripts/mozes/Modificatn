@@ -1,0 +1,51 @@
+Modifications:
+===============
+
+*  From version 0.63 - the swear kick acility has now been
+   changed slightly, so that it actually kicks the offender
+   of the channel they offended on - instead of attempting
+   to kick them off your currently selected channel.
+   So in other words - it now works /correctly/ :-)
+
+*  From the original script, I noticed that when people
+   perform a /ME <blah blah>  from INSIDE a query window,
+   it comes out on the main channel as any normal /ME
+   would from people talking publically (Ie. to the channel
+   so other people are SUPPOSED to see what they said).
+ 
+   However, what was happening was that if the person
+   on the other end, did NOT have a query window opened to
+   the person sending the PRIVATE message via their query window,
+   and they did a /ME - it simply appeared in the main channel
+   window - looking like others had seen what was said - when
+   they hadn't.  This causes people to reply to the MAIN channel
+   window - obsiously not making /any/ sense whatso ever to
+   the other channel members.
+
+
+   SO my fix has cured this - as it will show any ACTIONS
+   (/MEs) which are PRIVATE up as
+   "/*\ <whoever> <whatever message>"
+   (e.g. "/*\ MoZes dances around")  
+
+   And they also appear in a nice (?!) light blue colour
+   so they easily stand out from the Public ones.
+
+
+*  As soon as you join the channel, or as soon as any
+   channel mode change takes place, all of the channel
+   modes will be shown on the screen, as well as the 
+   message saying who made the change  (this was supposed 
+   to happen in the original script, but it just doesn't
+   seem to work.. it does now though! :-)  )
+
+*  When you make someone a channel operator it shows;
+   "* You have made <whoever> a channel operator"
+   When someone makes YOU a channel operator is shows;
+   "* <whoever> has made you a channel operator"
+   When someone else makes someone else an operator it shows;
+   "* <whoever> has made <whoever> a channel operator"
+ 
+  This just makes it easy to see what is happening - 
+  esp for newbies who might not know what all of the channel
+  modes actually mean.

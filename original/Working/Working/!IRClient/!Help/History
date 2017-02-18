@@ -1,0 +1,66 @@
++-----------------------------------------+
+|  !IRClient © 1995-7 Matthew Godbolt and |
+|                   Justin Fletcher       |
+|  Please see file 'License' for          |
+|  important details about this program   |
++-----------------------------------------+
+
+Version History:
+
+v0.00 (*)   : A twinkle in my eye
+v0.01 (*)   : WIMP front-end sorted out.  Basic draft of templates completed
+v0.02 (*)   : First 'live' connection completed (thanks pixeleyes!) Matthew gets
+              very excited!
+v0.03 (*)   : Session system added to allow different setups to be used
+v0.04       : Session system nearly finished debugging !
+v0.05       : CTCP skeleton in place. /PING added.  Some socket bugs sorted out
+              thanks to Stewart Brodie and Neil Tarrant
+v0.06       : /CTCP command added.  More socket bugs sent to bug-
+              heaven again thanks to Neil Tarrant.
+v0.07       : Error handler installed
+v0.08       : TOPIC and MODE added. Menu added to display
+v0.09       : Bugs ironed out.  Channel list icon added.  Toolbar icons added.
+              Only one works, admittedly!  BETA VERSION!
+v0.10       : CTCP veneer for 'PING' in and *stable*.  !IRClient sustained a
+              1.5hour IRC session with only one obvious bug - and that was
+              sorted out immediately.  Way-hey!
+v0.11       : TOPIC, MODE, LIST, NAMES and KICK added/bugfixed. Support for
+              meta-servers added. /WHOIS icon added and working.
+v0.12       : Non-registered version loses the annoying limitations.  DCC added
+              and code generally cleared up.
+v0.13       : Updateable Message Of The Day added.  DCC bugs ironed out, /QUERY,
+              /INVITE and /AWAY implemented.
+v0.14       : DCC alledgely fixed, DCC CHAT added.
+v0.15       : DCC actually fixed, some Help problems alleviated
+v0.16       : DCC *really* fixed, ZapRedraw used for screen update, DCC
+              CHAT fixed.
+
+          *  BOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOM  *
+
+Complete re-write of IRClient using 100% new code, and using EqNet as the
+Internet back-end.  An entire scripting language is added.
+
+v0.17 (*)   : BASIC programming language re-invented, in assembler, much to
+              the amusement of my immediate peers.  Limited though it is, much
+              of the rest of the client will be developed within this language.
+              I'm mad, but there you go. (1/4/96)
+v0.18 (*)   : As far as can be told, the scripting language is in, stable, and
+              works.  Development of the client proper begins. (14/4/96)
+v0.19       : Things are starting to look promising; IRClient undergoes its first
+              live test which is a complete success.  Released to a few registered
+              beta-testers.
+v0.20       : After feedback from users (thanks fortywo and zarni) the user interface
+              has been changed considerably - for the better.  Few patches here and there;
+              stability much greater than in v0.19.  The end nears...
+v0.21	    : Some minor patches and bugfixes
+v0.22       : Guess what - more bugfixes!
+
+......
+v0.32	    : First decent release in a long time - many bugs fixed
+v0.36	    : Many internal changes which manifest themselves as bug fixes :)
+v0.37	    : The features introduced in 0.36 are now apparent - the reference-
+	      counted garbage collector is now operational!
+v0.38-0.40* : Many bugs in GC fixed, new module deals with memory allocation
+              which is much faster.  Script files now pre-processed for speed
+              and memory size reasons
+(*) indicates a non-released version

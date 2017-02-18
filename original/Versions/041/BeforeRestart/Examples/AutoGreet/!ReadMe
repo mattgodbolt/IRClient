@@ -1,0 +1,488 @@
+                            ****************************
+                            * Writing your own modules *
+                            ****************************
+
+Intro
+=====
+To write your own modules you need two things :
+  a) a rudimentary knowledge of BASIC
+  b) something you want to write
+
+Whilst most people have a), very few people come up with anything original to
+fulfil b). However, to save people the bother of writing this (and to save
+myself getting thousands of different versions of the same thing) I'm going
+to talk you through the development of the simplest of functions -
+AutoGreet.
+
+It's one that most people play with at some time or another and so most will
+know how it's done and why it's a Bad Thing. However, for those that don't
+know, it's annoying, makes you look 'like an automaton' and it's pointless as
+you'll get about 15 people all on autogreet when nobody is actually paying
+attention.
+
+Anyhow... I'm not going to teach you the quickest way to do it. Nor am I
+going to teach you the best way to do it. The former of these is because the
+quickest wouldn't teach you anything, and the latter because I'm not sure
+there is a 'best' way.
+
+Whilst I'm describing what we are doing I'll be describing the programs in
+this directory, however you should write your own routines if you wish to
+actually learn anything. Most people will ignore this. I don't care. You'll
+only make it harder on yourself.
+
+
+Overview
+========
+What I want is a script which says "Hi <nick>" when they join the channel.
+I'll also want a way of turning the thing on and off.
+
+So the first thing we need is a variable to mark whether the feature is on or
+off. I'll call this 'autogreet' because it's nice and simple and it won't
+clas with anything else. When writing your own modules you should prefix all
+your variables with the module name if you can so that they don't clash with
+other modules. To start with I want this on, so :
+
+  autogreet=TRUE
+
+However, we've got to initialise this when IRClient starts up so we need to
+stick it in a PROCedure. PROCInitialiseModule is an overloaded routine which
+is called when IRClient starts up. You don't need to worry about the fact
+that it's 'overloaded'; all it means is that the routine can be hooked onto
+and replace or change the behaviour of the original.
+
+So we need to use :
+
+  DEFPROCInitialiseModule
+  autogreet=TRUE
+  ENDPROC
+
+However, this still won't work properly. Because of the 'overloading' you
+need allow everything else to add their 'hooks' and if we exit straight away
+then nobody else will be able to do anything and we will have replaced the
+function of the routine. To call the original routine we call a special
+procedure called PROC@ which is basically the next module with a 'hook' into
+this routine. The initialisation is therefore :
+
+  DEFPROCInitialiseModule
+  autogreet=TRUE
+  PROC@
+  ENDPROC
+
+Having got the initialisation over and done with we might as well write the
+code to add the greetings. To say something on a channel or to a user you
+just use PROCSay(chan$,message$) where chan$ is the channel or user name, and
+message is the message to use. Similarly, PROCAction(chan$,message) will do
+the equivilent of /me. What we need therefore will be :
+
+  IF autogreet THEN
+    PROCSay(chan$,"Hi "+nick$)
+  ENDIF
+
+This needs to go in a routine which 'hooks' onto people joining a channel.
+This is called PROCOverload_On_Join(nick$,chan$,uid$) where :
+ nick$ is the nickname of the person who joined
+ chan$ is the channel they have just joined
+ uid$ is the user id of the user. This is the response from the server which
+      tells you where they logged in from and who they claim to be in a
+      similar form as an email address. Most people can be mailed at this
+      address, but remember to cut off any initial +, - or ~ as some servers
+      add this to indicate either validated users, invalidated users, or
+      unvalidated users.
+
+We will also want to pass the call on to the original routine so that we
+still get the default message about the user joining.
+
+  DEFPROCOverload_On_Join(nick$,chan$,uid$)
+  IF autogreet THEN
+    PROCSay(chan$,"Hi "+nick$)
+  ENDIF
+  PROC@(nick$,chan$,uid$)
+  ENDPROC
+
+As before we are passing the call on to the original routine, but we are also
+passing the parameters on - we could quite easily have changed these but I'm
+not sure why we'd want to do that...
+
+Although the above routine looks right there is something very wrong with it.
+Unfortunately, I didn't spot this one for quite some time, but when I thought
+about it it was quite obvious. What was happening was that our routine gets
+called and says 'hi' to the new person, but then the call is passed on to the
+original routine which then tells you that they have joined... It's only a
+timing thing, but the call to the original routine (which tells you they have
+joined) should be called before you say 'hi' to them. I should have written :
+
+  DEFPROCOverload_On_Join(nick$,chan$,uid$)
+  PROC@(nick$,chan$,uid$)
+  IF autogreet THEN
+    PROCSay(chan$,"Hi "+nick$)
+  ENDIF
+  ENDPROC
+
+That's it really. You can test that and you'll see that it works perfectly
+(if I've described it right, of course !)
+
+However, if you try /ctcp <nick> scripts you'll see that your masterpiece
+isn't in the list. This only needs a simple bit of code to remedy, and I
+think I'll give you it and then describe it as it's tiresome doing it the
+other way :-)
+
+  DEFFNOverload_ScriptInfo(num)
+  LOCAL ret$
+  IF num=0 THEN
+   ret$="AutoGreet v1.00 (Gerph)"
+  ELSE
+   ret$=FN@(num-1)
+  ENDIF
+  =ret$
+
+As you can see, this is another overloaded routine - most Magrathea scripts
+are just overloads - to return the name of the script. Basically when we
+receive a 'SCRIPTS' request, Magrathea starts counting from 0, calling this
+routine. The first overloaded script receives it and, spotting that the
+number is 0 it returns it's name which Magrathea happily sends out as the
+first script name. Then it calls the routine again with 1. The first routine
+then passes it on to the next one, but with 0 so it returns the name and is
+again sent out.
+
+I think you get the picture anyhow... This is probably the quickest way of
+collating information from a group of scripts.
+
+  * At this point the file '1' contains the script with some annotation *
+
+
+This is annoying
+================
+If you've actually tried this live you'll know how annoying it can be. So
+what we'll do is add a command to turn the autogreet feature off. The easiest
+way to do this is to add a command /autogreet to control it's use. To do
+this, we need to hook on to the 'unknown' command routine and spot when the
+user uses the command they /autogreet. Surprisingly, this is called
+PROCOverload_UnknownCommand(com$,rest$) where :
+ com$ is the command they issued without the leading / in capitals
+ rest$ is the rest of the command line with leading spaces stripped off
+
+Built into the configuration routines are two functions which will be very
+useful to us - FNboolean(str$) and FNbooltext(val). These, respectively,
+convert from a boolean (eg, on, true, 1, etc) to a number and from a number
+to 'On' or 'Off'. There is also a third state which we need to know about -
+Invalid (-2). This is returned when the string could not be decoded, or if
+the number is not -1, 0 or 1.
+
+Once we've set the value we had better tell the user what we have done
+otherwise it's likely they will think that something has gone wrong. To print
+things on the screen I'm going to use two calls which are specially designed
+for this type of use, PROCDisplayInfo and PROCDisplayWarning. There is a
+third more serious routine called PROCDisplayError but I shalln't use this as
+I don't think it's appropriate for a simple syntax error. All these take two
+strings as parameters, the message and the display to send it to. If the
+display is null (ie "") then the text will be sent to the current display
+preceeded by "*** " so that it is obvious that it is a message and not part
+of IRC. If you give a display name then the message will never be preceeded
+by these *'s and you will have to include them yourself if you want them.
+
+So the final routine I've come up with is :
+
+  DEFPROCOverload_UnknownCommand(com$,str$)
+  LOCAL val
+  CASE com$ OF
+   WHEN "AUTOGREET"
+    val=FNboolean(str$)
+    CASE val OF
+     WHEN TRUE,FALSE
+      autogreet=val
+      PROCDisplayInfo("AutoGreet turned "+FNbooltext(autogreet),"")
+     WHEN -2
+      PROCDisplayWarning("Syntax: AutoGreet <boolean>","")
+    ENDCASE
+   OTHERWISE
+    PROC@(com$,str$)
+  ENDCASE
+  ENDPROC
+
+A couple of things to note about this; firstly, the use of local variables in
+your routines is strongly recommended as this will stop scripts as yet
+unwritten from clashing with you (hopefully). Secondly, I have used a CASE
+statement to check the command but it would have been quite acceptable to
+have used an IF as there is only a single entry here. CASE's however are
+slightly faster if many comparisons are to be made and also look neater than
+a row of IF's. Thirdly, notice the OTHERWISE clause is a call to the other
+overloaded routines - it is VERY important to pass the call on unless you are
+explicitly servicing it as otherwise things can get very confusing and some
+modules (and notably the aliases) will fail to work.
+
+  * At this point the file '2' contains the script with some annotation *
+
+
+This really IS annoying
+=======================
+After testing all that log out you'll either be fed up with programming
+Magrathea or you'll want to kill me for suggesting such an irritating feature
+as an example. It would be useful therefore to be able to configure the
+greetings off on start up. There are three simple ways you could do this :
+  1) you could exclude the 'AutoGreet' script using the dependency
+     configuration - this will prevent it ever being loaded.
+  2) you could add "/autogreet off" into the 'Initial' script in the User
+     directory - this will always start with it off
+or
+  3) you could set autogreet to FALSE in the PROCInitialiseModule routine.
+
+Obviously 3 is the simplest, 2 the most 'user friendly' and 1 the most
+drastic. However, I don't like any of these. Why not ? Because you're not
+learnig anything. And learning is fun. Or can be if you work at it. So what
+we're going to do is create a little configuration section just like the
+dependency module and all the others have.
+
+This involves quite a bit of code so it's probably not really practical for
+such a simple module. We're going to do it anyway though. I don't care if you
+have a note from you Mum saying you've had a tooth out and you'd like to be
+exempt from programming. You'll do it. And you'll enjoy it. Ok ?
+
+Firstly, before we get down to the wonderful world of the practical we've got
+to do some theory. Just a few paragraphs, nothing more I promise. Right, all
+the configuration details are handled by a single module which provides two
+calls to read and write configuration details. These are called
+FNDB_ReadConfig(tag$) and PROCDB_WriteConfig(tag$,val$) and they work (have
+you guessed it yet ?) on a system of tags. Each configuration is given a tag
+name and these are used to look up the data that you need. Simple, isn't it ?
+Each of the tags should be prefixed by the modules name so that it can't get
+confused with any other modules data. The data can be anything at all you
+like so long as it's a string.
+
+The other important thing which I'll need to explain is the configuration
+structure. There are only three routines you need to write -
+  FNOverload_ConfigModName : Declares your module to the user in the same way
+                             as FNOverload_ScriptInfo did
+  PROCOverload_ConfigOptions : Tells the user what your options are
+  PROCOverload_ConfigCommand : Allows the user to do the actual configuring in
+                               as similar way to PROCOverload_UnknownCommand
+
+Each of these is progressively longer so we'll write them in that order (no
+running now, the computer won't go away...).
+
+
+FNOverload_ConfigModName
+------------------------
+Basically this is identical to the ScriptInfo routine, except that the name
+you give will be the name you will go by subsequently. If you do not
+recognise the name the user will be shown an error and they'll know how bad a
+programmer you are, so you don't want to do that now do you ?
+
+  DEFFNOverload_ConfigModName(count)
+  LOCAL ret$
+  IF count=0 THEN
+   ret$="AutoGreet"
+  ELSE
+   ret$=FN@(count-1)
+  ENDIF
+  =ret$
+
+Identical wasn't it ? It makes my life easier if I know that one routine is
+like another, so it should make yours easier too...
+
+PROCOverload_ConfigOptions
+--------------------------
+This is a relatively simple module. This will be called when the user selects
+your module for configuring so you should display a little message about the
+module and give the names of the options. To display things on the
+configuration window we simply use PROCDisplayConfig(message$). This will
+also handle if the user starts being clever and writes /config <module>
+<option> <value> by sending it to the current window so you needn't bother with any extra code for that.
+
+You should also check that your module is the one being selected for
+configuration otherwise things could get very strange....
+
+The code therefore is simply :
+  DEFPROCOverload_ConfigOptions(module$)
+  IF module$="AutoGreet" THEN
+   PROCDisplayConfig("")
+   PROCDisplayConfig("-- AutoGreet configuration --")
+   PROCDisplayConfig("You can configure :")
+   PROCDisplayConfig("  Active : Whether greet on join is active")
+  ELSE
+   PROC@(module$)
+  ENDIF
+  ENDPROC
+
+Notice that I've output a blank line before the main banner; this is so that
+things look a little neater and we don't get too confused between what
+belongs to what.
+
+DEFPROCOverload_ConfigCommand
+-----------------------------
+This is the workhorse of the configuration. You get passed three strings :
+ module$ : the module name so that you can spot yours
+ com$    : the first word they used in capitals
+ str$    : the rest of the line they entered
+
+You should be also keep to the following guidelines :
+ 1) LIST should always show the current status. How you do this is
+    unspecified, but it is recommended that you use a <option> : <value> format
+    as applicable to the function
+ 2) HELP should give you more information about the module. Most of the time
+    the easiest thing to do is call PROCOverload_ConfigOptions with your
+    module name to give the same message as the greeting.
+ 3) You need not recognise QUIT and should never receive it - the configuration
+    module will take care of that for you.
+
+We'll start with the LIST routine as this is quite simple. We need to show a)
+the current state and b) the configured state as these may not be the same.
+The code I've come up with is :
+
+  PROCDisplayConfig("")
+  PROCDisplayConfig("Active : "+FNbooltext(autogreet))
+  a$=FNbooltext(VAL(FNDB_ReadConfig("AutoGreet_On")))
+  PROCDisplayConfig("  (Configured "+a$+")")
+
+which again outputs a blank line before hand to tidy the display up.
+
+Next, the code to actually alter the state can be written as :
+
+  val=FNboolean(str$)
+  IF val=-2 THEN
+   PROCDisplayConfig("Syntax: Active <boolean>")
+  ELSE
+   autogreet=val
+   PROCDB_WriteConfig("AutoGreet_On",STR$autogreet)
+   PROCDisplayConfig("Set Active to "+FNbooltext(autogreet))
+  ENDIF
+
+This is almost identical to the UnknownCommand routine and could possible
+have been put in a seperate routine, however because we are calling different
+display routines it's easier to keep them seperate. I seem to have used IF's
+here rather than a CASE. This is probably because when I wrote this routine I
+just 'stole' one of the options out of another module and replaced a few
+bits. This is the easiest way of doing things and is much more recommended
+than writing things out from scratch each time.
+
+Finally this needs to be surrounded by checks for the command, a HELP message
+and an unknown command message :
+
+  DEFPROCOverload_ConfigCommand(module$,com$,str$)
+  IF module$="AutoGreet" THEN
+   CASE com$ OF
+    WHEN "ACTIVE"
+     [ routine above ]
+  
+    WHEN "LIST"
+     [ routine above ]
+  
+    WHEN "HELP"
+     PROCOverload_ConfigOptions(module$)
+  
+    OTHERWISE
+     PROCDisplayConfig("Command not recognised")
+   ENDCASE
+  ELSE
+   PROC@(module$,com$,str$)
+  ENDIF
+  ENDPROC
+
+Once that's done the configuration module will be able to interact almost
+instantly with you. Dead easy, huh ?
+
+  * At this point the file '3' contains the script with some annotation *
+
+
+Hang on, I look stupid doing this
+=================================
+Yes you do... I said you would, but my intention was to make you look stupid
+and I seem to have done that. So, to set the matter straight we'd better find
+a way to stop you looking quite so stupid. The simplest was to do this is to ensure that the message to the newly joined user is delayed by a little while so
+that people don't suspect that it's automatic.
+
+Under Magrathea this is done by 'callback' routine. This will be familiar to
+assembler programmers but for the rest of us this is like an alarm clock and
+when it goes off it 'calls us back'. The routine we need to use is called
+PROCAddCallBack(name$,delay,private) and it's parameters are :
+  name$ : the name of the call back so that you can recognise it
+  delay : the delay after which you wish to be called
+  private : Some private value which can contain anything you like.
+
+Callbacks are NOT guarenteed to go off at a particular time. The are
+guarenteed not to go off /before/ a particular time, but the time at which
+they do get triggered is indterminate. For most purposes this is adequate and
+if it isn't then you'll just have to lump it.
+
+The easiest way to do this is to set a callback when you see the person join
+the channel and when you are called back say the greeting. However, you need to know who it is you are greeting (and which channel they were joining) if many
+people join at once. This is accomplished by the use of the private value.
+What we will do is use it to store the name of the nick who joined. Since we
+can only store a single integer we have to be cunning and cunning people do
+it this way :
+ a) claim a block of memory as long as the string (+1 for the terminator)
+ b) store the string in that block
+ c) use the pointer to that block of memory as the private word
+
+Fortunately a) and b) can be done in a single function - FNStrdup(str$) -
+standing for String Duplicate and named after it's C counterpart.
+
+So instead of calling PROCSay we must call PROCAddCallBack :
+
+  PROCAddCallBack("AutoGreet",200,FNStrdup(nick$+" "+chan$))
+
+which will install a delay of at least 2 seconds before greeting them. Since
+the nick name may not contain a space it is safe to do it this way. Since a
+channel name begins with a # we could use that as a seperator, but there is
+also the possibility that you were on a 'local' channel prefixed by an &
+which would mean two compares instead of one slowing the callback down.
+Therefore, to be on the safe side I've opted for a space.
+
+We also need to 'catch' the callback and this is done by means of
+PROCOverload_CallBack. After we've said Hi, however it is also very important
+that we release the memory we claimed with PROCRelease otherwise it will
+remain trapped until IRClient exits.
+
+Before we say anything though we need to seperate out the nick and the
+channel name from the private word. Finding the nick can be done by reading
+up to the first space :
+  nick$=LEFT$(private),INSTR$(private)," ")-1)
+
+and the channel name can be cunningly read out of the string by starting
+reading only /after/ the space :
+  chan$=$(private+LEN(nick$)+1)
+
+So the entire routine is :
+
+  DEFPROCOverload_CallBack(name$,private)
+  LOCAL nick$,chan$
+  IF name$="AutoGreet" THEN
+   nick$=LEFT$($(private),INSTR($(private)," ")-1)
+   chan$=$(private+LEN(nick$)+1)
+   PROCSay(chan$,"Hi "+nick$)
+   PROCRelease(private)
+  ELSE
+   PROC@(name$,private)
+  ENDIF
+  ENDPROC
+
+  * At this point the file '4' contains the script with some annotation *
+
+
+Outro
+=====
+That pretty much completes this example. Exercises for you to work on can be
+collected further down the page. I hope you've enjoyed this little lesson
+more than I have giving it; you're a horrible bunch of students and you
+should all be shot - the lot of you... Go on, get on with you... Move it,
+move it !
+
+
+Exercises
+=========
+It is not expected that you will be able to do these and the lecturer does
+not wish to see examples of any of these except 5 for curiousity value.
+
+1. Add a configuration option to set the delay to something other than 2
+   seconds.
+
+2. Add a secondary configuration option (or subsiduary of the first) that
+   causes the RND function to be used to generate a random delay of a
+   sensible order. (RND produces a random number between -2^31-1 and 2^31 - I
+   think)
+
+3. Make greetings particular to the person or the channel.
+
+4. Make a parting addition which says how sorry you are that the person left.
+
+5. Add logging of who joined and left the channel and tell those people who
+   have joined when they last left.

@@ -1,0 +1,262 @@
+REM >WObjects
+REM LEN 1997 Justin Fletcher (Wide)
+REM Window 'objects' - anything that can be in a window
+REM ---
+REM $Id: WObjects 1.5 97/12/29 14:56:12 gerph Exp $
+REM $Log:	WObjects $
+REM Revision 1.5  97/12/29  14:56:12  gerph
+REM WOTemplate now includes indirected data,
+REM fixed bugs with <wotemplate>.text$=,
+REM added bounding boxes.
+REM 
+REM Revision 1.4  97/07/15  15:09:02  matt
+REM Changed to fit new @ paradigm
+REM
+REM Revision 1.3  97/04/16  01:32:07  gerph
+REM Handlers lists /should/ work. The don't however. Possibly because of
+REM corruption of stack.
+REM
+REM Revision 1.2  97/04/13  23:54:28  gerph
+REM Various fixes for the handlers and additional Help handler added.
+REM
+REM Revision 1.1  97/04/13  18:20:30  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: WObjects 1.5 97/12/29 14:56:12 gerph Exp $"
+END
+:
+DEF PROCOverload_Classes_Initialise
+REM The WObject class from which window objects are derived
+Class_WObject=FNRegisterClass("WObject")
+REM The window handle that the object lives in (the main one)
+PROCAddField(Class_WObject,"window")
+REM The parent object which organises where it lives
+PROCAddField(Class_WObject,"parent")
+REM This the little list of handlers for events
+PROCAddField(Class_WObject,"handlers")
+:
+REM WOTemplate class - Window Object Template icon
+Class_WOTemplate=FNRegisterSubclass(Class_WObject,"WOTemplate")
+PROCAddField(Class_WOTemplate,"icon")
+REM Most items will need some indirected data; those that don't, don't need this
+PROCAddField(Class_WOTemplate,"indir")
+:
+REM Pass on to any other initialisation routines
+PROC@
+ENDPROC
+:
+DEF PROCWObject_Construct
+@.handlers=FNnewHandlerList
+REM PRINT"Constructing a WObject"
+ENDPROC
+:
+DEF PROCWObject_Destruct
+REM PRINT"Destroying a WObject"
+ENDPROC
+:
+DEF PROCWObject_AddHandler(name$,routine$,private)
+PROC@.handlers.AddHandler(name$,routine$,private)
+ENDPROC
+:
+REM Pass on any unknown menu clicks
+DEF PROCWObject_Menu(xoff,yoff,icon)
+LOCAL inst
+inst=FN@.handlers.FindS("Menu")
+IF inst<>0 THEN
+ inst=FNinst.data.IterateFNs3(@,xoff,yoff)
+ENDIF
+IF inst=0 THEN PROC@.window.Menu(xoff,yoff,icon)
+ENDPROC
+:
+REM Pass on any unknown clicks
+DEF PROCWObject_Click(xoff,yoff,but,icon)
+LOCAL inst
+REM PRINT"WObject Click"
+inst=FN@.handlers.FindS("Click")
+REM PRINT"Click's found"
+IF inst THEN
+ inst=FNinst.data.IterateFNs4(@,xoff,yoff,but)
+ENDIF
+IF inst=0 THEN PROC@.window.Click(xoff,yoff,but,icon)
+ENDPROC
+:
+REM Pass on any unknown focus
+DEF PROCWObject_Focus(gotfocus,icon)
+LOCAL inst
+inst=FN@.handlers.FindS("Focus")
+IF inst THEN
+ inst=FNinst.data.IterateFNs2(@,gotfocus)
+ENDIF
+IF inst=0 THEN PROC@.window.Focus(gotfocus,icon)
+ENDPROC
+:
+REM Pass on any unknown help requests
+DEF FNWObject_Help(x,y,icon)
+LOCAL inst,help$
+inst=FN@.handlers.FindS("HelpIs")
+IF inst THEN
+ inst=FNinst.data.First
+ help$=inst.data.routine$
+ IF LEFT$(help$,1)="*" THEN
+  help$=FN@.window.Help(x,y,icon)+MID$(help$,2)
+ ENDIF
+ENDIF
+IF inst=0 THEN
+ inst=FN@.handlers.FindS("Help")
+ IF inst THEN
+  help$=FNinst.data.IterateFNs5S("",@,x,y,icon)
+  IF LEFT$(help$,2)="|M" THEN
+   help$=FN@.window.Help(x,y,icon)+help$
+  ENDIF
+ ENDIF
+ENDIF
+IF help$="" THEN help$=FN@.window.Help(x,y,icon)
+=help$
+:
+REM Pass on any unknown icon things
+DEF PROCWObject_Key(char,icon)
+LOCAL inst
+inst=FN@.handlers.FindS("KeyDefault")
+IF inst THEN
+ IF char=13 THEN
+  PROCinst.data.items.data.private.Click(-1,-1,win_select,-1)
+ ELSE
+  inst=0
+ ENDIF
+ENDIF
+IF inst=0 THEN
+ inst=FN@.handlers.FindS("KeyCancel")
+ IF inst THEN
+  IF char=27 THEN
+   PROCinst.data.items.data.private.Click(-1,-1,win_select,-1)
+  ELSE
+   inst=0
+  ENDIF
+ ENDIF
+ENDIF
+IF inst=0 THEN
+ inst=FN@.handlers.FindS("Key")
+ IF inst THEN
+  inst=FNinst.data.IterateFNs3("",@,char)
+ ENDIF
+ENDIF
+IF inst=0 THEN PROC@.window.Key(char,icon)
+ENDPROC
+:
+REM We need to find if this is the icon we wanted
+REM Always returns FALSE - you should supply your own 'finder'
+DEF FNWObject_Compare(key)
+=FALSE
+:
+REM We need find the position of this icon; you should provide your
+REM own code to find the bounds
+DEF FNWObject_Bounds
+=FNnewBounds(0,0,0,0)
+:
+REM We need to find the position right of this icon
+DEF FNBounds_RightOf(valign,width,height)
+LOCAL new
+new=FNnewBounds(xmax,xmax+width,ymin,ymax)
+CASE (valign AND (3<<2)) OF
+ WHEN win_top
+  new.ymin=@.ymax-height
+  new.ymax=@.ymax
+ WHEN win_ycentre
+  new.ymin=@.ymin+(@.ymax-@.ymin-height)/2
+  new.ymax=new.ymin+height
+ WHEN win_bot
+  new.ymin=@.ymin
+  new.ymax=@.ymax+height
+ENDCASE
+=new
+:
+REM Add a template icon as an object
+DEF FNWindow_AddTIcon(icon)
+LOCAL inst
+inst= Class_WOTemplate
+inst.window=@
+inst.icon=icon
+PROC@.AddObject(inst)
+=inst
+:
+DEF PROCWOTemplate_Construct
+REM Default is 'no window', 'no icon'
+@.window=-1
+@.icon=-1
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEF PROCWOTemplate_Destruct
+REMPRINT"WOTemplate destructing @="+STR$@
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEF PROCWOTemplate_Destroy
+PROC@.handlers.Destroy
+PROC@.window.RemoveObject(@)
+REM And pass it on
+PROC@
+ENDPROC
+:
+DEF FNWOTemplate_Bounds
+LOCAL bounds,block
+block=FNnewBlock(48)
+!(block.data)=@.window.handle
+!(block.data+4)=@.icon
+SYS "Wimp_GetIconState",,block.data
+bounds=FNnewBounds(!(block.data+8),!(block.data+12),!(block.data+16),!(block.data+20))
+=bounds
+:
+DEF PROCWOTemplate_Delete
+REM PRINT"WOT_Delete"
+LOCAL block
+block.data=FNnewBlock(8)
+!(block.data)=@.window.handle
+!(block.data+4)=@.icon
+SYS "Wimp_DeleteIcon",,block.data
+REM And destroy
+PROC@.Destroy
+ENDPROC
+:
+DEF PROCWOTemplate_SetUnknownVarStr(var$,val$)
+CASE var$ OF
+ WHEN "text$"
+  LOCAL block,flags
+  block=FNnewBlock(40)
+  !(block.data)=@.window.handle
+  !(block.data+4)=@.icon
+  SYS "Wimp_GetIconState",,block.data
+  flags=!(block.data+24)
+  IF (flags AND 1)=0 THEN ENDPROC
+  IF (flags AND 8)<>0 THEN
+   LOCAL maxlen
+   maxlen=!(block.data+36)
+   REM Set the text
+   $(!(block.data+28))=LEFT$(val$,maxlen-1)
+  ELSE
+   LOCAL block,icon
+   block=FNnewBlock(8)
+   @.indir=block
+   !(block.data)=@.window.handle
+   !(block.data+4)=@.icon
+   REM Delete the icon
+   SYS "Wimp_DeleteIcon",,block.data
+   REM Re-create with new data
+   $(block.data+28)=LEFT$(val$,11)
+   SYS "Wimp_CreateIcon",,block.data+8 TO icon
+   @.icon=icon
+  ENDIF
+  REM Cause it to be redrawn
+  !(block.data+8)=0
+  !(block.data+12)=0
+  SYS "Wimp_SetIconState",,block.data
+ OTHERWISE
+  PROC@(var$,val$)
+ENDCASE
+ENDPROC
+:
+DEF FNWOTemplate_Compare(key)
+=(@.icon=key)

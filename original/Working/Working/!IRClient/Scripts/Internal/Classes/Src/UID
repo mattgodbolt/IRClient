@@ -1,0 +1,79 @@
+REM > UID
+REM Users id as specified by the server
+REM (c) Justin Fletcher
+REM ---
+REM $Id: UID 1.1 97/12/29 14:57:45 gerph Exp $
+REM $Log:	UID $
+REM Revision 1.1  97/12/29  14:57:45  gerph
+REM Initial revision
+REM 
+REM ---
+PRINT "$Id: UID 1.1 97/12/29 14:57:45 gerph Exp $"
+END
+:
+DEFPROCOverload_Classes_Initialise
+Class_UID=FNRegisterClass("UID")
+PROCAddField(Class_UID,"nick$")
+PROCAddField(Class_UID,"login$")
+PROCAddField(Class_UID,"host$")
+REM Pass it on
+PROC@
+ENDPROC
+:
+DEFFNnewUID(str$)
+LOCAL uid
+uid= Class_UID
+IF INSTR(str$,"!")=0 THEN
+ uid.login$=""
+ IF INSTR(str$,"@")=0 THEN
+  uid.host$=""
+ ELSE
+  uid.host$=MID$(str$,INSTR(str$,"!")+1)
+  str$=LEFT$(str$,INSTR(str$,"!")-1)
+ ENDIF
+ uid.nick$=str$
+ELSE
+ uid.nick$=LEFT$(str$,INSTR(str$,"!")-1)
+ str$=MID$(str$,INSTR(str$,"!")+1)
+ IF INSTR(str$,"@")=0 THEN
+  uid.host$=""
+ ELSE
+  uid.host$=MID$(str$,INSTR(str$,"@")+1)
+  str$=LEFT$(str$,INSTR(str$,"@")-1)
+ ENDIF
+ uid.login$=str$
+ENDIF
+=uid
+:
+REM Create an email address from this uid :-)
+DEFFNUID_MakeEmail
+LOCAL name$
+IF @.host$="" THEN =""
+IF @.login$="" THEN
+ name$=@.nick$
+ELSE
+ name$=@.login$
+ CASE LEFT$(name$,1) OF
+  WHEN "~","-","+"
+   name$=MID$(name$,2)
+ ENDCASE
+ENDIF
+IF name$="" THEN =""
+=name$+"@"+@.host$
+:
+DEFFNUID_MakeString
+LOCAL host$,nick$,login$
+host$=@.host$:nick$=@.nick$:login$=@.login$
+IF host$="" THEN host$="*"
+IF nick$="" THEN nick$="*"
+IF login$="" THEN login$="*"
+=nick$+"!"+login$+"@"+host$
+:
+DEFFNUID_GetUnknownVar(var$)
+CASE var$ OF
+ WHEN "us"
+  =FNstricmp(@.nick$,FNGetnickname)
+ WHEN "email$"
+  =FN@.MakeEmail
+ENDCASE
+=FN@(var$)

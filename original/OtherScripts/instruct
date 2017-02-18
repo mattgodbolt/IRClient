@@ -1,0 +1,65 @@
+Date: Tue, 24 Dec 1996 22:02:21 +0100 (GMT+1)
+From: Claus Nickelsen <mickey@ns.applause.no>
+To: Gerph <Gerph@essex.ac.uk>
+Subject: instructions !
+
+>Before you leap to using this version of IRClib in IRClient, I ought to
+>point out that I have fiddled with other bits of this program, and the
+>other fiddlings may not exactly be to your liking.
+>
+>For example, a CTCP VERSION doesn't (at least, I think) send "0.22
+>(unregistered)(VH1.16)" any more - it now sends "North American Indian
+>smoke signal chat (Stuart Bruce's groovy penguin version 8.FISH)"
+>
+>Similarly a CTCP PING should now return "I think you ought to know that
+>your microwave has finished- it's pinging".
+>
+>My deepest apologies for any inconvenience this has caused. You could
+>always change the relevant lines back to their status in the previous
+>IRClib if you prefer youre IRClient to be dull...! :-)
+>
+>"So, how do I use the colours?" I hear you cry. Well, when you want to
+>the change the colour of text in the middle of a string, you simply use
+>the '|' character. Then you follow this character with a colour code:-
+>
+>The codes 0-7 are for the eight shades of grey (I just found out about
+>these), with black being 0 and white being 7, and the other colours are
+>as follows...
+>
+>    = Black (That's a space)
+>  B = Blue/Cyan
+>  C = Cream
+>  N = Navy/Dark blue
+>  E = Emerald/Light green
+>  G = (Dark) green
+>  O = Orange
+>  R = Red
+>  W = White
+>  Y = Yellow
+>
+>If you can think of better keys/names for the colours that dont clash
+>with each other then feel free to change them (It's all in the
+>INSTR("WWWWWW... bit)
+>
+>"Ahh, but what if I want to use the '|' character?" I hear you ask. To
+>use the '|' character you must type two of them, '||'.
+>
+>Finally, a word of warning. This affects all strings that come after a
+>command, so if you want to change your nick/join a channel with '|' in
+>the name, remember to use '||'.
+> 
+>-- 
+>    "Sorry, but my karma has just run over your dogma..."
+>                 |\      _,,,---,,_
+>stuart          /,`.-'`'    -.  ;-;;,_               eat
+>bruce          |,4   ) )-,_. ,\ (  `'-'            or die
+>              '---''(_/--'  `-'\_)
+>stuart@atomiser.demon.co.uk - http://www.atomiser.demon.co.uk
+
+Claus
+-- 
+
+----Claus Nickelsen------------------------- mailto:mickey@applause.no ---
+Running RiscOS on an Acorn RiscPC with a 202.4MHz StrongARM RISC processor
+-------------------------------------- http://www.applause.no/~mickey/ ---
+

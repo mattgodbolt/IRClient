@@ -1,0 +1,74 @@
+DCC linked list (new format - 12 Jan 1997)
+===============
+Offset   Contents
+0        -> next block, or 0 if no more blocks
+4        -> type name of DCC
+8        -> argument of DCC
+12       -> nick at other end of connection
+16       state :
+           bit 0 = 0 : we accepted the request (ip and port are theirs)
+                   1 : we originated the request (ip and port are ours)
+           bit 1 = 0 : offered, awaiting accept
+                   1 : connected
+20       ip of connection
+24       port of connection (listen port if +16 = %01)
+28       socket, or 0 if not connected
+32       buffer, or 0 if not connected
+36       base routine name
+40       private word (usually a pointer to a control block)
+
+
+DCC Send block (new format - 12 Jan 1997)
+==============
+Offset  Contents
+0       -> unix filename
+4       -> riscos filename (full path)
+8       amount sent/received
+12      total length of file, or -1 if not present
+16      filetype, or -1 if not present
+
+
+
+ ******************************************************************************
+ *****  OBSOLETE  **  OBSOLETE  **  OBSOLETE  **  OBSOLETE  **  OBSOLETE  *****
+ ******************************************************************************
+
+DCC linked list
+===============
+
+Offset  Contents
+0       -> next block, or 0 if no more blocks
+4       -> type of DCC
+8       -> nick of other end
+12      -> name of file or other parameter used
+16      -> private workspace block
+
+Note: DDC's will only come into the DCC list once they are accepted, until
+then they just 'hang' and there is nothing we can do to close them !
+
+Thought: It's possible that we could add them to the list and disable them
+by connecting to them ourselves and then closing the connection. Such a
+practice would result in them receiving connections which are instantly
+dropped. Is this possible, without re-writing lots of code ?
+
+
+DCC Chat blocks
+===============
+Offset  Contents
+0       -> Nick of other end
+4       Buffer, or (ip or 0 if we initiated) if pending
+8       Socket, or port if pending
+12      Status (0=pending, 1=connected)
+
+
+DCC Send blocks
+===============
+Offset  Contents
+0       -> Nick of other end
+4       Buffer (or port, if pending)
+8       Socket (or ip, if pending)
+12      filename
+16      offset into file of last block sent (or -1 for pending *** marker)
+20      total length of file (or -1 if not present)
+24      -> filetype string (or -1 if not present)
+28      -> save filename (for GET, but not SEND)

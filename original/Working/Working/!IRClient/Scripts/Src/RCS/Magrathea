@@ -1,0 +1,1580 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.02.02.15.23.00;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Magrathea IRC script.
+This controls almost all the aspects of IRC for
+IRClient.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >Magrathea
+REM IRClient script (c) Gerph 1996-8
+REM Please refer to documentation for details
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+REM At the very start we do this lot - called by Internal.Boot
+DEF PROCMagratheaAwakes
+REM The version of magrathea this is
+magver$="$Revision$"
+magver$=MID$(magver$,INSTR(magver$," ")+1)
+magver$=LEFT$(magver$,INSTR(magver$," ")-1)
+
+REM Make some sensible version string to return to user
+Version$=MID$(FNVersion,2,4)
+Version$="IRClient v"+Version$
+IF INSTR(FNVersion,"nregistered")<>0 THEN Version$+=" (Unregistered)"
+Version$+=", Magrathea v"+magver$+" (Gerph)."
+
+REM Initialise various path variables
+mem=FNClaim(256)
+SYS "OS_ReadVarVal","IRClient$Dir",mem,256,0,3 TO ,,read
+?(mem+read)=0
+magrathea$=($mem)+".Scripts"
+PROCRelease(mem)
+magrathea_mods$=magrathea$+".Modules"
+magrathea_user$=magrathea$+".User"
+debug=TRUE
+
+SendingToDisplay$="##server##"
+OurNick$=FNGetNickname
+
+SYS "Hourglass_Start",1
+PROCStartupStatus("Initialising Magrathea...")
+REM We desperately need the utils to handle simple things
+LOAD magrathea$+".Default.Utils.!Module"
+PROCUtils_Initialise
+REM Delay so that Hourglass comes on - the doggysoft one has probs
+SYS "Hourglass_LEDs",1,NOT 3
+REM We need GDBM to handle the database functions
+LOAD magrathea$+".Default.GDBM.!Module"
+PROCDB_Initialise
+REM We need to load the standard configuration module
+LOAD magrathea$+".Default.Config"
+
+REM We'll need the Dependency handler to load our extensions
+REM in the correct order.
+PROCStartupStatus("Loading modules...")
+LOAD magrathea$+".Default.Dependency"
+
+REM You should use Initialised to spot when the module has been
+REM initialised if you are likely to overload very basic routines
+Initialised=FALSE
+PROCDependency_Initialise
+
+REM Now we initialise all the libraries
+SYS "Hourglass_LEDs",2,NOT 3
+PROCStartupStatus("Initialising modules...")
+PROCInitialiseModule
+Initialised=TRUE
+REM If the hourglass remains on then one module is not passing
+REM the call on - I'll switch it off anyhow...
+SYS "Hourglass_Off"
+ENDPROC
+:
+REM If I ever need to handle them, this is where it'll be !
+DEF PROCWimpMessage_Received(message,block)
+PROC@@(message,block)
+ENDPROC
+:
+REM Any menu entries we feel like adding
+DEF PROCOverload_AddMenuEntries(name$)
+CASE name$ OF
+ WHEN "_User_Action"
+  LOCAL user$,chan$
+  user$=FNGetMenuParameter
+  chan$=FNGetMenuChannel
+  PROCAddMenuEntry("Slap","Action("""+chan$+""",""slaps "+user$+" around the face with a twelve storey building"")",0,0,"")
+ WHEN "_CTCPList"
+  LOCAL user$,chan$
+  user$=FNGetMenuParameter
+  PROCAddMenuEntry("Scripts","CTCP_DoScripts("""+user$+""")",0,0,"")
+  PROCAddMenuEntry("Source","CTCP_DoSource("""+user$+""")",0,0,"")
+ENDCASE
+PROC@@(name$)
+ENDPROC
+
+DEF PROCSession_Initialise(server$,port,ircflag)
+REM Remember them for later
+IRC_Server$=server$
+IRC_Port=port
+
+REM Cache our nick name
+OurNick$=FNGetNickname
+registered=FALSE
+
+REM Initialise the MOTD and main IRC sockets
+MasterBuffer = FNNewBuffer
+MasterSocket = FNConnect(server$,port,"MasterConnected","MasterError","MasterIncoming",0)
+IF MasterSocket = 0 THEN
+ PROCOffline
+ PROCNotify("Unable to resolve that hostname")
+ELSE
+ PROCSelectNoFocus
+ PROCSendToIRC("NICK "+OurNick$)
+ PROCSendToIRC("USER "+FNGetUsername+" * * :"+FNGetIRLname)
+ PROCConnecting(server$,port)
+ENDIF
+ENDPROC
+:
+REM Called when all the modules have initialised
+REM (ie others overload this routine)
+DEF PROCInitialiseModule
+ENDPROC
+:
+REM Called to find out what scripts are available
+DEF FNOverload_ScriptInfo(num)
+=""
+:
+REM Called when all the modules have shutdown
+DEF FNShutdownModule(mask)
+=mask
+:
+REM Called just before we exit - modules should overload if
+REM they use persistent files or caching (I think)
+DEF PROCFinalise
+ENDPROC
+:
+DEF PROCAbortConnection
+PROCCloseInputBox
+PROCDisconnect
+ENDPROC
+:
+REM Called as we begin to connect
+DEF PROCConnecting(server$,port)
+PROCList_Reset
+ENDPROC
+:
+DEF PROCMasterError(i1,i2,reason$)
+PROCNotify("Error: "+reason$)
+PROCCloseInputBox
+PROCDisconnect
+ENDPROC
+
+DEF PROCMasterIncoming(i1,i2)
+LOCAL numbytes,str$
+numbytes=FNReadToStaticBuffer(MasterSocket)
+PROCBufferAdd(MasterBuffer,FNStaticBufferAddr,numbytes)
+str$=FNGetLineFromBuffer(MasterBuffer)
+WHILE LEN(str$)
+ PROCIRCLine(str$)
+ str$=FNGetLineFromBuffer(MasterBuffer)
+ENDWHILE
+ENDPROC
+
+DEF PROCMasterConnected(i1,i2)
+PROCOnline
+PROCOpenInputBox(0)
+PROCOpenServerWindow
+ENDPROC
+:
+REM This routine is called when the disconnect menu is clicked
+DEF PROCDisconnect
+PROCOffline
+PROCClose(MasterSocket)
+PROCFreeBuffer(MasterBuffer)
+PROCDisconnected
+ENDPROC
+:
+REM Called when we disconnect - by any means
+DEF PROCDisconnected
+LOCAL mask,LeaveInputBox,ConnectionsOpen
+REM Shuts down /all/ modules
+LeaveInputBox=1
+REM Connections open is not currently used although it is shown
+ConnectionsOpen=8
+mask=FNShutdownModule(0)
+IF (mask AND 1)=0 THEN
+ PROCCloseInputBox
+ELSE
+ IF (mask AND (255*ConnectionsOpen))>0 THEN PROCNotify(STR$(mask/256))
+ENDIF
+ENDPROC
+
+DEF PROCDisplaySelected(display$)
+IF LEFT$(display$,2)<>"##" THEN
+ IF LEFT$(display$,1)="#" OR display$="" THEN
+  PROCSelectChannel(display$)
+ ELSE
+  PROCSelectUser(display$)
+ ENDIF
+ELSE
+ PROCOverload_DisplaySelected(display$)
+ENDIF
+ENDPROC
+:
+DEF PROCSelectUser(user$)
+PROCSetPreInput("*"+OurNick$+"* ")
+PROCSetInputTitle(OurNick$+", talking to "+user$)
+PROCSetFocus(user$)
+PROCSetDisplayForRecall(user$)
+SendingToDisplay$=user$
+ENDPROC
+:
+DEF PROCSelectChannel(channel$)
+PROCSetPreInput("<"+OurNick$+"> ")
+IF channel$<>"" THEN
+ PROCSetInputTitle(OurNick$+", Talking to channel "+channel$)
+ PROCSetDisplayForRecall(channel$)
+ELSE
+ PROCSetInputTitle(OurNick$+", Talking to IRC server")
+ PROCSetDisplayForRecall("##server##")
+ENDIF
+SendingToDisplay$=channel$
+PROCSetFocus(channel$)
+PROC@@(channel$)
+ENDPROC
+:
+REM Call this when you drop the current focus
+DEF PROCSelectNoFocus
+PROCSelectChannel("")
+ENDPROC
+:
+DEF PROCJoinChannel(channel$)
+PROCNewChannel(channel$,32,"Channel "+channel$,0,0)
+PROCSelectChannel(channel$)
+PROCSendToIRC("MODE "+channel$)
+PROCSendToIRC("NAMES "+channel$)
+ENDPROC
+
+DEF PROCLeftChannel(channel$)
+PROCDeleteChannel(channel$)
+PROCKillDisplay(channel$)
+IF SendingToDisplay$=channel$ THEN PROCSelectNoFocus
+ENDPROC
+:
+DEFFNisachannel(x$)
+=INSTR("#&",LEFT$(x$,1))<>0
+:
+REM This will of course be overloaded and replaced
+DEFFNgetChannelUID(from$,channel$)
+=FNnewUID(from$)
+:
+DEF PROCIRCLine(line$)
+  IF LEFT$(line$,1)=":" THEN
+    IF debug THEN PROCDisplay(line$, "##Debug##")
+    line$=MID$(line$,2)
+    from$=FNoneparam(line$)
+    line$=FNmoveon(line$)
+    command$=FNoneparam(line$)
+    line$=FNmoveon(line$)
+    to$=FNoneparam(line$)
+    line$=FNmoveon(line$)
+
+    IF VAL(command$)<>0 THEN
+      PROCOverload_ServerResponse(VAL(command$),line$)
+    ELSE
+      LOCAL uid
+      IF FNisachannel(to$) THEN
+       uid=FNgetChannelUID(from$,to$)
+      ELSE
+       uid=FNnewUID(from$)
+      ENDIF
+      PROCOverload_ServerMessage(uid,command$,to$,line$)
+    ENDIF
+  ELSE
+    IF LEFT$(line$,4)="PING" THEN
+      REM Send directly, avoiding any caching present
+      PROCSendString(MasterSocket,"PONG "+MID$(line$,6))
+    ELSE
+      PROCDisplay("*-> "+line$, "##server##")
+    ENDIF
+  ENDIF
+ENDPROC
+:
+REM Overloads for hooking onto...
+DEF PROCOverload_On_Kick(uid,chan$,victim$,reason$)
+IF FNstricmp(victim$,OurNick$) THEN
+ PROCDisplayWarning("*** You have been kicked off channel "+to$+" by "+uid.nick$+" ("+reason$+")","##server##")
+ELSE
+ PROCDisplayInfo("*** "+victim$+" has been kicked off channel "+chan$+" by "+uid.nick$+" ("+reason$+")",chan$)
+ENDIF
+ENDPROC
+:
+REM Overloads for hooking onto...
+DEF PROCOverload_On_Kill(uid,chan$,victim$,reason$)
+IF FNstricmp(victim$,OurNick$) THEN
+ PROCDisplayWarning("*** You have been killed by "+uid.nick$+" ("+reason$+")","##server##")
+ELSE
+ PROCDisplayInfo("*** "+victim$+" has been killed by "+uid.nick$+" ("+reason$+")",chan$)
+ENDIF
+ENDPROC
+:
+DEF PROCOverload_On_Part(uid,chan$)
+IF uid.us THEN
+ PROCDisplayInfo("*** You have left channel "+chan$,chan$)
+ELSE
+ PROCDisplayInfo("*** "+uid.nick$+" ("+uid.email$+") has left channel "+chan$,chan$)
+ENDIF
+ENDPROC
+:
+DEF PROCOverload_On_Nick(uid,chan$,new$)
+IF uid.us THEN
+ IF chan$="" THEN
+  PROCDisplayInfo("*** You are now known as "+newnick$,"##server##")
+ ELSE
+  PROCDisplayInfo("*** You are now known as "+newnick$,display$)
+ ENDIF
+ELSE
+ PROCDisplayInfo("*** "+uid.nick$+" ("+uid.email$+") has changed his nickname to "+new$,chan$)
+ENDIF
+ENDPROC
+:
+DEF PROCOverload_On_Quit(uid,chan$,message$)
+PROCDisplayInfo("*** "+uid.nick$+" ("+uid.email$+") has left IRC ("+message$+")",chan$)
+ENDPROC
+:
+DEF PROCOverload_On_Join(uid,chan$)
+PROCDisplayInfo("*** "+uid.nick$+" ("+uid.email$+") has joined channel "+chan$,chan$)
+ENDPROC
+:
+DEF PROCOverload_On_Say(uid,chan$,message$)
+PROCMessageToDisplay(uid,chan$,message$)
+ENDPROC
+:
+DEF PROCOverload_On_Notice(uid,chan$,message$)
+PROCMessageToDisplay(uid,"-"+chan$,message$)
+ENDPROC
+:
+DEFPROCOverload_On_Op(uid,chan$,nick$,dir)
+ENDPROC
+DEFPROCOverload_On_Voice(uid,chan$,nick$,dir)
+ENDPROC
+DEFPROCOverload_On_Ban(uid,chan$,nick$,dir)
+ENDPROC
+DEFPROCOverload_On_ModeChange(uid,chan$,flag$,dir)
+ENDPROC
+:
+DEF PROCOverload_ServerMessage(uid,command$,to$,line$)
+LOCAL us
+us=(uid.nick$=OurNick$)
+CASE command$ OF
+ WHEN "JOIN":
+  IF us THEN
+   PROCJoinChannel(to$)
+  ELSE
+   PROCOverload_On_Join(uid,to$)
+  ENDIF
+ WHEN "TOPIC":
+  LOCAL topic$
+  topic$=FNoneparam(line$)
+  IF us THEN
+   PROCDisplayInfo("*** You have changed the topic to:",to$)
+  ELSE
+   PROCDisplayInfo("*** "+uid.nick$+" ("+uid.email$+") has changed the topic to:",to$)
+  ENDIF
+  PROCCentredDisplay("*** "+topic$+" ***",to$)
+  PROCChangeChannelTopic(to$,topic$)
+
+ WHEN "NICK":
+  LOCAL newnick$,display$,thisuid
+  newnick$=to$
+  display$=FNFindUser(uid.nick$)
+  IF display$="" THEN
+   PROCOverload_On_Nick(uid,"",newnick$)
+  ELSE
+   WHILE display$<>""
+    thisuid=FNgetChannelUID(FNuid.MakeString,display$)
+    PROCOverload_On_Nick(thisuid,display$,newnick$)
+    display$=FNFindUser(uid.nick$)
+   ENDWHILE
+  ENDIF
+  IF us THEN
+   PROCSetNickname(newnick$)
+   OurNick$=newnick$
+   PROCDisplaySelected(SendingToDisplay$)
+  ENDIF
+
+ WHEN "PART":
+  PROCOverload_On_Part(uid,to$)
+  IF us THEN
+   PROCLeftChannel(to$)
+  ENDIF
+
+ WHEN "KICK":
+  LOCAL victim$,reason$
+  victim$=FNoneparam(line$)
+  reason$=FNoneparam(FNmoveon(line$))
+  IF reason$="" THEN reason$="No reason given"
+  PROCOverload_On_Kick(uid,to$,victim$,reason$)
+  IF FNstricmp(victim$,OurNick$) THEN
+   PROCLeftChannel(to$)
+  ENDIF
+
+ WHEN "KILL"
+  LOCAL reason$
+  reason$=FNoneparam(line$)
+  IF reason$="" THEN reason$="No reason given"
+  display$=FNFindUser(uid.nick$)
+  WHILE display$<>""
+   PROCDisplayInfo("*** "+to$+" has been killed by "+uid.nick$+" ("+reason$+")",display$)
+   PROCOverload_On_Kill(uid,display$,to$,reason$)
+   display$=FNFindUser(uid.nick$)
+  ENDWHILE
+
+ WHEN "QUIT":
+  LOCAL message$
+  message$=to$
+  IF message$="" THEN message$="No reason"
+  display$=FNFindUser(uid.nick$)
+  WHILE display$<>""
+   PROCOverload_On_Quit(uid,display$,message$)
+   display$=FNFindUser(uid.nick$)
+  ENDWHILE
+
+ WHEN "MODE":
+  PROCModeChange(uid,to$,line$)
+
+ WHEN "PRIVMSG":
+  LOCAL message$,list
+  message$=FNoneparam(line$)
+  IF NOT FNisachannel(to$) THEN to$=uid.nick$
+  list=FNunquotemessage(message$)
+  list=FNlist.First
+  WHILE list<>0
+   REM PRINT"In list : "+list.data.data$
+   IF LEFT$(list.data.data$,1)=CHR$(1) THEN
+    PROCCTCP_request(uid,to$,MID$(list.data.data$,2))
+   ELSE
+    PROCOverload_On_Say(uid,to$,list.data.data$)
+   ENDIF
+   list=list.next
+  ENDWHILE
+
+ WHEN "NOTICE":
+  LOCAL message$
+  message$=FNoneparam(line$)
+  IF NOT FNisachannel(to$) THEN to$=uid.nick$
+  list=FNunquotemessage(message$)
+  list=FNlist.First
+  WHILE list<>0
+   IF LEFT$(list.data.data$,1)=CHR$(1) THEN
+    PROCCTCP_reply(uid,MID$(list.data.data$,2))
+   ELSE
+    PROCOverload_On_Notice(uid,to$,list.data.data$)
+   ENDIF
+   list=list.next
+  ENDWHILE
+ENDCASE
+ENDPROC
+:
+REM Unquotes a message so that it is in 'nearly' it's original
+REM form. Returns a list of String's, with CTCP's preceeded
+REM by CHR$(1)
+DEFFNunquotemessage(message$)
+LOCAL list
+list=FNnewList
+REM PRINT"Unquoting "+message$
+IF INSTR(message$,CHR$(1))<>0 THEN
+ LOCAL left$,mid$,done,a$
+ WHILE INSTR(message$,CHR$(1))<>0
+  left$=LEFT$(message$,INSTR(message$,CHR$(1))-1)
+  message$=MID$(message$,INSTR(message$,CHR$(1))+1)
+  mid$="":done=FALSE
+  WHILE (NOT done) AND message$<>""
+   a$=LEFT$(message$,INSTR(message$+CHR$(1),CHR$(1))-1)
+   message$=MID$(message$,INSTR(message$+CHR$(1),CHR$(1))+1)
+   IF RIGHT$(a$,1)="\" THEN
+    mid$+=a$+CHR$(1)
+   ELSE
+    mid$+=a$:done=TRUE
+   ENDIF
+  ENDWHILE
+  IF left$<>"" THEN
+   PROClist.AddAtEnd(FNnewString(left$))
+   REM PRINT"Added left bit : "+left$
+  ENDIF
+  PROClist.AddAtEnd(FNnewString(CHR$(1)+mid$))
+  REM PRINT"Adding CTCP : "+mid$
+ ENDWHILE
+ IF message$<>"" THEN
+  PROClist.AddAtEnd(FNnewString(message$))
+  REM PRINT"Adding trailing message : "+message$
+ ENDIF
+ELSE
+ PROClist.AddAtEnd(FNnewString(message$))
+ REM PRINT"Single string : "+message$
+ENDIF
+=list
+:
+DEF PROCOverload_ServerResponse(code,line$)
+CASE code OF
+ WHEN 002:
+  line$=FNoneparam(line$)
+  IF LEFT$(line$,13)="Your host is " THEN IRChost$=FNoneparam(MID$(line$,14))
+  PROCDisplayInfo(line$, "##server##")
+  PROCRunInitialScript
+
+ WHEN 221:
+  LOCAL opts$
+  opts$=FNoneparam(line$)
+  PROCDisplayInfo("You are in mode "+opts$,"")
+
+ WHEN 302:
+  REM RPL_USERHOST
+
+ WHEN 303:
+  LOCAL users$
+  users$=FNpasteargs(line$)
+  IF users$=" " ORusers$="" THEN
+   PROCDisplayInfo("There is nobody in the list on IRC", "")
+  ELSE
+   PROCDisplayInfo("The following users are on IRC :","")
+   PROCCentredDisplay(users$,SendingToDisplay$)
+  ENDIF
+
+ WHEN 305:
+  PROCDisplayInfo("You are no longer marked as being away","")
+ WHEN 306:
+  PROCDisplayInfo("You are now marked as being away. /AWAY will unmark","")
+
+ WHEN 321:
+  PROCKillDisplay("##list##")
+  PROCNewDisplay("##list##",256,"Results of /LIST",0)
+  List_num=0
+  PROCNotify("Please wait - collecting list")
+
+ WHEN 322:
+  LOCAL chan$,line$,num$,num,topic$,ok
+  chan$=FNoneparam(line$)
+  line$=FNmoveon(line$)
+  num$=FNoneparam(line$)
+  num=VAL num$
+  topic$=FNoneparam(FNmoveon(line$))
+  ok = FNWildcardMatch(List_match$,MID$(chan$,2))
+  IF (ok AND (num >= List_min) AND (num <= List_max)) THEN
+   IF List_num=0 THEN
+    PROCDisplay("Channel name            No.Users  Topic","##list##")
+   ENDIF
+   List_num = List_num+1
+   chan$=LEFT$(chan$,22)
+   topic$=LEFT$(topic$,55)
+   PROCDisplay(chan$+STRING$((24-LEN chan$)," ")+num$+STRING$((10-LEN num$)," ")+topic$,"##list##")
+  ENDIF
+
+ WHEN 323
+  IF List_num=0 THEN
+   PROCDisplayInfo("No matching results","##list##")
+  ELSE
+   PROCDisplayInfo(" = "+STR$(List_num)+" matching channels","##list##")
+  ENDIF
+
+ WHEN 301:
+  LOCAL nick$,reason$
+  nick$=FNoneparam(line$)
+  reason$=FNoneparam(FNmoveon(line$))
+  PROCDisplayInfo(FNColour(FNGetMeColour)+"* "+nick$+" is away: "+reason$,nick$)
+
+ WHEN 311,312,313,317,318,319:
+  LOCAL nick$
+  nick$=FNoneparam(line$)
+  line$=FNmoveon(line$)
+  PROCDisplayCTCP("WhoIs> "+FNpasteargs(line$),FNGuessDisplay(nick$))
+
+ WHEN 369,314:
+  LOCAL nick$
+  nick$=FNoneparam(line$)
+  line$=FNmoveon(line$)
+  PROCDisplayCTCP("WhoWas> "+FNpasteargs(line$),FNGuessDisplay(nick$))
+
+ WHEN 352
+  LOCAL server$,chan$,nick$,user$,flags$,name$,a$,host$,here$
+  chan$=FNoneparam(line$):line$=FNmoveon(line$)
+  user$=FNoneparam(line$):line$=FNmoveon(line$)
+  host$=FNoneparam(line$):line$=FNmoveon(line$)
+  server$=FNoneparam(line$):line$=FNmoveon(line$)
+  nick$=FNoneparam(line$):line$=FNmoveon(line$)
+  flags$=FNoneparam(line$):line$=FNmoveon(line$)
+  line$=FNoneparam(line$):line$=FNmoveon(line$)
+  nick$=nick$+STRING$(11-LEN(nick$)," ")+" "+user$+"@@"+host$
+  IF LEFT$(flags$,1)="H" THEN
+   here$="Here"
+  ELSE
+   here$="Gone"
+  ENDIF
+  a$=nick$:a$+=STRING$(40-LEN(a$)," ")+" -> "+server$
+  PROCDisplayCTCP("Who> "+a$,"##server##")
+  a$=STRING$(12," ")+here$+" "+MID$(flags$,2)+chan$
+  a$+=STRING$(29-LEN(a$)," ")+" "+line$
+  PROCDisplayCTCP("Who> "+a$,"##server##")
+
+ WHEN 315
+  REM RPL_ENDWHO - ignore
+
+ WHEN 353:
+  LOCAL channel$,nick$,list
+  line$=FNmoveon(line$)
+  channel$=FNoneparam(line$)
+  line$=FNmoveon(line$)
+  line$=FNStrip(FNoneparam(line$))
+  list=FNnewBTree("BTree_CompareStrings")
+  WHILE line$<>""
+   nick$=FNoneparam(line$)
+   line$=FNmoveon(line$)
+   IF LEFT$(nick$,1)="@@" THEN
+    nick$=MID$(nick$,2)+" (operator)"
+   ELSE
+    IF LEFT$(nick$,1)="+" THEN nick$=MID$(nick$,2)+" (voice)"
+   ENDIF
+   PROClist.Add(FNnewString(nick$))
+  ENDWHILE
+  PROCDisplayInfo("* On "+channel$+": "+FNlist.String,channel$)
+
+ WHEN 331:
+  LOCAL chan$
+  chan$=FNoneparam(line$)
+  PROCDisplayInfo("* Channel "+chan$+" has no topic", chan$)
+  PROCChangeChannelTopic(chan$,"")
+
+ WHEN 332:
+  LOCAL chan$,topic$
+  chan$=FNoneparam(line$)
+  topic$=FNoneparam(FNmoveon(line$))
+  PROCCentredDisplay("The topic for channel "+chan$+" is "+topic$, chan$)
+  PROCChangeChannelTopic(chan$,topic$)
+
+ WHEN 324:
+  LOCAL chan$,mode$
+  chan$=FNoneparam(line$)
+  mode$=FNmoveon(line$)
+  PROCDisplayInfo("* Channel mode for "+chan$+" is "+mode$,chan$)
+  PROCChannel_ModeIs(chan$,mode$)
+
+ WHEN 341:
+  LOCAL chan$,nick$
+  chan$=FNoneparam(line$)
+  nick$=FNoneparam(FNmoveon(line$))
+  PROCDisplayInfo("* Inviting "+nick$+" to channel "+chan$,chan$)
+
+ WHEN 342
+  LOCAL nick$
+  nick$=FNoneparam(line$)
+  PROCDisplayInfo("* Summoning "+nick$+" to IRC","")
+
+ WHEN 367:
+  LOCAL chan$
+  chan$=FNoneparam(line$)
+  banid$=FNoneparam(FNmoveon(line$))
+  PROCDisplayInfo("BanID> "+banid$,chan$)
+
+ WHEN 366,368:
+  REM Ignore messages
+
+ WHEN 401:
+  LOCAL nick$
+  nick$=FNoneparam(line$)
+  PROCDisplayWarning("*** "+nick$+" is not on IRC at present", FNGuessDisplay(nick$))
+
+ WHEN 404:
+  LOCAL chan$
+  chan$=FNoneparam(line$)
+  PROCDisplayWarning("*** You cannot talk to channel "+chan$+" as you do not have enough priveledges to do so","")
+ WHEN 422,375
+  registered=TRUE
+  PROCDisplayInfo("*** "+FNpasteargs(line$), "##server##")
+
+ WHEN 432:
+  PROCDisplayWarning("You have specified an illegal nickname.  Use /NICK <nickname> to choose another one","##server##")
+  IF NOT registered THEN OurNick$="!"
+
+ WHEN 433:
+  PROCDisplayWarning("The nickname you have chosen is already in use.  Use /NICK <nickname> to choose another one","")
+  IF NOT registered THEN OurNick$="!"
+
+ WHEN 443:
+  LOCAL nick$,chan$
+  nick$=FNoneparam(line$)
+  chan$=FNmoveon(FNoneparam(line$))
+  PROCDisplayWarning(nick$+" is already on "+chan$, chan$)
+
+ WHEN 451:
+  PROCSendToIRC("USER "+OurNick$+" * * :"+FNGetIRLname)
+
+ WHEN 461:
+  line$=FNoneparam(line$)
+  PROCDisplayWarning("Bad parameters used for "+line$,"")
+
+ WHEN 482:
+  LOCAL chan$
+  chan$=FNoneparam(line$)
+  PROCDisplayWarning("*** You are not an operator on channel "+chan$,chan$)
+
+ OTHERWISE:
+  PROCDisplayInfo(FNpasteargs(line$), "##server##")
+ENDCASE
+ENDPROC
+:
+DEF PROCModeChange(uid,chan$,change$)
+LOCAL who$,rest$,dir,c$,person$
+rest$=FNoneparam(change$)
+who$=FNmoveon(change$)
+IF (LEFT$(rest$,1)="+") THEN
+ dir = TRUE
+ELSE
+ dir = FALSE
+ENDIF
+rest$=MID$(rest$,2)
+IF LEFT$(who$,1)="" THEN
+ PROCDisplayInfo("* Channel mode change by "+uid.nick$+" ("+FNStrip(change$)+")",chan$)
+ PROCSendToIRC("MODE :"+chan$)
+ELSE
+ IF INSTR(change$,"+l")=0 THEN
+  PROCDisplayInfo("* Mode change by "+uid.nick$+" ("+FNStrip(change$)+")",chan$)
+ ENDIF
+ REPEAT
+  c$=LEFT$(rest$,1)
+  rest$=MID$(rest$,2)
+  CASE c$ OF
+   WHEN "o","O"
+    person$=FNoneparam(who$)
+    who$=FNmoveon(who$)
+    PROCOverload_On_Op(uid,chan$,person$,dir)
+   WHEN "b","B"
+    person$=FNoneparam(who$)
+    who$=FNmoveon(who$)
+    PROCOverload_On_Ban(uid,chan$,person$,dir)
+   WHEN "v","V"
+    PROCOverload_On_Voice(uid,chan$,person$,dir)
+   WHEN "l"
+    LOCAL num
+    num=VAL(FNoneparam(who$))
+    who$=FNmoveon(who$)
+    PROCOverload_On_Limit(uid,chan$,num)
+   OTHERWISE
+    PROCOverload_On_ModeChange(uid,chan$,c$,dir)
+  ENDCASE
+ UNTIL c$=""
+ENDIF
+ENDPROC
+
+DEF PROCCTCP_reply(uid,message$)
+  LOCAL command$,tim
+  command$=FNoneparam(message$)
+  message$=FNmoveon(message$)
+  CASE command$ OF
+    WHEN "PING":
+      tim=(TIME-(VAL(message$)))
+      PROCTellUserCTCPReply(uid,command$,STR$ tim+" centi-seconds")
+    WHEN "ERRMSG":
+      command$=FNoneparam(message$)
+      message$=FNmoveon(message$)
+      IF message$<>"" THEN message$=" : "+message$
+      PROCDisplayCTCP("CTCP Error for "+command$+message$,"")
+    OTHERWISE:
+      PROCOverload_UnknownCTCPReply(uid,command$,message$)
+  ENDCASE
+ENDPROC
+:
+DEF PROCCTCP_request(uid,to$,message$)
+  LOCAL command$,prefix$,notify
+  notify=TRUE
+  command$=FNCapitalise(FNoneparam(message$))
+  message$=FNmoveon(message$)
+  CASE command$ OF
+    WHEN "ECHO","PING":
+      PROCSendCTCPReply(uid,command$,message$)
+    WHEN "VERSION":
+      PROCSendCTCPReply(uid,command$,Version$)
+    WHEN "ACTION":
+      prefix$=FNReturnPadded("* "+uid.nick$)
+      IF LEFT$(to$,1)="#" THEN
+        PROCDisplay(FNColour(FNGetMeColour)+prefix$+" "+FNBoldYourNick(message$),to$)
+      ELSE
+        PROCCreateUserWin(uid.nick$)
+        PROCDisplay(FNColour(FNGetMeColour)+prefix$+" "+FNBoldYourNick(message$),uid.nick$)
+        IF msgbeep THEN PROCBeep
+      ENDIF
+      notify=FALSE
+    WHEN "FINGER","USERINFO":
+      PROCSendCTCPReply(uid,command$,FNGetUsername+"("+FNGetIRLname+")")
+    WHEN "CLIENTINFO":
+      PROCCTCP_ClientInfo(uid)
+    WHEN "TIME":
+      PROCSendCTCPReply(uid,command$,FNReadTime)
+    WHEN "MACHINEINFO":
+      SYS "Wimp_ReadSysInfo",0 TO NumTasks
+      SYS "Wimp_ReadSysInfo",7 TO WimpVersion
+      SYS "OS_ReadMemMapInfo" TO Memsize,Mempages
+      WimpVersion$=STR$(WimpVersion/100)+"."+STR$(WimpVersion MOD 100)
+      PROCSendCTCPReply(uid,command$,STR$((Memsize*Mempages)/(1024*1024))+"Mb, "+STR$ NumTasks+" tasks running under Risc OS "+WimpVersion$)
+    WHEN "SOURCE":
+      PROCSendCTCPReply(uid,command$,"This script is not currently available for distribution - mail gerph@@essex.ac.uk for details")
+    WHEN "ERRMSG":
+      PROCSendCTCPReply(uid,command$,message$+" :Worked ok")
+    OTHERWISE:
+      notify=FALSE
+      PROCOverload_UnknownCTCPRequest(uid,to$,command$,message$)
+  ENDCASE
+  IF notify THEN PROCTellUserCTCP(uid,command$)
+ENDPROC
+:
+DEF PROCCTCP_ClientInfo(uid)
+LOCAL a$,num,b$
+a$="ECHO PING ACTION VERSION ERRMSG FINGER USERINFO MACHINEINFO CLIENTINFO TIME SOURCE SCRIPTS"
+num=0
+REPEAT
+  b$=FNOverload_ListCTCP(num)
+  IF b$<>"" THEN a$+=" "+b$
+  num+=1
+UNTIL b$=""
+PROCSendCTCPReply(uid,"CLIENTINFO",a$)
+ENDPROC
+:
+REM Overload_UnknownCTCPRequest : /CTCP <command> done
+REM You should overload this routine and pass it on if you
+REM don't respond
+DEF PROCOverload_UnknownCTCPRequest(uid,to$,com$,message$)
+LOCAL num,a$
+CASE com$ OF
+ WHEN "SCRIPTS"
+  num=0
+  REPEAT
+   b$=FNOverload_ScriptInfo(num)
+   IF b$<>"" THEN PROCSendCTCPReply(uid,"SCRIPTS",STR$(num+1)+": "+b$)
+   num+=1
+  UNTIL b$=""
+ OTHERWISE
+  IF LEFT$(to$,1)="#" THEN
+   PROCDisplayCTCP("Unknown CTCP '"+com$+"' received from "+uid.nick$,to$)
+  ELSE
+   PROCDisplayCTCP("Unknown CTCP '"+com$+"' received from "+uid.nick$,FNGuessDisplay(uid.nick$))
+  ENDIF
+ENDCASE
+ENDPROC
+:
+REM Overload_UnknownCTCPReply : Reply from other end
+DEF PROCOverload_UnknownCTCPReply(uid,command$,str$)
+PROCTellUserCTCPReply(uid,command$,str$)
+ENDPROC
+:
+REM Overload_ListCTCP : List all CTCP requests available
+REM Overload with :
+REM DEFFNOverload_ListCTCP(count)
+REM LOCAL ret$
+REM IF count=0 THEN
+REM  ret$="<command>"
+REM ELSE
+REM  ret$=FN@@(count-1)
+REM ENDIF
+REM =ret$
+REM Multiple commands should be space seperated
+DEF FNOverload_ListCTCP(count)
+LOCAL ret$
+IF count=0 THEN
+ ret$=""
+ELSE
+ PROCDisplayError("Someone hasn't done ListCTCP properly...","")
+ ret$=""
+ENDIF
+=ret$
+
+REM Will give the name of the channel if you are on a channel
+DEF FNGuessDisplay(from$)
+LOCAL ret$
+IF LEFT$(SendingToDisplay$,1)="#" THEN
+ ret$=SendingToDisplay$
+ELSE
+ IF FNCapitalise(from$)=FNCapitalise(SendingToDisplay$) THEN
+  IF FNFindDisplay(from$) THEN
+   ret$=from$
+  ELSE
+   ret$=SendingToDisplay$
+  ENDIF
+ ENDIF
+ENDIF
+=SendingToDisplay$
+  REM LOCAL ret$
+  REM IF FNFindUserChan(from$,SendingToDisplay$) OR FNCapitalise(SendingToDisplay$)=FNCapitalise(from$) THEN
+    REM ret$=SendingToDisplay$
+  REM ELSE
+    REM IF FNFindDisplay(from$) THEN
+      REM ret$=from$
+    REM ELSE
+      REM ret$=FNFindUser(from$)
+      REM IF ret$="" THEN
+        REM ret$="##server##"
+      REM ENDIF
+    REM ENDIF
+  REM ENDIF
+REM =ret$
+
+DEF PROCTellUserCTCP(uid,command$)
+  PROCDisplayCTCP("CTCP "+command$+" received from "+uid.nick$,FNGuessDisplay(uid.nick$))
+ENDPROC
+
+DEF PROCTellUserCTCPReply(uid,command$,message$)
+  PROCDisplayCTCP("CTCP "+command$+" reply received from "+uid.nick$+" ("+message$+")",FNGuessDisplay(uid.nick$))
+ENDPROC
+
+DEF PROCChannel_ModeIs(channel$,mode$)
+PROCUpdateChannel(channel$,FNChannelFlags(mode$))
+ENDPROC
+
+DEF FNChannelFlags(mode$)
+LOCAL flags
+flags = 0
+WHILE mode$<>""
+ CASE LEFT$(mode$,1) OF
+  WHEN "t" :
+   flags = flags OR CF_Topic
+  WHEN "n" :
+   flags = flags OR CF_Msgs
+  WHEN "i" :
+   flags = flags OR CF_Invite
+  WHEN "m" :
+   flags = flags OR CF_Moderated
+  WHEN "s" :
+   flags = flags OR CF_Secret
+  WHEN "p" :
+   flags = flags OR CF_Private
+  WHEN "l" :
+   flags = flags OR CF_Limited
+ ENDCASE
+ mode$=MID$(mode$,2)
+ENDWHILE
+=flags
+
+DEF PROCJoin(channel$)
+  PROCSendToIRC("JOIN :"+channel$)
+ENDPROC
+
+DEF PROCLeave(channel$)
+  PROCSendToIRC("PART :"+channel$)
+ENDPROC
+:
+DEF PROCUserLine(str$)
+LOCAL command$
+IF LEFT$(SendingToDisplay$,2)="##" THEN
+  PROCOverload_UserLine(str$)
+ELSE
+  IF str$<>"" THEN
+    IF LEFT$(str$,1)<>"/" THEN
+      IF SendingToDisplay$<>"" THEN
+        str$=FNOverload_AboutToSay(str$,0)
+        PROCSay(SendingToDisplay$,str$)
+      ENDIF
+    ELSE
+      command$=FNCapitalise(FNoneparam(MID$(str$,2)))
+      str$=FNmoveon(MID$(str$,2))
+      PROCOverload_Command(command$,str$)
+    ENDIF
+  ENDIF
+ENDIF
+ENDPROC
+:
+REM If you want to change one of the default commands this is the
+REM best way
+DEFPROCOverload_Command(command$,str$)
+LOCAL whoto$,to$,prefix$,found
+CASE command$ OF
+  WHEN "ME":
+    str$=FNOverload_AboutToSay(str$,1)
+    PROCAction(SendingToDisplay$,str$)
+  WHEN "DESCRIBE":
+    to$=FNoneparam(str$)
+    str$=FNOverload_AboutToSay(FNmoveon(str$),1)
+    PROCCreateUserWin(to$)
+    PROCSay(to$,str$)
+  WHEN "QUIT"
+    IF str$="" THEN str$="Leaving"
+    PROCSendToIRC(command$+" :"+str$)
+  WHEN "JOIN","PART":
+    PROCSendToIRC(command$+" :"+str$)
+  WHEN "LEAVE":
+    PROCSendToIRC("PART :"+str$)
+  WHEN "QUERY":
+    IF str$="" THEN
+      PROCDisplayWarning("* Query whom?","")
+    ELSE
+      IF LEFT$(str$,2)="#" THEN
+        PROCDisplayWarning("* Query whom? (must be a user)")
+      ELSE
+        PROCUserDoubleClicked(str$)
+      ENDIF
+    ENDIF
+  WHEN "MSG":
+    to$=FNoneparam(str$)
+    IF LEFT$(to$,1)<>"#" THEN PROCCreateUserWin(to$)
+    str$=FNOverload_AboutToSay(FNmoveon(str$),0)
+    PROCSay(to$,str$)
+
+  WHEN "SAY"
+    IF LEFT$(SendingToDisplay$,2)<>"##" THEN PROCSay(SendingToDisplay$,str$)
+
+  WHEN "NOTICE":
+    to$=FNoneparam(str$)
+    IF LEFT$(to$,1)<>"#" THEN PROCCreateUserWin(to$)
+    PROCSendToIRC("NOTICE "+to$+" :"+FNmoveon(str$))
+    PROCMessageToDisplay(FNnewUID(OurNick$),"-"+to$,FNmoveon(str$))
+
+  WHEN "CTCP":
+    whoto$=FNoneparam(str$)
+    str$=FNmoveon(str$)
+    PROCCTCP_Command(whoto$,FNCapitalise(FNoneparam(str$)),FNmoveon(str$))
+  WHEN "SCRIPTS"
+    PROCDoScripts
+  WHEN "PING":
+    PROCCTCP_Command(FNoneparam(str$),"PING",STR$(TIME))
+    REM PROCSendCTCPRequest(str$,"PING",STR$(TIME))
+  WHEN "UMODE":
+    PROCSendToIRC("MODE "+OurNick$+" "+str$)
+  WHEN "QUOTE","RAW":
+    PROCSendToIRC(str$)
+  WHEN "TEST":
+   PROCIRCLine(str$)
+  WHEN "KICK"
+    PROCDoKick(str$)
+  WHEN "NICK"
+    PROCSendToIRC("NICK "+str$)
+    IF OurNick$="!" THEN
+      OurNick$=str$
+      PROCSetNickname(str$)
+    ENDIF
+  WHEN "INVITE"
+    PROCDoInvite(str$)
+  WHEN "LIST"
+    PROCDoList(str$)
+  WHEN "TOPIC"
+    PROCDoTopic(str$)
+  WHEN "AWAY"
+    PROCDoAway(str$)
+  WHEN "MODE"
+    PROCDoMode(str$)
+  WHEN "SVERSION"
+    PROCDoServerVersion
+  WHEN "PASS","OPER","WHOIS","WHOWAS","LUSERS","LINKS","TIME","TRACE","ADMIN","INFO","WHO","USERHOST","STATS","ISON","MOTD","SQUIT","SUMMON":
+    PROCSendToIRC(command$+" "+str$)
+  OTHERWISE:
+    PROCOverload_UnknownCommand(command$,str$)
+ENDCASE
+ENDPROC
+:
+DEF PROCDoServerVersion
+PROCSendToIRC("VERSION")
+ENDPROC
+:
+DEF PROCDoScripts
+num=0
+PROCDisplayInfo("You are currently running :","")
+REPEAT
+ b$=FNOverload_ScriptInfo(num)
+ IF b$<>"" THEN PROCDisplayInfo("  "+STR$(num+1)+": "+b$,"")
+ num+=1
+UNTIL b$=""
+ENDPROC
+:
+DEF PROCDoKick(str$)
+  LOCAL chan$,nick$,reason$
+  IF LEFT$(str$,1)="#" THEN
+    chan$=FNoneparam(str$)
+    str$=FNmoveon(str$)
+  ELSE
+    chan$=SendingToDisplay$
+  ENDIF
+  nick$=FNoneparam(str$)
+  reason$=FNmoveon(str$)
+  IF LEFT$(chan$,1)<>"#" THEN
+    PROCDisplayWarning("* Kick "+nick$+" off which channel?","")
+  ELSE
+    IF reason$="" THEN
+      reason$="No reason"
+    ENDIF
+    PROCSendToIRC("KICK "+chan$+" "+nick$+" :"+reason$)
+  ENDIF
+ENDPROC
+
+DEF PROCDoInvite(str$)
+  LOCAL chan$,invite$
+  IF LEFT$(str$,1)="#" THEN
+    chan$=FNoneparam(str$)
+    str$=FNmoveon(str$)
+  ELSE
+    chan$=SendingToDisplay$
+  ENDIF
+  invite$=str$
+  IF LEFT$(chan$,1)<>"#" THEN
+    PROCDisplayWarning("* Invite "+invite$+" to which channel?","")
+  ELSE
+    PROCSendToIRC("INVITE "+invite$+" "+chan$)
+  ENDIF
+ENDPROC
+
+DEF PROCDoTopic(str$)
+  LOCAL chan$,topic$
+  IF LEFT$(str$,1)="#" THEN
+    chan$=FNoneparam(str$)
+    str$=FNmoveon(str$)
+  ELSE
+    chan$=SendingToDisplay$
+  ENDIF
+  topic$=str$
+  IF LEFT$(chan$,1)<>"#" THEN
+    PROCDisplayWarning("* Change the topic of which channel?","")
+  ELSE
+    PROCChangeTopic(chan$,topic$)
+  ENDIF
+ENDPROC
+:
+DEF PROCDoAway(str$)
+IF str$<>"" THEN str$=":"+str$
+PROCSendToIRC("AWAY "+str$)
+ENDPROC
+:
+DEF PROCDoMode(str$)
+  LOCAL chan$,mode$
+  IF LEFT$(str$,1)="#" THEN
+    chan$=FNoneparam(str$)
+    str$=FNmoveon(str$)
+  ELSE
+    chan$=SendingToDisplay$
+  ENDIF
+  mode$=str$
+  IF LEFT$(chan$,1)<>"#" THEN
+    PROCDisplayInfo("* Change the mode of which channel?","")
+  ELSE
+    PROCSendToIRC("MODE "+chan$+" "+mode$)
+  ENDIF
+ENDPROC
+
+DEF PROCList_Reset
+  List_min=0
+  List_max=65536
+  List_match$="*"
+ENDPROC
+
+DEF PROCDoList(str$)
+  LOCAL chan$,com$,val
+  PROCList_Reset
+  List_match$=FNoneparam(str$)
+  str$=FNStrip(FNmoveon(str$))
+  WHILE str$<>""
+    IF LEFT$(str$,1)="-" THEN
+      com$=FNCapitalise(FNoneparam(MID$(str$,2)))
+      str$=FNmoveon(MID$(str$,2))
+      val=VAL(FNoneparam(str$))
+      str$=FNmoveon(str$)
+      CASE com$ OF
+        WHEN "MIN","MINIMUM"
+          List_min=val
+        WHEN "MAX","MAXIMUM"
+          List_max=val
+        OTHERWISE
+          PROCDisplayWarning("* Unknown list modifier '-"+str$+"' ignored.","")
+      ENDCASE
+    ELSE
+      PROCDisplayWarning("* Unknown list modifier '"+str$+"' ignored.","")
+      str$=FNmoveon(str$)
+    ENDIF
+  ENDWHILE
+  IF (List_min > List_max) THEN
+    PROCDisplayWarning("* Silly.  List minimum > list maximum.  List ignored","")
+  ELSE
+    IF ( (INSTR(List_match$,"*")) OR (INSTR(List_match$,"?")) ) THEN
+      PROCSendToIRC("LIST")
+    ELSE
+      PROCSendToIRC("LIST "+List_match$)
+      List_match$="*"
+    ENDIF
+  ENDIF
+ENDPROC
+
+DEF PROCUserDoubleClicked(user$)
+  PROCCreateUserWin(user$)
+  PROCSelectUser(user$)
+ENDPROC
+:
+DEF PROCCreateUserWin(user$)
+PROCNewDisplay(user$,32,OurNick$+"->"+user$,DisplayFlag_ANSI)
+ENDPROC
+
+DEF PROCCentredDisplay(message$,display$)
+  IF LEN message$ < 80 THEN
+    PROCDisplay(STRING$((80-LEN message$)/2," ")+message$,display$)
+  ELSE
+    PROCDisplay(message$,display$)
+  ENDIF
+ENDPROC
+:
+DEF PROCSay(chan$,str$)
+PROCSendToIRC("PRIVMSG "+chan$+" :"+str$)
+PROCMessageToDisplay(FNnewUID(OurNick$),chan$,str$)
+ENDPROC
+:
+DEF PROCAction(chan$,str$)
+LOCAL prefix$
+PROCSendCTCPRequest(chan$,"ACTION",str$)
+prefix$=FNReturnPadded("* "+OurNick$)
+PROCDisplay(FNColour(FNGetMeColour)+prefix$+" "+str$,chan$)
+ENDPROC
+:
+DEF PROCMessageToDisplay(uid,display$,message$)
+LOCAL prefix$,from$
+REM PRINTuid.nick$+" -> "+display$+" : "+message$
+from$=uid.nick$
+IF LEFT$(display$,1)="-" THEN
+ prefix$=FNReturnPadded("-"+from$+"-")
+ display$=MID$(display$,2)
+ELSE
+ IF LEFT$(display$,1)="#" THEN
+  prefix$=FNReturnPadded("<"+from$+">")
+ ELSE
+  prefix$=FNReturnPadded("*"+from$+"*")
+  REM Open a nice window for this user
+  PROCCreateUserWin(display$)
+ ENDIF
+ENDIF
+IF FNCapitalise(from$)<>FNCapitalise(OurNick$) AND LEFT$(display$,1)<>"#" AND msgbeep=TRUE THEN
+ PROCBeep
+ENDIF
+PROCDisplay(prefix$+" "+FNBoldYourNick(message$),display$)
+ENDPROC
+
+DEF PROCSendToIRC(m$)
+PROCSendString(MasterSocket,m$)
+ENDPROC
+
+DEF PROCSendCTCPReply(uid,command$,message$)
+PROCSendToIRC("NOTICE "+uid.nick$+" :"+CHR$1+command$+" "+message$+CHR$1)
+ENDPROC
+:
+DEF PROCSendCTCPError(uid,command$,message$)
+PROCSendToIRC("NOTICE "+uid.nick$+" :"+CHR$1+"ERRMSG "+command$+" :"+message$+CHR$1)
+ENDPROC
+:
+DEF PROCSendCTCPRequest(to$,command$,message$)
+IF message$<>"" THEN message$=" "+message$
+command$=FNCapitalise(command$)
+PROCSendToIRC("PRIVMSG "+to$+" :"+CHR$1+command$+message$+CHR$1)
+ENDPROC
+:
+DEF PROCIconbarClick
+IF Online THEN
+ PROCOpenInputBox(0)
+ PROCOpenServerWindow
+ELSE
+ PROCOpenConnect
+ENDIF
+ENDPROC
+:
+DEF PROCChangeTopic(channel$,topic$)
+IF topic$<>"" THEN topic$=":"+topic$
+PROCSendToIRC("TOPIC "+channel$+" "+topic$)
+ENDPROC
+
+DEF PROCChannelStateChange(chan$,flag,char)
+LOCAL gonk$
+IF flag THEN
+ gonk$="+"
+ELSE
+ gonk$="-"
+ENDIF
+PROCSendToIRC("MODE "+chan$+" "+gonk$+CHR$ char)
+ENDPROC
+
+DEF PROCChangeChannelTopic(channel$,topic$)
+IF LEN(topic$) < 40 THEN
+ PROC@@(channel$,topic$)
+ELSE
+ PROC@@(channel$,LEFT$(topic$,38)+"...")
+ENDIF
+ENDPROC
+:
+REM 'special' overload for the menu
+DEF PROCCTCPrequest(CTCP$,whoto$)
+PROCCTCP_Command(whoto$,CTCP$,"")
+ENDPROC
+:
+DEF PROCCTCP_Command(whoto$,CTCP$,message$)
+IF CTCP$="PING" THEN
+ PROCSendCTCPRequest(whoto$,"PING",STR$(TIME))
+ELSE
+ PROCSendCTCPRequest(whoto$,CTCP$,message$)
+ENDIF
+ENDPROC
+
+DEF PROCDisplay(what$,to$)
+IF to$="" THEN to$="##server##"
+PROC@@(what$,to$)
+ENDPROC
+:
+REM When you want an error displayed (in red)
+DEF PROCDisplayError(mess$,win$)
+IF win$="" AND LEFT$(mess$,1)<>"*" THEN
+ mess$="*** "+mess$
+ENDIF
+IF win$="" THEN win$=SendingToDisplay$
+PROCDisplay(FNColour(11)+mess$+FNColour(0),win$)
+ENDPROC
+:
+REM When you want a warning displayed (in orange)
+DEF PROCDisplayWarning(mess$,win$)
+IF win$="" AND LEFT$(mess$,1)<>"*" THEN mess$="*** "+mess$
+IF win$="" THEN win$=SendingToDisplay$
+PROCDisplay(FNColour(14)+mess$+FNColour(0),win$)
+ENDPROC
+:
+REM When you want an informational displaying (usually lblue)
+DEF PROCDisplayInfo(mess$,win$)
+IF win$="" AND LEFT$(mess$,1)<>"*" THEN mess$="*** "+mess$
+IF win$="" THEN win$=SendingToDisplay$
+PROCDisplay(FNColour(15)+mess$,win$)
+ENDPROC
+:
+DEF PROCDisplayCTCP(mess$,win$)
+IF win$="" THEN win$=SendingToDisplay$
+mess$="*** "+mess$
+PROCDisplay(FNColour(FNGetCTCPColour)+mess$,win$)
+ENDPROC
+:
+REM ************************ Used by menus **********************
+:
+REM Op a user
+DEF PROCOp(channel$,nick$,flag)
+IF flag THEN
+ PROCSendToIRC("MODE "+channel$+" +o "+nick$)
+ELSE
+ PROCSendToIRC("MODE "+channel$+" -o "+nick$)
+ENDIF
+PROCSendToIRC("NAMES "+channel$)
+ENDPROC
+:
+REM Give a user a voice
+DEF PROCVoice(channel$,nick$,flag)
+IF flag THEN
+ PROCSendToIRC("MODE "+channel$+" +v "+nick$)
+ELSE
+ PROCSendToIRC("MODE "+channel$+" -v "+nick$)
+ENDIF
+PROCSendToIRC("NAMES "+channel$)
+ENDPROC
+:
+REM Leave channel
+DEF PROCLeaveChannel(channel$)
+PROCSendToIRC("PART "+channel$)
+ENDPROC
+:
+REM Boot some one...
+DEF PROCKick(channel$,nick$)
+PROCSendToIRC("KICK "+channel$+" "+nick$+" :No reason")
+ENDPROC
+:
+DEF PROCDCCChat(nick$)
+PROCNotify("DCC Chat is not available")
+ENDPROC
+:
+REM CTCP Extras for menus
+DEF PROCCTCP_DoPing(nick$)
+PROCCTCP_Command(nick$,"PING","")
+ENDPROC
+DEF PROCCTCP_DoClientInfo(nick$)
+PROCCTCP_Command(nick$,"CLIENTINFO","")
+ENDPROC
+DEF PROCCTCP_DoFinger(nick$)
+PROCCTCP_Command(nick$,"FINGER","")
+ENDPROC
+DEF PROCCTCP_DoVersion(nick$)
+PROCCTCP_Command(nick$,"VERSION","")
+ENDPROC
+DEF PROCCTCP_DoUserInfo(nick$)
+PROCCTCP_Command(nick$,"USERINFO","")
+ENDPROC
+DEF PROCCTCP_DoScripts(nick$)
+PROCCTCP_Command(nick$,"SCRIPTS","")
+ENDPROC
+DEF PROCCTCP_DoSource(nick$)
+PROCCTCP_Command(nick$,"SOURCE","")
+ENDPROC
+DEF PROCCTCP_DoTime(nick$)
+PROCCTCP_Command(nick$,"TIME","")
+ENDPROC
+:
+REM ************************
+REM Extra routines by Justin
+REM ************************
+:
+REM Pad a name if columns is selected
+DEF FNReturnPadded(prefix$)
+IF columns THEN prefix$=STRING$(13-LEN(prefix$)," ")+prefix$
+=prefix$
+:
+REM See if the command matches any of the aliases we have set
+DEF FNCheckAliases(command$,line$)
+LOCAL in,a$,com$,found,in
+found=FALSE
+in=OPENIN(magrathea_user$+".Aliases")
+IF in<>0 THEN
+ REPEAT
+  a$=GET$#in
+  com$=LEFT$(a$,INSTR(a$+" "," ")-1)
+  IF LEFT$(com$,1)<>"#" AND a$<>"" THEN
+   IF FNCapitalise(com$)=command$ THEN
+    found=TRUE
+    IF INSTR(a$," ")=0 OR MID$(a$,INSTR(a$," "))=" {" THEN
+     REM A long command, delimited by {}'s
+     a$=FNStrip(GET$#in)
+     WHILE (a$<>"}" AND NOT EOF#in)
+      IF a$="{" THEN
+       REM Ignore
+      ELSE
+       a$=FNSubstituteArgs(a$,line$)
+       PROCUserLine(a$)
+      ENDIF
+      a$=FNStrip(GET$#in)
+     ENDWHILE
+    ELSE
+     REM A short simple command
+     a$=FNStrip(MID$(a$,INSTR(a$," ")))
+     a$=FNSubstituteArgs(a$,line$)
+     PROCUserLine(a$)
+    ENDIF
+   ENDIF
+  ENDIF
+  IF NOT found THEN
+   REM Skip any long commands
+   IF ((INSTR(a$," ")=0 AND LEFT$(a$,1)<>"#") OR MID$(a$,INSTR(a$," "))=" {") AND a$<>"" THEN
+    a$=FNStrip(GET$#in)
+    WHILE (a$<>"}" AND NOT EOF#in)
+     a$=FNStrip(GET$#in)
+    ENDWHILE
+   ENDIF
+  ENDIF
+ UNTIL (EOF#in OR found)
+ CLOSE#in
+ENDIF
+=found
+:
+REM Substitue arguments from line$ into a$ using :
+REM %[0-9] for words
+REM %*[0-9] for the text after that (inc)
+REM %% for % symbol
+REM %R for the current recipient
+REM %M for our nick name
+REM %b for bold toggle
+DEF FNSubstituteArgs(a$,line$)
+LOCAL b$,i,c$,n
+b$=""
+i=1
+REPEAT
+ IF MID$(a$,i,1)="%" THEN
+  i=i+1
+  CASE MID$(a$,i,1) OF
+   WHEN "0","1","2","3","4","5","6","7","8","9":
+    c$=line$
+    n=VAL(MID$(a$,i,1))
+    WHILE n>0
+     c$=MID$(c$,INSTR(c$+" "," ")+1)
+     n=n-1
+    ENDWHILE
+    b$=b$+LEFT$(c$,INSTR(c$+" "," ")-1)
+
+   WHEN "*":
+    i=i+1
+    c$=line$
+    n=VAL(MID$(a$,i,1))
+    WHILE n>0
+     c$=MID$(c$,INSTR(c$+" "," ")+1)
+     n=n-1
+    ENDWHILE
+    b$=b$+c$
+
+   WHEN "%":
+    b$=b$+"%"
+
+   WHEN "R":
+    REM Current recipient (SendingToDisplay$)
+    b$=b$+SendingToDisplay$
+   WHEN "b":
+    REM Use bold characters
+    b$=b$+CHR$2
+
+   WHEN "M":
+    REM My nick name
+    b$=b$+OurNick$
+
+   OTHERWISE:
+    b$=b$+"%"+MID$(a$,i,1)
+
+  ENDCASE
+ ELSE
+  b$=b$+MID$(a$,i,1)
+ ENDIF
+ i=i+1
+UNTIL i>LEN(a$)
+=b$
+:
+REM *********************************************************
+REM The following are routines you should use for overloading
+REM The display should be recognised from it's name and should
+REM usually start with ## if you are providing extensions
+REM *********************************************************
+:
+REM Overload_DisplaySelected : A display has been selected
+REM only displays with ## prefixes will be passed here
+DEF PROCOverload_DisplaySelected(display$)
+CASE display$ OF
+ WHEN "##InputBox##"
+  PROCDisplaySelected(SendingToDisplay$)
+ WHEN "##server##"
+  PROCSelectNoFocus
+ENDCASE
+ENDPROC
+:
+REM Overload_UserLine : Process a users input
+DEF PROCOverload_UserLine(str$)
+ENDPROC
+:
+REM Overload_AboutToSay : About to say something - pre-process
+REM type will be 0 for 'spoken' thing, and 1 for actions
+REM You should overload this ALWAYS with
+REM =FN@@(newstr$,type) or similar
+DEF FNOverload_AboutToSay(str$,type)
+=str$
+:
+REM Overload_UnknownCommand : Process an unknown command
+REM The last thing will be this routine which processes aliases
+REM The command will be capitalised already, so don't waste time
+DEF PROCOverload_UnknownCommand(command$,str$)
+found=FNCheckAliases(command$,str$)
+IF NOT found THEN PROCDisplayWarning("*** Unknown command '"+command$+"'","")
+ENDPROC
+:
+REM *********************************************************
+:
+REM Execute a script as we log on
+DEF PROCRunInitialScript
+LOCAL in,a$
+PROCSendToIRC("PRIVMSG gerph :Hello!"+CHR$1+"FINGER"+CHR$1+CHR$1+"VERSION"+CHR$1+CHR$1+"CLIENTINFO"+CHR$1)
+in=OPENIN(magrathea_user$+".Initial")
+IF in<>0 THEN
+ WHILE NOT EOF#in
+  a$=FNStrip(GET$#in)
+  IF LEFT$(a$,1)<>"#" THEN
+   IF FNCapitalise(LEFT$(a$,5))="/JOIN" THEN PROCNewChannel(FNmoveon(a$),32,"Channel "+FNmoveon(a$),0,0)
+   PROCUserLine(a$)
+  ENDIF
+ ENDWHILE
+ CLOSE#in
+ENDIF
+ENDPROC
+@

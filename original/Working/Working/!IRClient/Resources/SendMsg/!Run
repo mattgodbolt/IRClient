@@ -1,0 +1,7 @@
+| !Run file for SendMessagePatch
+| Produced by JFPatch 
+Set SendMessagePatch$Dir <Obey$Dir>
+| Install WimpSWIVe if not already present
+RMEnsure WimpSWIVe 0.05 RMLoad <SendMessagePatch$Dir>.WimpSWIVe
+| Load module
+RMEnsure SendMessagePatch 1.00 RMLoad <SendMessagePatch$Dir>.SendMsg

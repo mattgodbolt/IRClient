@@ -1,0 +1,135 @@
+Notes on the state of IRClient (updated 03 Feb 1998)
+==============================
+
+Things that work : 
+  Everything in Internal.Classes
+  All of Internal (except Input2 which is a backup)
+  Default.Dependency
+  Default.GDBM
+  Default.Utils
+  Magrathea
+  
+Obsolete things (but working) :
+  Default.Config - need a window interface !
+  Default.GDBM - I want to change the way this works !
+
+Old things untested :
+  OldMods
+  Examples
+
+Old things unlikely to work :
+  Internal.unused
+
+Old things kept for posterity :
+  Default.DependencyO
+  Internal.OldClasses
+  Internal.Ideas
+
+Things to try in Internal.Classes.~Test (enable each seperately) :
+(you may have to move files from Graphics into the main Classes directory for
+some of these to work)
+  Test_List - creates files (also tests file class)
+  Test_DLList - tests that we can traverse the list in a few directions
+  Test_BTree - first does a string list and prints it
+               then does a numerical list and deletes an item to test delete
+               to test this more change the number deleted
+  Test_Rets - tests return parameters from functions (!)
+  Test_Vars - tests dynamic variables, and generates an error at end (correctly)
+  Test_Dependency - tests that dependency works; DON'T use this one, 'cos if
+                    you're using magrathea it'll have already done things.
+                    Look at the iconbar menu for configuration.
+  Test_Screen - tests screen class for reading VDU variables
+  Test_Array - tests array variables. I've not looked at this in ages. I'm not
+               sure it'll work. You'd have to check (and install Array)
+               Read code for exact tests
+  Test_IRCClasses - again, I'm not sure if this works. I'm not likely to use it
+                    as I implemented it very badly I think.
+  Test_SpriteF - tests that sprite files and sprites work.
+  Test_UserDB - tests the user data base works - useful for identifying friends
+                and suchlike.
+  Test_Colours - tests the colours module works correctly. Requires RGBDecoder
+                 but will work without.
+  Test_Fonts - tests the font handling code. Press space to continue after done.
+
+If Magrathea is disabled (change Boot) then clicking on the iconbar will do
+  Test_Windows - tests Windows, WObjects and Handler classes as well as
+                 extensive use of BTree and List plus indirected function
+                 calls. This is the biggy. Lots of things happen. You'd be
+                 best off looking at the code and seeing what it attaches
+                 handler wise. There are some of the things that have multiple
+                 handlers on so you'll have to spot that I guess. I think
+                 the redraw also tries testing SpriteF - you might like to drag
+                 a window over the sprite as I found it broke.
+                 This is the nicest test I've done so far I think.
+  Test_DrawPath - tests that DrawPath instances work correctly. Should produce
+                  a square on the screen.
+  Test_DrawFile - tests that DrawFile instances work correctly. Should produce
+                  a drawfile of a square as $.data.
+  Test_DrawFileGroup - tests that DrawFileGroup instances, and their parent
+                       DrawFile calls them correctly. Should produce a square,
+                       Triangle and circley thing, of which the last two are
+                       grouped.
+  Test_Network - tests that the Network and NetworkMap classes work correctly.
+                 This will /really/ thrash DrawPath, DrawFile, Fonts and
+                 Buffer classes (and all descendants). Should produce a network
+                 diagram in $.Draw.
+
+
+Classes not explicitly tested :
+  Bounds - tested by WOLabel class
+  WOLabel - tested by Modules.Whois and Modules.LUsers
+  Pointer - tested by Modules.Whois menu handler - I don't like the way menus
+            work at the moment. They need some serious looking at. I'll have
+            a think about how I'd prefer them to work, even if it means you
+            going into the assembler again.
+  UID - tested by Magrathea and everything off that ! This is used as a global
+        parameter. Modules.Channel extends UID a little bit to make the UID's
+        relevant to the channel.
+  Buffer - tested by DrawFile in producing the files.
+
+Modules.Channel is experimental and I'm hoping that this can handle everything
+to do with channel messages (eg topic changes, mode changes, etc). (seems to
+work fine)
+
+Modules.KeyBinder works. I've not looked at it much. I think I added Copy to
+it and fixed bugs introduced by new FN<file>.Eof function.
+
+Internal.Boot loads all Internal; comment out the magrathea lines to use
+Test_Windows. Contains dummy menu and click routines to stop it crashing if
+modules don't load.
+
+Internal.MiscUtils contains a load of routines that I need but haven't got
+around to either moving into IRBasic or implementing as assembler to veneer
+with IRBasic (ideas still coming).
+
+Internal.Constants updated with new constants. eof$ should be deleted.
+
+Internal.Input seems to work.
+
+Internal.Menus seems to work, but needs a complete revamp in my opinion.
+
+Internal.Throwback is mine and I'm quite proud of this :-) SupressErrors is
+a normal variable but it is read by the error handler.
+
+RCSTags is a quick description of the RCS things, along with examples.
+
+User is something I've not looked at yet.
+
+
+Source code -
+  IRCSource (a few changes to the error handler; now calls the basic error
+             handler if things wrong in Basic and hopes that it can recover)
+  IRBasic (a few changes - error handler, SWI flags and a couple of new
+           routines).
+  Rest untouched I think.
+  
+  <instance>.<unknown int> assignment appears to call the unknown string code
+  but I've not found out why yet.
+
+A few of the templates and graphics have changed generally too...
+The Templates file at the top is something I'm looking at nicking maybe...
+
+Also find enclosed the latest IRClient manual; I've updated some bits, but
+not everything !
+
+Have fun !

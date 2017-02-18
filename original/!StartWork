@@ -1,0 +1,10 @@
+| Start work session
+
+| The stack I want to use
+Set Internet$Stack Acorn
+|Set Internet$Stack FreeNet
+
+Set ZapUtil$AutoRun <Obey$Dir>.!Local
+Filer_Run ADFS::Gerph.$.Apps.WProcess.!ZapUtil
+Filer_Run JFShared:!ShowError
+Run <Obey$Dir>.!Local

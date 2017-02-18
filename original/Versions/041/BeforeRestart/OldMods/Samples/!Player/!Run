@@ -1,0 +1,6 @@
+IconSprites <Obey$Dir>.!Sprites
+RMLoad <Obey$Dir>.SampPlayer %0
+Set Alias$@RunType_350 PlaySample %%0
+Set Alias$@RunType_351 PlaySequence %%0
+Set File$Type_350 Squished
+Set File$Type_351 Sequence

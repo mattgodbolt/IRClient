@@ -1,0 +1,264 @@
+REM >Internal.Classes.BTree
+REM (c) 1997 Justin Fletcher
+REM Binary Tree class
+REM ---
+REM $Id: BTree 1.7 98/02/01 16:06:11 gerph Exp $
+REM $Log:	BTree $
+REM Revision 1.7  98/02/01  16:06:11  gerph
+REM Added routines for string comparisson
+REM (BTree_StringCompare...)
+REM 
+REM Revision 1.6  97/12/31  18:29:48  gerph
+REM Added deletion at last. Doesn't balance the
+REM trees, but does delete correctly. Also added
+REM Highest and Lowest functions as these are also
+REM needed.
+REM
+REM Revision 1.5  97/12/29  14:46:15  gerph
+REM Fixed for new ListItem style Lists.
+REM
+REM Revision 1.4  97/04/16  01:28:42  gerph
+REM Added BTree_Destroy
+REM
+REM Revision 1.3  97/04/13  23:51:08  gerph
+REM Minor fixes for FindS and FN() added instead of EVAL.
+REM
+REM Revision 1.2  97/04/13  17:00:11  gerph
+REM FindS written for Handler class
+REM
+REM ---
+PRINT "$Id: BTree 1.7 98/02/01 16:06:11 gerph Exp $"
+END
+:
+DEF PROCOverload_Classes_Initialise
+REM A Binary tree
+Class_BTree = FNRegisterClass("BTree")
+PROCAddField(Class_BTree,"data")
+PROCAddField(Class_BTree,"less")
+PROCAddField(Class_BTree,"more")
+PROCAddField(Class_BTree,"compare")
+REM Pass on
+PROC@
+ENDPROC
+:
+DEF FNnewBTree(compare$)
+LOCAL ret
+ret= NEW Class_BTree
+ret.compare=FNnewString(compare$)
+ret.less=-1
+=ret
+:
+DEF PROCBTree_Construct
+@.compare=FNnewString("BTree_CompareNumbers")
+ENDPROC
+:
+DEF PROCBTree_Destroy
+REM PRINT"Destroying a BTree"
+IF @.less<>-1 AND @.less<>0 THEN PROC@.less.Destroy
+IF @.more<>0 THEN PROC@.more.Destroy
+IF @.less<>-1 THENPROC@.data.Destroy
+@.less=-1:@.more=0:@.data=0
+REM And pass it on
+REM PRINT "BTree destructed"
+PROC@
+ENDPROC
+:
+REM Return -ve if v1<v2
+REM          0 if v1=v2
+REM        +ve if v1>v2
+DEF FNBTree_CompareNumbers(v1,v2)
+=v1-v2
+DEF FNBTree_CompareStrings(v1,v2)
+IF v1.data$<v2.data$ THEN
+ =-1
+ELSE
+ IF v1.data$>v2.data$ THEN =1
+ENDIF
+=0
+DEF FNBTree_CompareStringsS(v1$,v2)
+IF v1$<v2.data$ THEN
+ =-1
+ELSE
+ IF v1$>v2.data$ THEN =1
+ENDIF
+=0
+:
+DEF FNBTree_CompareStringsI(v1,v2)
+LOCAL x$,y$
+x$=FNCapitalise(v1.data$)
+y$=FNCapitalise(v2.data$)
+IF x$<y$ THEN
+ =-1
+ELSE
+ IF x$>y$ THEN =1
+ENDIF
+=0
+:
+DEFPROCBTree_Delete(item)
+LOCAL cmp
+IF @.less=-1 THEN ENDPROC
+cmp=FN(@.compare.data$)(item,@.data)
+IF cmp<0 THEN
+ IF @.less<>0 THEN
+  PROC@.less.Delete(item)
+  IF @.less.less=-1 THEN
+   @.less=0
+  ENDIF
+ ENDIF
+ ENDPROC
+ELSE
+ IF cmp>0 THEN
+  IF @.more<>0 THEN
+   PROC@.more.Delete(item)
+   IF @.more.less=-1 THEN
+    @.more=0
+   ENDIF
+  ENDIF
+  ENDPROC
+ ELSE
+  IF @.less<>0 THEN
+   REM Move highest from the less branch
+   LOCAL move,last
+   last=@:move=@.less
+   WHILE move.more<>0
+    last=move:move=move.more
+   ENDWHILE
+   IF last<>@ THEN
+    LOCAL oldless,lowest
+    last.more=0
+    oldless=@.less
+    lowest=FNmove.Lowest
+    IF lowest<>0 THEN
+     lowest.less=oldless
+    ELSE
+     move.less=oldless
+    ENDIF
+   ENDIF
+   @.less=move.less:@.data=move.data
+   move.less=0:move.data=0
+  ELSE
+   REM Move lowest from the more branch
+   IF @.more<>0 THEN
+    LOCAL move,last
+    last=@:move=@.more
+    WHILE move.more<>0
+     last=move:move=move.less
+    ENDWHILE
+    IF last<>@ THEN
+     LOCAL oldmore,highest
+     last.less=0
+     oldmore=@.more
+     highest=FNmove.Highest
+     IF highest<>0 THEN
+      highest.more=oldmore
+     ELSE
+      move.more=oldmore
+     ENDIF
+    ENDIF
+    @.more=move.more:@.data=move.data
+    move.more=0:move.data=0
+   ELSE
+    REM This was the last item on a leg
+    @.less=-1
+    @.data=0
+   ENDIF
+  ENDIF
+ ENDIF
+ENDIF
+ENDPROC
+:
+REM Finds lowest item in the tree
+DEFFNBTree_Lowest
+IF @.less=-1 THEN =0
+IF @.less=0 THEN =@
+=FN@.less.Lowest
+:
+REM Finds the highest item in the tree
+DEFFNBTree_Highest
+IF @.less=-1 THEN =0
+IF @.more=0 THEN =@
+=FN@.more.Highest
+:
+DEF PROCBTree_Add(item)
+LOCAL cmp
+IF @.less=-1 THEN
+ @.data=item
+ @.less=0
+ELSE
+ cmp=FN(@.compare.data$)(item,@.data)
+ IF cmp<0 THEN
+  IF @.less=0 THEN
+   @.less= NEW Class_BTree
+   @.less.compare=@.compare
+   @.less.data=item
+  ELSE
+   PROC@.less.Add(item)
+  ENDIF
+ ELSE
+  IF cmp>0 THEN
+   IF @.more=0 THEN
+    @.more= NEW Class_BTree
+    @.more.compare=@.compare
+    @.more.data=item
+   ELSE
+    PROC@.more.Add(item)
+   ENDIF
+  ENDIF
+ ENDIF
+ENDIF
+ENDPROC
+:
+DEF PROCBTree_Iterate(fun$,priv)
+IF @.less<>-1 THEN
+ IF @.less THEN PROC@.less.Iterate(fun$,priv)
+ PROC(fun$)(@.data,priv)
+ IF @.more THEN PROC@.more.Iterate(fun$,priv)
+ENDIF
+ENDPROC
+:
+REM Returns the BTree or '0'
+DEF FNBTree_FindS(key$)
+LOCAL cmp
+IF @.less<>-1 THEN
+ cmp=FN(@.compare.data$+"S")(key$,@.data)
+ CASE SGN(cmp) OF
+  WHEN -1
+   IF @.less THEN=FN@.less.FindS(key$)
+  WHEN 0
+   =@
+  WHEN 1
+   IF @.more THEN=FN@.more.FindS(key$)
+ ENDCASE
+ENDIF
+=0
+:
+REM Oh yuck
+DEFFNBTree_String
+=FN@.Stringy(3)
+:
+DEFFNBTree_Stringy(flags)
+LOCAL a$
+IF @.less<>-1 THEN
+ IF @.less THEN
+  IF (flags AND 1)=1 THEN
+   a$=FN@.less.Stringy(flags AND 1)
+   flags=flags AND NOT 1
+  ELSE
+   a$=FN@.less.Stringy(flags AND 1)
+  ENDIF
+ ENDIF
+ IF (flags AND 1) THEN
+  a$+=FN@.data.String
+ ELSE
+  IF (flags AND 2) AND @.more=0 THEN
+   a$+=" and "+FN@.data.String
+  ELSE
+   a$+=", "+FN@.data.String
+  ENDIF
+ ENDIF
+ IF @.more THEN
+  a$+=FN@.more.Stringy(flags AND 2)
+ ENDIF
+ENDIF
+=a$
+

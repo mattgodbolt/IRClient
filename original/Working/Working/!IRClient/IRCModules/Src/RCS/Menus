@@ -1,0 +1,991 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @@;
+
+
+1.1
+date     97.04.13.17.36.56;  author matt;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Menu handler for IRClient
+/
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >Menus
+REM $Id$
+REM MG v1.00 - Known problems :
+REM         Width of menus seems a bit indeterminate - it's too early in the morning (3am)
+REM         to worry duly about this - Maybe JF can throw some light
+REM         Also Wimp_CreateSubMenu doesn't seem to want to reopen submenus in the right
+REM         place - mebbe I'm giving it the wrong things but I'm not shoor
+REM MG v1.01
+REM         Fiddled a bit to make reopening in the right place more likely
+CHAIN "<IRClient$Dir>.IRCsource"
+END
+
+DEF FNwkspMenus
+[OPT pass%
+.MenuBeingBuilt                 EQUD 0          ; the menu currently being built, or 0
+.MenuNumEntries                 EQUD 0          ; the number of entries in the current menu
+.MenuXSize                      EQUD 0          ; the x size of the current menu
+.MenuYSize                      EQUD 0          ; the y size of the current menu
+.MenuReopenFlag                 EQUD 0          ; set if we are re-opening a chain of menus
+.MenuOpenOffset                 EQUD 0          ; the offset into the menu block we are opening
+.MenusCurrentlyOpen             EQUD MenusCurrentlyOpen%
+]
+=""
+
+DEF FNassembleMenus
+
+MenuDebug% = FALSE
+
+[OPT pass%
+
+; ***************************************************************
+; Name          NewMenu
+; Function      Creates a new [sub]menu
+; On Entry      r0 -> title of menu
+;               r1 -> name of menu
+; On Exit       -
+; Notes
+; ***************************************************************
+
+.NewMenu
+STMFD   R13!,{R0-R7,R14}
+FNfunction("NewMenu")
+; first check to see if an existing menu buffer exists
+LDR     R0,[R12,#MenuBeingBuilt]
+TEQ     R0,#0
+BLNE    FreeAMenu               ; if menu exists, free it
+
+BL      NewBuffer               ; get a new buffer in r0
+
+]
+IF MenuDebug% THEN
+[OPT pass%
+STMFD   R13!,{R0-R7}
+ADR     R1,___buffa
+ADR     R2,___mes
+MOV     R4,R0
+LDR     R3,[R13,#8*4]
+BL      String
+MOV     R0,R1
+BL      PrintString
+LDMFD   R13!,{R0-R7}
+B       ___cont
+.___buffa FNres(96)
+.___mes EQUS "Creating menu '%s' at &%0"+CHR$0:ALIGN
+.___cont
+]
+ENDIF
+[OPT pass%
+
+STR     R0,[R12,#MenuBeingBuilt]; and store it
+
+MOV     R2,#0                   ; set up the menu block in wksp
+STR     R2,[R12,#MenuNumEntries]
+STR     R2,[R12,#MenuXSize]
+MOV     R2,#96
+STR     R2,[R12,#MenuYSize]     ; more setting up
+
+MOV     R0,R1                   ; point r0 at menu name
+BL      Menu_MakeValidation     ; get the validation string
+STR     R0,NewMenu_Block + 4    ; and poke in the right place
+
+LDR     R0,[R13]                ; get title back
+BL      GetStrLen               ; get string length
+ADD     R1,R1,#1                ; Bound to need 1 more byte
+STR     R1,NewMenu_Block + 8    ; and poke in appropriate bit
+
+MOV     R1,R1,LSL #4            ; find actual length of string in OS units
+LDR     R3,[R12,#MenuXSize]     ; is it bigger than the others?
+CMP     R1,R3
+STRGT   R1,[R12,#MenuXSize]     ; if so, store it in
+
+BL      Strdup                  ; dupe string
+STR     R1,NewMenu_Block + 0    ; and poke that in too
+
+LDR     R0,[R12,#MenuBeingBuilt]; get the address of the buffer again
+ADR     R1,NewMenu_Block        ; point r1 at the title block
+MOV     R2,#28                  ; 28 bytes to poke on
+BL      BufferAdd               ; and add them onto the buffer
+
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.NewMenu_Block
+EQUD    0                       ; pointer to title
+EQUD    0                       ; pointer to validation
+EQUD    0                       ; length of title
+EQUB    7                       ; title foreground and frame colour
+EQUB    2                       ; title background
+EQUB    7                       ; w/a foreground
+EQUB    0                       ; w/a background
+EQUD    0                       ; width of menu items
+EQUD    44                      ; height of items
+EQUD    0                       ; vertical gap
+
+:
+
+; ***************************************************************
+; Name          FreeAMenu
+; Function      Frees a menu, releasing all allocated memory
+; On Entry      r0 -> Menu Buffer
+; On Exit       -
+; Notes         Frees the buffer as well by calling FreeBuffer
+; ***************************************************************
+
+
+.FreeAMenu
+STMFD   R13!,{R0-R7,R14}
+FNfunction("FreeAMenu")
+
+]
+IF MenuDebug% THEN
+[OPT pass%
+STMFD   R13!,{R0-R7}
+ADR     R1,___buffa2
+ADR     R2,___mes2
+MOV     R3,R0
+BL      String
+MOV     R0,R1
+BL      PrintString
+LDMFD   R13!,{R0-R7}
+B       ___cont2
+.___buffa2 FNres(64)
+.___mes2 EQUS "Freeing menu at &%0"+CHR$0:ALIGN
+.___cont2
+]
+ENDIF
+[OPT pass%
+
+MOV     R6,R0                           ; keep the buffer in r6
+LDR     R1,[R0,#Buffer_Data]            ; get the actual menu data
+LDR     R0,[R1]                         ; get the menu title, which is always present
+BL      Str_free                        ; and free it
+LDR     R0,[R1,#4]                      ; get the validation string, which is also
+                                        ; always present
+BL      Str_free
+
+LDR     R4,[R12,#MenuBeingBuilt]        ; is this the menu being built?
+TEQ     R4,R6
+MOVNE   R3,#1024                        ; a big number
+BNE     FreeAMenu_NotUnderConstruction
+
+LDR     R3,[R12,#MenuNumEntries]        ; have any entries been written yet?
+TEQ     R3,#0
+BEQ     FreeAMenu_NoEntries
+
+.FreeAMenu_NotUnderConstruction
+
+ADD     R1,R1,#28                       ; point r1 at first entry
+.FreeAMenu_Loop
+LDR     R5,[R1]                         ; get item flags
+TST     R5,#1<<3                        ; is there a sub-menu pointer?
+LDRNE   R0,[R1,#4]
+BLNE    Str_free                        ; free the string there if there is
+LDR     R0,[R1,#12]                     ; always get the entry name
+BL      Str_free                        ; and free it
+LDR     R0,[R1,#16]                     ; get the validation string
+BL      Str_free                        ; and free that too
+ADD     R1,R1,#24                       ; move r1 to point at the next entry
+TST     R5,#1<<7                        ; is this the last entry?
+BNE     FreeAMenu_NoEntries             ; then finish
+SUBS    R3,R3,#1                        ; check for more entries
+BNE     FreeAMenu_Loop                  ; and loop if necessary
+
+.FreeAMenu_NoEntries
+MOV     R0,R6                           ; get the buffer pointer back
+BL      FreeBuffer                      ; and free it
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Menu_MakeValidation
+; Function      Returns a validation string for a given menu name
+; On Entry      r0 -> Name
+; On Exit       r0 -> Strdup'd validation name
+; Notes         r0 actually points to a zero byte followed by
+;               the name
+; ***************************************************************
+
+.Menu_MakeValidation
+STMFD   R13!,{R0-R3,R14}
+FNfunction("Menu_MakeValidation")
+BL      GetStrLen               ; get the length of string
+ADD     R3,R1,#2                ; r3 = r1 + zero term + zero prefix
+BL      Claim                   ; claim memory, r2=memory
+STR     R2,[R13]                ; preserve for return
+MOV     R14,#0                  ; zero prefix
+STRB    R14,[R2],#1             ; poke it in
+.Menu_MakeValidationLoop
+LDRB    R14,[R0],#1
+STRB    R14,[R2],#1
+TEQ     R14,#0
+BNE     Menu_MakeValidationLoop ; simple copy-it-in loop
+FNend
+LDMFD   R13!,{R0-R3,PC}^
+
+:
+
+; ***************************************************************
+; Name          AddMenuEntry
+; Function      Adds a menu entry to the menu being currently created
+; On Entry      r0 -> Text for the entry
+;               r1 -> Procedure to call when clicked on
+;               r2 =  Flag, if non-zero item is unselectable
+;               r3 =  Flag, if non-zero item is ticked
+;               r4 -> Submenu name, or ">" <windowname>
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.AddMenuEntry
+STMFD   R13!,{R0-R7,R14}
+FNfunction("AddMenuEntry")
+
+LDR     R5,[R12,#MenuBeingBuilt]
+TEQ     R5,#0                           ; if we are not generating a menu, drop on floor
+BEQ     AddMenuEntry_Done
+
+MOV     R6,#1<<3                        ; default item flags
+LDR     R14,[R12,#MenuNumEntries]       ; is this the first menu item?
+TEQ     R14,#0
+ORREQ   R6,R6,#1<<8                     ; extra flag - Menu title is indirected
+ADD     R14,R14,#1                      ; increment number of items
+STR     R14,[R12,#MenuNumEntries]       ; and store back
+
+LDR     R7,AddMenuEntry_DefaultIconFlags
+TEQ     R2,#0                           ; is r2 non-zero?
+ORRNE   R7,R7,#1<<22                    ; then make unselectable (Icon flags)
+TEQ     R3,#0                           ; is r3 non-zero?
+ORRNE   R6,R6,#1<<0                     ; then make ticked (Item flags)
+
+LDRB    R14,[R4]                        ; get first char of submenu name
+TEQ     R14,#ASC">"                     ; is this a subwindow?
+TEQNE   R14,#0                          ; or a plain old entry with no sub-stuff
+BICEQ   R6,R6,#1<<3                     ; we don't want user message then
+STR     R6,AddMenuEntry_Block + 0       ; store in item flags
+STR     R7,AddMenuEntry_Block + 8       ; store in icon flags
+
+TEQ     R14,#ASC">"                     ; is this a subwindow?
+BNE     AddMenuEntry_SubMenu            ; not a subwindow? Then it's a submenu
+
+; Deal with sub windows
+LDR     R0,[R12,#EqHandle]              ; get Equinox Wimp Handle in r0
+ADD     R4,R4,#1                        ; point r4 at the window name
+MOV     R1,R4                           ; point r1 there also
+SWI     "EqWimp_HandleFromName"
+CMP     R1,R4                           ; has r1 changed?  IE have we found a window?
+MVNEQ   R1,#0                           ; if not, then disable the submenu
+STR     R1,AddMenuEntry_Block + 4       ; and update the block
+LDMFD   R13,{R0,R1}                     ; get r0 and r1 back
+B       AddMenuEntry_Text               ; and deal with the text
+
+.AddMenuEntry_SubMenu
+TEQ     R14,#0                          ; was the first character a NUL?
+MVNEQ   R14,#0                          ; make r14 minus 1
+STREQ   R14,AddMenuEntry_Block + 4      ; and store in the block
+BEQ     AddMenuEntry_Text               ; and put the text in
+
+MOV     R0,R4                           ; point r0 at the submenu name
+BL      Strdup                          ; duplicate the string
+STR     R1,AddMenuEntry_Block + 4       ; and place that in the block
+LDMFD   R13,{R0,R1}                     ; and re-get r0 and r1
+
+.AddMenuEntry_Text
+MOV     R2,R1                           ; take a temporary copy of r1
+BL      Strdup                          ; duplicate the name
+STR     R1,AddMenuEntry_Block + 12      ; place in the block
+BL      GetStrLen                       ; get the length of the string
+ADD     R1,R1,#1
+STR     R1,AddMenuEntry_Block + 20      ; place in the block
+
+MOV     R1,R1,LSL #4                    ; find actual length of string in OS units
+LDR     R3,[R12,#MenuXSize]             ; is it bigger than the others?
+CMP     R1,R3
+STRGT   R1,[R12,#MenuXSize]             ; if so, store it in
+
+MOV     R0,R2                           ; point r0 at the callback function name
+BL      Menu_MakeValidation             ; get the validation name
+STR     R0,AddMenuEntry_Block + 16      ; and store in
+
+LDR     R0,[R12,#MenuBeingBuilt]        ; get the menu being built
+ADR     R1,AddMenuEntry_Block           ; point at the freshly-built block
+MOV     R2,#24                          ; 24 bytes per entry
+BL      BufferAdd                       ; and put in the buffer
+
+LDR     R0,[R12,#MenuYSize]             ; get the Y size
+ADD     R0,R0,#44                       ; increment
+STR     R0,[R12,#MenuYSize]             ; and store back
+
+.AddMenuEntry_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.AddMenuEntry_DefaultIconFlags
+EQUD    &7000121
+.AddMenuEntry_Block
+EQUD    0                               ; item flags
+EQUD    0                               ; submenu pointer
+EQUD    &7000121                        ; icon flags
+EQUD    0                               ; pointer to entry
+EQUD    0                               ; pointer to validation
+EQUD    0                               ; length of entry
+
+:
+
+; ***************************************************************
+; Name          AddDottedLine
+; Function      Adds a dotted line to the menu currently being built
+; On Entry      -
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.AddDottedLine
+STMFD   R13!,{R0-R7,R14}
+FNfunction("AddDottedLine")
+
+LDR     R0,[R12,#MenuBeingBuilt]
+TEQ     R0,#0                           ; are we actually building a menu?
+LDRNE   R1,[R12,#MenuNumEntries]        ; if so, have we got any entries?
+TEQNE   R1,#0
+BEQ     AddDottedLine_Done              ; silently drop on floor in either case
+
+LDR     R0,[R0,#Buffer_Data]            ; get address of underlying data in buffer
+ADD     R0,R0,#28 - 24                  ; move pointer on past the header
+                                        ; - 24 puts the pointer one entry back - the dotted
+                                        ; line flag refers to the entry *after* the current one
+ADD     R0,R0,R1,LSL #3                 ; r0 = r0 + r1 * 8
+ADD     R0,R0,R1,LSL #4                 ; r0 = r0 + r1 * 8 + r1 * 16 = r0 + r1 * 24
+LDR     R1,[R0]                         ; get flags
+ORR     R1,R1,#1<<1                     ; make dotted after
+STR     R1,[R0]                         ; and put flags back
+
+LDR     R1,[R12,#MenuYSize]             ; get height
+ADD     R1,R1,#24                       ; add height of dotted line
+STR     R1,[R12,#MenuYSize]             ; and store back
+
+.AddDottedLine_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          OpenMenu
+; Function      Opens a menu, or submenu
+; On Entry      r0 =  x position to display menu at
+;               r1 =  y position to display menu at, or -1, in
+;               which case menu will be displayed as if it were
+;               an iconbar menu
+; On Exit       -
+; Notes         Deals with opening of root menus, opening of
+;               submenus, and re-opening of both of the above
+; ***************************************************************
+
+.OpenMenu
+STMFD   R13!,{R0-R7,R14}
+FNfunction("OpenMenu")
+
+LDR     R0,[R12,#MenuBeingBuilt]                ; is there a menu being built?
+TEQ     R0,#0
+BEQ     OpenMenu_Done                           ; ignore if no menu being built
+
+LDR     R1,[R12,#MenuNumEntries]                ; are there any entries to this menu?
+TEQ     R1,#0
+ADREQ   R1,OpenMenu_BlankMenu                   ; if none, put in a blank menu entry 'none'
+MOVEQ   R2,#24
+BLEQ    BufferAdd                               ; add to buffer
+MOVEQ   R1,#1                                   ; there is now one entry
+
+LDR     R0,[R0,#Buffer_Data]                    ; get the address of the menu proper
+ADD     R2,R0,#28 - 24                          ; skip the header
+ADD     R2,R2,R1,LSL #3
+ADD     R2,R2,R1,LSL #4                         ; find the last entry
+LDR     R3,[R2]                                 ; get the flags
+ORR     R3,R3,#1<<7                             ; this is the last entry
+STR     R3,[R2]                                 ; and store it back
+
+LDR     R14,[R12,#MenuXSize]                    ; get the x size
+STR     R14,[R0,#16]                            ; and store into the block
+
+; At this stage we have a complete menu block ready to be displayed
+; We must now decide what to do with it
+; If MenuReopenFlag is zero, we are not re-opening a menu:
+;  The current set of open menus is stored sequentially at .MenusCurrentlyOpen
+;  The position we have to open our menu is at offset [R12,#MenuOpenOffset]
+;  We have to free all of the menus we are replacing before we can open our menu,
+;  store it at MenusCurrentlyOpen + MenuOpenOffset, and place a zero word after
+; else if MenuReopenFlag is non-zero, we are re-opening an existing chain of menus:
+;  We must compare our menu structure with that at MenusCurrentlyOpen + MenuOpenOffset
+;  and only replace one with the other if it has changed
+
+LDR     R4,[R12,#MenuReopenFlag]
+TEQ     R4,#0
+BNE     OpenMenu_ReopenMenu                     ; are we re-opening?
+
+.OpenMenu_OpenMenu
+MOV     R4,R0                                   ; take a temporary copy of r0
+LDR     R0,[R12,#MenuOpenOffset]                ; get the offset at which to open
+LDR     R14,[R12,#MenusCurrentlyOpen]           ; get the absolute address
+ADD     R0,R0,R14
+BL      FreeMenuChain                           ; and free the chain
+
+LDR     R1,[R12,#MenuBeingBuilt]                ; get the address of the buffer
+STR     R1,[R0]                                 ; and store our buffer in
+MOV     R14,#0
+STR     R14,[R0,#4]                             ; place the terminator after this menu
+STR     R14,[R12,#MenuBeingBuilt]               ; and orphan the buffer.  It will now be
+                                                ; freed when the menu closes, or another
+                                                ; replaces it
+
+MOV     R1,R4                                   ; r1 points to the menu block
+LDR     R2,[R13]                                ; r2 is the x co-ordinate
+LDR     R3,[R13,#4]                             ; r3 is the y co-ordinate
+CMN     R3,#1                                   ; is r3 = -1 ie is this an iconbar menu?
+LDREQ   R3,[R12,#MenuYSize]                     ; if so, get the appropriate size
+
+LDR     R0,[R12,#MenuOpenOffset]
+TEQ     R0,#0                                   ; is this a root menu?
+SWIEQ   "Wimp_CreateMenu"
+SWINE   "Wimp_CreateSubMenu"
+B       OpenMenu_Done                           ; ta-da - we've finished!
+
+.OpenMenu_ReopenMenu                            ; at this point r0->menu to open
+LDR     R1,[R12,#MenuOpenOffset]                ; get the offset to menu we're reopening
+LDR     R2,[R12,#MenusCurrentlyOpen]
+LDR     R1,[R2,R1]                              ; get the menu buffer
+LDR     R1,[R1,#Buffer_Data]                    ; get the menu block
+BL      Menu_Compare                            ; are they the same?
+BEQ     OpenMenu_ReopenMenu_Equiv
+MVN     R1,#0                                   ; set r1 to -1
+SWI     "Wimp_CreateMenu"                       ; and hose the menu chain
+B       OpenMenu_Done
+
+.OpenMenu_ReopenMenu_Equiv
+LDR     R0,[R12,#MenuBeingBuilt]                ; otherwise, this one is identical, so we
+                                                ; use the previously alloced menu so the WIMP
+                                                ; is tricked into reopening it in the same place
+BL      FreeAMenu                               ; free the new one
+MOV     R0,#0
+STR     R0,[R12,#MenuBeingBuilt]                ; we have freed the new one, so mark is as so
+
+                                                ; r1 is already pointing to the old menu,
+                                                ; WIMP should ignore r2 and r3, as this menu
+                                                ; already exists
+LDR     R0,[R12,#MenuOpenOffset]
+TEQ     R0,#0                                   ; is this a root menu?
+
+SWIEQ   "Wimp_CreateMenu"
+SWINE   "Wimp_CreateSubMenu"
+
+.OpenMenu_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.OpenMenu_BlankMenu
+EQUD    1<<7
+EQUD    -1
+EQUD    &7000021 OR 1<<22                       ; not indirected
+EQUS    "none"
+EQUD    0
+EQUD    0
+
+.MenusCurrentlyOpen% ; currently RO3.6 limits us to 8 open, but this is suitable overkill
+; these are the buffers allocated to each level of the menu tree
+EQUD 0:EQUD 0:EQUD 0:EQUD 0
+EQUD 0:EQUD 0:EQUD 0:EQUD 0
+EQUD 0:EQUD 0:EQUD 0:EQUD 0
+EQUD 0:EQUD 0:EQUD 0:EQUD 0
+
+:
+
+; ***************************************************************
+; Name          FreeMenuChain
+; Function      Frees a zero terminated list of menus
+; On Entry      r0 -> list of menus
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.FreeMenuChain
+STMFD   R13!,{R0-R7,R14}
+FNfunction("FreeMenuChain")
+
+MOV     R2,R0                   ; take a copy of r0
+
+.FreeMenuChain_Loop
+LDR     R0,[R2]                 ; get the buffer address
+TEQ     R0,#0                   ; check, is this the last one?
+BEQ     FreeMenuChain_Done
+
+BL      FreeAMenu               ; free this menu, and the buffer
+
+MOV     R0,#0
+STR     R0,[R2],#4              ; zero the chain, to prevent catastrophies
+B       FreeMenuChain_Loop
+
+.FreeMenuChain_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+
+:
+
+; ***************************************************************
+; Name          Menu_Compare
+; Function      Compares two menu blocks, copying flag info across
+;               from r0 to r1 if it differs
+; On Entry      r0 -> one menu block
+;               r1 -> another menu block
+; On Exit       Zero flag set if menus are identical
+; Notes         -
+; ***************************************************************
+
+.Menu_Compare
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Menu_Compare")
+
+; as string comparison routines need r0 and r1, we move parameters to r2 and r3
+MOV     R2,R0
+MOV     R3,R1
+
+; now check the titles of the two menus
+LDR     R0,[R2,#8]
+LDR     R1,[R3,#8]                      ; get the length
+CMP     R0,R1
+BNE     Menu_Compare_Done               ; if the length is different, they can't be the same
+
+LDR     R0,[R2]
+LDR     R1,[R3]                         ; get the name of the two menus
+BL      CheckSame                       ; and see if they are the same
+BNE     Menu_Compare_Done               ; if not, exit
+
+LDR     R0,[R2,#4]
+LDR     R1,[R3,#4]                      ; get the menu name
+ADD     R0,R0,#1
+ADD     R1,R1,#1                        ; move past the null
+BL      CheckSame                       ; and see if they are the same
+BNE     Menu_Compare_Done               ; if not, exit
+
+; xxx For some reason, two identical menus have differing widths
+
+;LDR     R0,[R2,#16]                     ; get width of the two menus
+;LDR     R1,[R3,#16]
+;CMP     R0,R1
+;BNE     Menu_Compare_Done               ; if different widths, they're different
+
+ADD     R2,R2,#28
+ADD     R3,R3,#28                       ; move the two pointers on to the menu items
+
+.Menu_Compare_Each_Item
+LDR     R0,[R2]
+LDR     R1,[R3]                         ; get the flags of the two menus
+
+BIC     R1,R1,#1                        ; clear the 'tick bit'
+TST     R0,#1                           ; has the source been ticked?
+ORRNE   R1,R1,#1                        ; if so, then tick the destination
+STR     R1,[R3]                         ; and store back
+
+CMP     R0,R1
+BNE     Menu_Compare_Done               ; still not the same?  Exit
+
+MOV     R4,R0                           ; keep one of them, for later checks to see if this
+                                        ; is the last entry
+
+LDR     R0,[R2,#4]                      ; get the submenu pointer
+LDR     R1,[R3,#4]                      ; and the other one
+CMP     R0,R1                           ; if they are the same, then that's ok
+BEQ     Menu_SubMenus_Are_Equivalent
+                                        ; otherwise, we need to check to see if either
+                                        ; are minus 1, in which case we can't string compare
+TEQ     R0,#0
+TEQPL   R1,#0
+BMI     Menu_Compare_Not_Same           ; if either is -1, they patently aren't the same
+
+BL      CheckSame                       ; compare the strings
+BNE     Menu_Compare_Done               ; if not same, menus differ
+
+.Menu_SubMenus_Are_Equivalent
+LDR     R0,[R2,#8]
+LDR     R1,[R3,#8]                      ; get icon flags
+
+BIC     R1,R1,#1<<22                    ; clear the 'grey bit'
+TST     R0,#1<<22                       ; has the source been greyed?
+ORRNE   R1,R1,#1<<22                    ; if so, then grey the destination
+STR     R1,[R3,#8]                      ; and store back
+
+CMP     R0,R1
+BNE     Menu_Compare_Done               ; flags differ -> menus differ
+
+LDR     R0,[R2,#20]                     ; get length of entry
+LDR     R1,[R3,#20]
+CMP     R0,R1
+BNE     Menu_Compare_Done               ; lengths differ -> menus differ
+
+LDR     R0,[R2,#12]
+LDR     R1,[R3,#12]                     ; get string names
+BL      CheckSame                       ; compare
+BNE     Menu_Compare_Done               ; entries differ -> menus differ
+
+LDR     R0,[R2,#16]
+LDR     R1,[R3,#16]                     ; get function names
+ADD     R0,R0,#1
+ADD     R1,R1,#1                        ; move past the zero byte
+BL      CheckSame                       ; compare
+BNE     Menu_Compare_Done               ; function names differ -> menus differ
+
+; if we got here, then the entry matches - wooo!! Now check the rest
+
+ADD     R2,R2,#24
+ADD     R3,R3,#24                       ; move the pointers on
+
+TST     R4,#1<<7                        ; was that the last one?
+BEQ     Menu_Compare_Each_Item          ; if not loop
+
+CMP     R0,R0                           ; set EQ flag
+
+.Menu_Compare_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}
+.Menu_Compare_Not_Same
+CMP     PC,#0                           ; unlikely that pc = 0 ! so sets NE
+B       Menu_Compare_Done               ; can't be bothered to LDM here
+:
+
+; ***************************************************************
+; Name          MenusDeleted
+; Function      WIMP has informed us our menus have been deleted
+; On Entry      [WimpArea must be as called by Wimp]
+; On Exit       -
+; Notes         We must ignore it if we are regenerating the menus ourself
+; ***************************************************************
+
+.MenusDeleted
+STMFD   R13!,{R0-R7,R14}
+FNfunction("MenusDeleted")
+
+LDR     R0,[R12,#MenusCurrentlyOpen]    ; the list of menus that are open currently
+
+LDR     R1,[R12,#WimpArea]              ; get the Wimp Area
+LDR     R1,[R1,#20]                     ; get the menu tree
+
+LDR     R2,[R0]                         ; get the buffer of the menu tree we've opened
+LDR     R2,[R2,#Buffer_Data]            ; get the menu itself
+
+CMP     R1,R2                           ; is it the same?
+BNE     MenusDeleted_Done               ; if not, then we've sorted it out ourselves
+
+LDR     R0,[R12,#MenusCurrentlyOpen]
+BL      FreeMenuChain                   ; and free the menu chain
+
+.MenusDeleted_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          OpenSubMenuRequest
+; Function      Opens a sub menu, on request from the WIMP
+; On Entry      r0 -> Wimp message block + 20
+; On Exit       -
+; Notes         Format of the block pointed to by r0:
+;               +0 -> Name of the menu to open
+;               +4 =  X position to open at
+;               +8 =  Y position to open at
+;               +12...List of menu selections, terminated by -1
+; ***************************************************************
+
+.OpenSubMenuRequest
+STMFD   R13!,{R0-R7,R14}
+FNfunction("OpenSubMenuRequest")
+
+; first, we must set up MenuOpenOffset accordingly
+ADD     R2,R0,#12               ; point r2 at the list of menu selections
+MOV     R1,#0                   ; r1 will be the new MenuOpenOffset
+
+.OpenSubMenuRequest_CountLoop
+LDR     R14,[R2],#4             ; get the menu selection
+CMN     R14,#1                  ; is it minus one?
+ADDNE   R1,R1,#4                ; if not, then we have to open past this menu
+BNE     OpenSubMenuRequest_CountLoop
+
+STR     R1,[R12,#MenuOpenOffset]; store the freshly calculated value in
+
+LDMIA   R0,{R0-R2}
+BL      CreateAndOpenSubMenu    ; and create, voil ENDPROC!
+
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          CreateAndOpenSubMenu
+; Function      Open a sub menu
+; On Entry      r0 -> sub menu
+;               r1 =  X position
+;               r2 =  Y position
+; On Exit       -
+; Notes         Assumes the MenuOpenOffset has been set up
+; ***************************************************************
+
+.CreateAndOpenSubMenu
+STMFD   R13!,{R0-R7,R14}
+FNfunction("CreateAndOpenSubMenu")
+
+STR     R0,OpenMenuRequest_Block+4
+STR     R1,OpenMenuRequest_Block+12
+STR     R2,OpenMenuRequest_Block+20     ; store in the parameters
+
+ADR     R0,OpenMenuRequest_Proc         ; name of the proc to call
+MOV     R1,#3                           ; there are 3 parameters
+ADR     R2,OpenMenuRequest_Block        ; point at the block
+
+BL      CallRootProcedure               ; and call the function
+
+FNend
+LDMFD R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          CreateAndOpenMenuAtMouse
+; Function      Reads the position of the mouse, and opens the
+;               desired menu there
+; On Entry      r0 -> name of menu
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.CreateAndOpenMenuAtMouse
+STMFD   R13!,{R0}
+LDR     R1,[R12,#WimpArea]
+SWI     "Wimp_GetPointerInfo"           ; ask where the pointer is
+LDMIA   R1,{R1,R2}                      ; get x and y
+SUB     R1,R1,#64                       ; move x back a bit, as per acorn docs
+LDMFD   R13!,{R0}                       ; restore r0 and drop down to CreateAndOpenMenu
+;B      CreateAndOpenMenu
+
+; ***************************************************************
+; Name          CreateAndOpenMenu
+; Function      Asks IRBasic to open the specified menu, as a root menu
+; On Entry      r0 -> name of menu
+;               r1 =  x position
+;               r2 =  y position
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.CreateAndOpenMenu
+STMFD   R13!,{R0-R7,R14}
+FNfunction("CreateAndOpenMenu")
+
+STR     R0,OpenMenuRequest_Block+4
+STR     R1,OpenMenuRequest_Block+12
+STR     R2,OpenMenuRequest_Block+20     ; store in the parameters
+
+MOV     R0,#0                           ; zero the MenuOpenOffset
+STR     R0,[R12,#MenuOpenOffset]
+
+ADR     R0,OpenMenuRequest_Proc         ; name of the proc to call
+MOV     R1,#3                           ; there are 3 parameters
+ADR     R2,OpenMenuRequest_Block        ; point at the block
+
+BL      CallRootProcedure               ; and call the function
+
+FNend
+LDMFD R13!,{R0-R7,PC}^
+.OpenMenuRequest_Proc
+EQUS    "Menu_OpenMenu"+CHR$0:ALIGN
+.OpenMenuRequest_Block
+EQUD    fptrStr:        EQUD    0               ; the name of the menu
+EQUD    fptrNum:        EQUD    0
+EQUD    fptrNum:        EQUD    0               ; x and y
+
+:
+
+; ***************************************************************
+; Name          HandleMenuSelection
+; Function      Deals with a selection of a menu
+; On Entry      r0 -> block from the WIMP
+; On Exit       -
+; Notes         Block from the WIMP is a -1 terminated list of
+;               selection numbers
+; ***************************************************************
+
+.HandleMenuSelection
+STMFD   R13!,{R0-R7,R14}
+FNfunction("HandleMenuSelection")
+
+MOV     R14,#1
+STR     R14,[R12,#MenuReopenFlag]       ; we aren't reopening but this prevents
+                                        ; calls to Wimp_Poll during menu handling
+
+MOV     R2,R0                           ; get a copy of r0
+MOV     R1,#0                           ; r1 is the selection number
+LDR     R3,[R12,#MenusCurrentlyOpen]    ; r3 is the menu we are looking at
+
+.HandleMenuSelection_FindMenuLoop
+LDR     R0,[R2],#4                      ; get the number of the selection
+CMN     R0,#1                           ; is this the end of the selection?
+MOVNE   R1,R0                           ; if not, r1 is the selection number
+ADDNE   R3,R3,#4                        ; and we are looking at a different menu
+BNE     HandleMenuSelection_FindMenuLoop
+
+LDR     R3,[R3,#-4]                     ; dereference the buffer pointer, -4 for obvious reasons
+
+; at this point, r3 points to the appropriate menu buffer, with the selection being
+; number r1
+
+LDR     R2,[R3,#Buffer_Data]            ; r2 is the menu itself
+ADD     R2,R2,#28                       ; skip the menu header
+ADD     R2,R2,R1,LSL #3
+ADD     R2,R2,R1,LSL #4                 ; r2 now points to the menu entry itself
+
+LDR     R4,[R2,#16]                     ; get the validation string
+TEQ     R4,#0                           ; if null, exit
+BEQ     HandleMenuSelection_CheckOpenTransient
+LDRB    R14,[R4]                        ; or, if the first char isn't a NUL
+CMP     R14,#0                          ; then see if we can open the transient
+BNE     HandleMenuSelection_CheckOpenTransient
+
+ADD     R0,R4,#1                        ; r0 now points to the function to call
+LDRB    R14,[R0]                        ; is there anything to call?
+TEQ     R14,#0
+BEQ     HandleMenuSelection_CheckOpenTransient
+
+BL      CallRootProcedureWithParams     ; and call it - wooohhh!!
+MOV     R0,#0
+STR     R0,[R12,#MenuReopenFlag]
+B       HandleMenuSelection_CheckReopen
+
+.HandleMenuSelection_CheckOpenTransient
+LDR     R0,[R2,#4]                      ; does this window have a sub window?
+CMN     R0,#1                           ; if -1, then no
+BEQ     HandleMenuSelection_CheckReopen
+
+LDR     R4,[R2]                         ; get the item flags
+TST     R4,#(1<<3)                      ; is it a submenu
+BNE     HandleMenuSelection_CheckReopen ; yup, so its not a sub window!
+
+MOV     R4,R0                           ; keep the window handle safe
+LDR     R1,[R12,#WimpArea]              ; point r1 at the WimpBlock
+SWI     "Wimp_GetPointerInfo"
+LDMIA   R1,{R2,R3}                      ; get x and y
+MOV     R1,R4                           ; get the window handle in r1
+SUB     R2,R2,#64                       ; move x back a bit
+SWI     "Wimp_CreateMenu"               ; this will cause us to receive a
+                                        ; Message_MenusDeleted, so no need to free anything
+                                        ; here
+B       HandleMenuSelection_Done
+
+.HandleMenuSelection_CheckReopen
+
+LDR     R1,[R12,#WimpArea]              ; get the wimparea
+SWI     "Wimp_GetPointerInfo"           ; get the pointer information
+LDR     R1,[R1,#8]                      ; get the button state
+TST     R1,#1                           ; is adjust being pressed?
+BEQ     HandleMenuSelection_Free        ; nope
+
+; we want to re-open the menu chain - *gulp*
+MOV     R0,#1
+STR     R0,[R12,#MenuReopenFlag]        ; we are reopening the menu
+
+LDR     R6,[R12,#MenusCurrentlyOpen]    ; get the first buffer
+MOV     R7,#0                           ; a flag saying whether this is the root or not
+
+.HandleMenuSelection_Reopen_Loop
+LDR     R0,[R6],#4                      ; dereference
+TEQ     R0,#0                           ; have we done?
+BEQ     HandleMenuSelection_Reopen_Done
+
+LDR     R0,[R0,#Buffer_Data]            ; get the data within
+LDR     R0,[R0,#4]                      ; get the title's validation
+ADD     R0,R0,#1                        ; move past the NUL, r0 now points to the menu name
+
+TEQ     R7,#0                           ; is this a root menu?
+BLEQ    CreateAndOpenMenu               ; and open it, if it is a root
+STRNE   R7,[R12,#MenuOpenOffset]        ; otherwise set up menu open offset
+BLNE    CreateAndOpenSubMenu            ; and open it as a submenu
+ADD     R7,R7,#4                        ; move on a bit
+B       HandleMenuSelection_Reopen_Loop
+
+.HandleMenuSelection_Reopen_Done
+MOV     R0,#0
+STR     R0,[R12,#MenuReopenFlag]        ; we are no longer re-opening
+B       HandleMenuSelection_Done        ; and finish
+
+.HandleMenuSelection_Free
+LDR     R0,[R12,#MenusCurrentlyOpen]
+BL      FreeMenuChain                   ; free the menus, as we have finished with them
+MVN     R1,#0
+SWI     "Wimp_CreateMenu"               ; ensure we receive 'Wimp_MenusDeleted' for various
+                                        ; reasons
+
+.HandleMenuSelection_Done
+MOV     R0,#0
+STR     R0,[R12,#MenuReopenFlag]
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+; ***************************************************************
+; Name          ResetMenuSystem
+; Function      Resets the menu system to a safe state on an error
+; On Entry      -
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.ResetMenuSystem
+STMFD   R13!,{R0-R7,R14}
+
+MOV     R0,#0
+STR     R0,[R12,#MenuReopenFlag]        ; no longer re-opening
+
+LDR     R0,[R12,#MenuBeingBuilt]
+TEQ     R0,#0
+BLNE    FreeAMenu                       ; free any half-built menu
+
+LDR     R0,[R12,#MenusCurrentlyOpen]
+BL      FreeMenuChain                   ; and free the menus
+
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Menu_Select
+; Function      Deals with menu selections from the WIMP
+; On Entry      r1 -> Wimp block
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.Menu_Select
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Menu_Select")
+MOV     R0,R1
+BL      HandleMenuSelection
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+]
+=""
+@

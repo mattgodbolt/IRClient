@@ -1,0 +1,282 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.02.02.15.55.00;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Channel management in IRClient. Without this no
+updates will occur in the panes.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM > Channel
+REM Channel handling
+REM Required if you want the channel list pane to work at all
+REM (c) Justin Fletcher
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+LOCAL Channels
+:
+DEFPROCInitialiseModule
+REM A class to handle channel a channel
+Class_Channel=FNRegisterClass("Channel")
+PROCAddField(Class_Channel,"name$")
+PROCAddField(Class_Channel,"topic$")
+PROCAddField(Class_Channel,"flags")
+PROCAddField(Class_Channel,"users")
+PROCAddField(Class_Channel,"bans")
+PROCAddField(Class_Channel,"pending")
+REM 0 means NAMES pending
+REM 1 means BANS pending
+REM 2 means a normal request
+:
+Channels=FNnewList
+:
+REM Pass it on
+PROC@@
+ENDPROC
+:
+DEFFNnewChannel(name$)
+LOCAL new
+new= NEW Class_Channel
+new.name$=name$
+new.users=FNnewList
+new.bans=FNnewList
+=new
+:
+DEFFNChannel_CompareS(key$)
+IF INSTR("01",LEFT$(key$,1))<>0 THEN
+ LOCAL val
+ val=VAL(LEFT$(key$,1))
+ =FNstricmp(MID$(key$,2),@@.name$) AND (@@.pending=val)
+ENDIF
+=FNstricmp(key$,@@.name$)
+:
+DEFPROCJoinChannel(channel$)
+REM Pass it on first
+PROC@@(channel$)
+REM Then do our work
+LOCAL chan
+chan=FNChannels.FindS(channel$)
+IF chan=0 THEN
+ REM Not there
+ chan=FNnewChannel(channel$)
+ REM Find out who is on the channel
+ PROCSendToIRC("NAMES "+channel$)
+ REM And check the bans
+ PROCSendToIRC("MODE "+channel$+" +b")
+ REM Add it to the list
+ PROCChannels.Add(chan)
+ELSE
+ REM This should never happen
+ ERROR "Unstable channel list in module Channel on join"
+ENDIF
+ENDPROC
+:
+DEFPROCLeftChannel(channel$)
+REM Pass it on first
+PROC@@(channel$)
+REM Then do our work
+LOCAL chan
+chan=FNChannels.FindS(channel$)
+IF chan=0 THEN
+ REM Shouldn't ever happen
+ ERROR "Unstable channel list in module Channel on part"
+ELSE
+ PROCChannels.Delete(chan.data)
+ENDIF
+ENDPROC
+:
+REM Replace the old routine to get a 'real' channel UID
+DEFFNgetChannelUID(uid$,channel$)
+LOCAL chan,uid
+chan=FNChannels.FindS(channel$)
+IF chan=0 THEN =FNnewUID(uid$)
+uid=FNchan.data.users.FindS(uid$)
+REM We don't get passed the channel UID
+IF uid=0 THEN =FNnewUID(uid$)
+uid=uid.data
+IF uid.host$="" THEN
+ LOCAL new
+ REM Ensures that new information about the user is
+ REM added to the UID found
+ new=FNnewUID(uid$)
+ uid.host$=new.host$:uid.login$=new.login$
+ENDIF
+=uid
+:
+DEFPROCOverload_ServerResponse(code,line$)
+IF (code <> 353) AND (code < 366 OR code >368) THEN
+ PROC@@(code,line$)
+ELSE
+ LOCAL chan,channel$,oldline$
+ oldline$=line$
+ IF code=353 THEN line$=FNmoveon(line$)
+ channel$=FNoneparam(line$)
+ IF code=353 OR code=366 THEN
+  chan=FNChannels.FindS("0"+channel$)
+ ELSE
+  chan=FNChannels.FindS("1"+channel$)
+ ENDIF
+ IF chan<>0 THEN
+  chan=chan.data
+  CASE code OF
+   WHEN 353
+    REM RPL_NAMREPLY
+    LOCAL nick$,uid
+    line$=FNmoveon(line$):line$=FNoneparam(line$)
+    WHILE line$<>""
+     nick$=FNoneparam(line$)
+     uid=FNchan.users.FindS(nick$)
+     REM If it already exists, delete it
+     IF uid<>0 THEN PROCchan.users.Delete(uid.data)
+     uid=FNnewUID(nick$)
+     PROCUpdateUser(uid.nick$,channel$,uid.flags)
+     PROCchan.users.Add(uid)
+     line$=FNmoveon(line$)
+    ENDWHILE
+   WHEN 366
+    REM RPL_ENDOFNAMES
+    chan.pending=1
+    PROCchan.users.Iterate("Channel_UserShowTest")
+   WHEN 367
+    REM RPL_BANLIST
+    LOCAL uid
+    line$=FNmoveon(line$):uid=FNnewUID(line$)
+    PROCchan.bans.Add(uid)
+   WHEN 368
+    REM RPL_ENDOFBANS
+    chan.pending=2
+    PROCchan.bans.Iterate("Channel_BanShowTest")
+  ENDCASE
+ ELSE
+  PROC@@(code,oldline$)
+ ENDIF
+ENDIF
+ENDPROC
+:
+DEFPROCChannel_UserShowTest(uid)
+PRINT"On channel, UID : "+uid.string$
+ENDPROC
+:
+DEFPROCChannel_BanShowTest(uid)
+PRINT"Bans : "+uid.string$
+ENDPROC
+:
+DEFPROCOverload_On_Join(uid,channel$)
+LOCAL chan
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ PROCchan.data.users.Add(FNuid.Copy)
+ PROCUpdateUser(uid.nick$,channel$,0)
+ENDIF
+REM Pass on
+PROC@@(uid,channel$)
+ENDPROC
+:
+DEFPROCOverload_On_Part(uid,channel$)
+LOCAL chan,newuid
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ PROCchan.data.users.Delete(uid)
+ PROCDeleteUser(uid.nick$,channel$)
+ENDIF
+REM Pass on
+PROC@@(uid,channel$)
+ENDPROC
+:
+DEFPROCOverload_On_Kick(uid,channel$,victim$,reason$)
+LOCAL chan,newuid
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ newuid=FNchan.users.FindS(victim$)
+ IF newuid<>0 THEN
+  PROCchan.data.users.Delete(newuid.data)
+  PROCDeleteUser(newuid.nick$,channel$)
+ ENDIF
+ENDIF
+REM Pass on
+PROC@@(uid,channel$,victim$,reason$)
+ENDPROC
+:
+DEFPROCOverload_On_Kill(uid,channel$,victim$,reason$)
+LOCAL chan,newuid
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ newuid=FNchan.users.FindS(victim$)
+ IF newuid<>0 THEN
+  PROCchan.data.users.Delete(newuid.data)
+  PROCDeleteUser(newuid.nick$,channel$)
+ ENDIF
+ENDIF
+REM Pass on
+PROC@@(uid,channel$,victim$,reason$)
+ENDPROC
+:
+DEFPROCOverload_On_Quit(uid,channel$,reason$)
+LOCAL chan,newuid
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ PROCchan.data.users.Delete(uid.data)
+ PROCDeleteUser(uid.nick$,channel$)
+ENDIF
+REM Pass on
+PROC@@(uid,channel$,victim$,reason$)
+ENDPROC
+:
+DEFPROCOverload_On_Nick(uid,channel$,nick$)
+REM Pass on first
+PROC@@(uid,channel$,nick$)
+REM Now process
+IF FNisachannel(channel$) THEN
+ REM Change the nickname
+ PROCDeleteUser(uid.nick$,channel$)
+ uid.nick$=nick$
+ PROCUpdateUser(uid.nick$,channel$,uid.flags)
+ENDIF
+ENDPROC
+:
+DEFPROCOverload_On_Op(uid,channel$,nick$,state)
+LOCAL chan,newuid
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ chan=chan.data
+ newuid=FNchan.users.FindS(nick$)
+ IF newuid<>0 THEN newuid.data.flags=FNFlagChange(newuid.data.flags,U_HasOps,state)
+ PROCUpdateUser(newuid.nick$,channel$,newuid.flags)
+ENDIF
+REM Pass on
+PROC@@(uid,channel$,nick$,state)
+ENDPROC
+:
+DEFPROCOverload_On_Voice(uid,channel$,nick$,state)
+LOCAL chan,newuid
+chan=FNChannels.FindS(channel$)
+IF chan<>0 THEN
+ newuid=FNchan.users.FindS(nick$)
+ IF newuid<>0 THEN newuid.flags=FNFlagChange(newuid.flags,U_HasVoice,state)
+ PROCUpdateUser(newuid.nick$,channel$,newuid.flags)
+ENDIF
+REM Pass on
+PROC@@(uid,channel$,nick$,state)
+ENDPROC
+@

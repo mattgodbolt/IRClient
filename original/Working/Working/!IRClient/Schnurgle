@@ -1,0 +1,19 @@
+Yo Gerph!
+
+Things I'll probably forget in the email message:
+
+The window system is implemented, with any changes in the 'thing' file.  There may be bugs - I've just hacked your ancient window system to try and be like the new system for test purposes, as you'll see.
+
+A big bug you've probably noticed is using PROC@ inside the constructors; this has been fixed!
+
+Any probs don't hesitate to mail me - I'll be in tomorrow night probably, but during the day will be visiting my mate Richard (of !Blurp fame)
+
+Take care, and May the 4th be with you!
+
+Matt
+-==-
+
+PS>   TBAFS included - if you don't tell Martin I won't - just don't distribute it as it is a 'special' build that could be potentially traced back to me..
+
+PPS>  Will ask Martin at work anyway
+PPPS> TBAFS only criticism - toolbox front end!  Blurg!!

@@ -1,0 +1,10 @@
+                                The X-Files module
+                                ------------------
+                                
+The X-Files module is required for the help system due to it's use of long
+filenames. To make life easier on the general populace and to stop my
+worrying who has X-Files I am providing the module. I believe it to be
+written by Wonderworks, but I forget exactly as there is no documentation in
+the actual application I extracted it from.
+
+I believe it to be distributable.

@@ -1,0 +1,86 @@
+                                SendMessagePatch
+                                ================
+
+Version 1.00 (16 Mar 1998)
+     
+Introduction
+------------
+This is a minor patch for Wimp_SendMessage. Basically, there is a 'bug' in
+the Wimp which has only come to light recently causing the sender and my_ref
+fields of any Wimp_SendMessage block to not be updated if they live in a
+dynamic area.
+
+This patch means they will be updated.
+
+
+Usage
+-----
+   Run the !Create file. That's it.
+   Hopefully, the code will be assembled with no errors and all that in
+future will be required is the running of the !Run code file.
+
+    
+How it works
+------------
+The code simply copies the message block to an area of memory we /can/ update,
+sends the message, then returns the correct parameters to the caller.
+Re-entrancy is not dealt with, so if you want to send multiple messages on a
+SendMessage (by WimpSWIve, etc) you're going to come unstuck.
+
+
+Disclaimer
+----------
+  The author accepts no responsibility for any problems which this
+application may cause or loss of data resulting in its use. This application
+is Public Domain Freeware. This means that it may be distributed, so long as
+no charge other than copying costs are charged for it.
+  
+
+Source code
+-----------
+   This program requires the !JFPatch pre-assembler to make the code. This is
+a simple text-to-basic assembler which takes a text assembler file, makes a
+basic program from it to assemble, assembles it and returns any errors. It is
+available from Justin Fletcher's website (users.essex.ac.uk/users/gerph) or
+directly by mailing to Gerph@essex.ac.uk.
+   All source code and the resultant module must be distributed together.
+
+
+WimpSWIVe
+---------
+   This program require WimpSWIve (v0.05) to be installed before it will run
+correctly. It provides easy access to filtering Wimp calls other than
+Wimp_Poll (provided by FilterManager) and is provided with NewerLook (which
+is ok, but takes a bit of getting used to).
+   The WimpSWIVe module is © Andrew Clover, and if copied should be copied
+with the documentation which is provided. Refer to the file WSWI-Help for
+more details.
+
+
+Contact
+-------
+Any comments, queries, donations or bug reports can be sent to Justin
+Fletcher at :
+
+E-Mail : Gerph@essex.ac.uk
+URL    : http://users.essex.ac.uk/users/gerph
+IRC    : On #Acorn as Gerph
+Finger : finger jrflet@postman.essex.ac.uk
+Tel    : (01842) 813979
+
+Snail Mail :
+    Justin Fletcher
+    ”Galadriel•
+    17b Cromwell Road,
+    Weeting,
+    Brandon,
+    Suffolk.
+    IP27 0QT
+
+
+History
+-------
+Version 1.00 : 16 Mar 1998
+               Written after seeing so many peoples comments in the
+               newsgroups.
+               Oh, and I don't claim it to be well written either!

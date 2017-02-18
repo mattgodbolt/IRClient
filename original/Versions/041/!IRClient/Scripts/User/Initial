@@ -1,0 +1,16 @@
+# Initial script, © Justin Fletcher, July 1996
+#
+# This script will be run whenever you start IRC so you can add commands to
+# join any channels you like and do any other things like change your mode.
+#
+# Note: You MUST end the file with #END
+#
+# Join #Acorn
+/Join #Acorn
+
+# Greet everyone
+/msg #Acorn Hi peoplings !
+
+# Check who is actually here
+#/notify
+#END

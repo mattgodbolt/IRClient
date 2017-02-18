@@ -1,0 +1,140 @@
+head     1.3;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.3
+date     98.02.02.14.15.35;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.12.31.00.42.51;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.12.31.00.32.57;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Throwback error handling support module.
+@
+
+
+1.3
+log
+@Added the module name to the string 'Backtrace info'
+so that it's easier to see which modules are being used.
+@
+text
+@REM >Internal.Throwback
+REM Handles throwback withing the error handler
+REM (c) 1997 (just) Justin Fletcher
+REM 31 Dec 1997 : JF - Written                              v1.00
+REM ---
+REM $Id: Throwback 1.2 97/12/31 00:42:51 gerph Exp $
+REM $Log:	Throwback $
+REM Revision 1.2  97/12/31  00:42:51  gerph
+REM Added a dash of colour to things...
+REM
+REM Revision 1.1  97/12/31  00:32:57  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: Throwback 1.2 97/12/31 00:42:51 gerph Exp $"
+END
+:
+DEFPROCErrors_Initialise
+REM Load DDEUtils if it's available
+SYS "XOS_CLI","RMEnsure DDEUtils 0.00 RMLoad System:Modules.DDEUtils"
+REM We don't want the system generated errors unless we can't
+REM help it
+SuppressErrors=TRUE
+ENDPROC
+:
+DEFPROCScriptError(error$,line,file$)
+LOCAL err
+REM "DDEUtils_ThrowbackStart"
+SYS &62587 TO;err
+IF (err AND (1<<28))=0 THEN
+ REM "DDEUtils_ThrowbackSend"
+ SYS &62588,1,,file$,line,2,error$ TO;err
+ENDIF
+IF (err AND (1<<28))<>0 THEN
+ PRINT""
+ PRINTFNColour(11)+error$+" at line "+STR$line+" in file"
+ PRINTFNColour(11)+"   "+file$
+ PRINT"---- BACKTRACE follows ----"
+ENDIF
+ENDPROC
+:
+DEFPROCScriptErrorRetrace(line,file$)
+LOCAL err,f$
+IF LEFT$(file$,LEN(ScriptsDir$))=ScriptsDir$ THEN f$=" for "+MID$(file$,LEN(ScriptsDir$)+2)
+REM "DDEUtils_ThrowbackSend"
+SYS &62588,2,,file$,line,2,"Backtrace information"+f$ TO;err
+IF (err AND (1<<28))<>0 THEN
+ PRINTFNColour(9)+STR$line+":"+file$
+ENDIF
+ENDPROC
+:
+DEFPROCScriptErrorDone
+LOCAL err
+REM "DDEUtils_ThrowbackEnd"
+SYS &62589 TO;err
+IF (err AND (1<<28))<>0 THEN
+ PRINT"---- End of BACKTRACE ----"
+ENDIF
+ENDPROC
+@
+
+
+1.2
+log
+@Added a dash of colour to things...
+@
+text
+@d6 1
+a6 1
+REM $Id: Throwback 1.1 97/12/31 00:32:57 gerph Exp $
+d8 3
+d15 1
+a15 1
+PRINT "$Id: Throwback 1.1 97/12/31 00:32:57 gerph Exp $"
+d43 2
+a44 1
+LOCAL err
+d46 1
+a46 1
+SYS &62588,2,,file$,line,2,"Backtrace information" TO;err
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d6 5
+a10 2
+REM $Id$
+REM $Log$
+d12 1
+a12 1
+PRINT "$Id$"
+d16 1
+d18 2
+d33 2
+a34 2
+ PRINTerror$+" at line "+STR$line+" in file"
+ PRINT"   "+file$
+d44 1
+a44 1
+ PRINTSTR$line+":"+file$
+@

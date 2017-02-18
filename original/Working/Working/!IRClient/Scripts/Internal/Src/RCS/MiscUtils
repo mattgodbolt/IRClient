@@ -1,0 +1,100 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.02.02.15.51.45;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Miscellaneous utility routines needed by various internal
+modules, classes and things...
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >MiscUtils
+REM Miscellaneous utility routines with no other home
+REM (c) Justin Fletcher
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+DEFPROCMiscUtils_Initialise
+ENDPROC
+:
+REM Needs moving into the main code some time
+DEFFNStateChange(old,new)
+IF new=FLIP THEN = NOT old
+=new
+:
+REM Needs moving into the main code some time
+DEFFNFlagChange(old,bit,new)
+CASE new OF
+ WHEN TRUE
+  =old OR bit
+ WHEN FALSE
+  =old AND NOT bit
+ WHEN FLIP
+  =old EOR bit
+ENDCASE
+=old
+:
+REM Move this into IRBasic source at some point, returns TRUE if
+REM strings are the same insensitively
+DEFFNstricmp(a$,b$)
+a$=FNCapitalise(a$)
+b$=FNCapitalise(b$)
+=(a$=b$)
+:
+REM I'm assuming that this works; matt wrote it so I expect so!
+REM Whilst it /does/ work, it's not particularly pleasant
+DEFFNHCF(a,b)
+IF a=1 OR b=1 THEN =1
+IF (a<>b) THEN
+ IF (a>b) THEN =FNHCF(a-b,b)
+ =FNHCF(a,b-a)
+ENDIF
+=a
+:
+REM This should be non-recursive, and needs to be very, very, very
+REM fast - it isn't
+DEFFNHCF(a,b)
+IF a>b THEN SWAP a,b
+IF a<10000 THEN
+ LOCAL I
+ REM If it's small, we'll use the nasty hacky method
+ IF (a MOD 2)=0 AND (b MOD 2)=0 THEN=2
+ FORI=3TO100 STEP2
+  IF (a MOD I)=0 AND (b MOD I)=0 THEN=I
+ NEXT
+ =1
+ENDIF
+WHILE a<>b
+ IF a>b THEN
+  a=a-b
+ ELSE
+  b=b-a
+ ENDIF
+ENDWHILE
+=a
+:
+DEFFNRCSVersion(ver$)
+IF INSTR(ver$," ")=0 THEN="[Not in RCS]"
+ver$=MID$(ver$,INSTR(ver$," ")+1)
+ver$=LEFT$(ver$,INSTR(ver$," ")-1)+"R"
+=ver$
+@

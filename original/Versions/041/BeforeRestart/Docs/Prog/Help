@@ -1,0 +1,31 @@
+Help file structure
+===================
+Help files are quite simple to put together, but need quite a bit of work
+doing to the current interface - suggestions please...
+
+Basically you should include a header line like :
+  <subject>
+  =========
+
+at the top of all index files, and :
+  Syntax: <generic syntax>
+
+at the top of all the specific files. If you could settype the specific files
+as Text and index and support files as Data it will make life easier (though
+it won't affect the program).
+
+The files themselves should be formatted to 68 characters wide (off the
+Edit.Word Wrap option in Zap) so that they don't wrap strangely, and should
+NOT begin with a colon (:). Colons at the start of a line introduce an
+embedded command to the displayer. The character following the colon is the
+command type.
+
+Currently only one command type is supported - the > link command. This is in
+the form :
+  :>text to show>linkfile
+And consecutive lines of lines will be joined together in a form of table -
+this looks nasty sometimes, but I may fix it soon.
+
+Other than that, the only read thing you need to know is that the command
+line :END is reserved for the last line of the file and MUST be followed by a
+return.

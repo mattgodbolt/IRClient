@@ -1,0 +1,18 @@
+|
+| Hostname guessing script
+| © 1996 Matthew Godbolt - part of IRClient
+|
+
+| Paranoia :)
+If "<Inet$HostName>" <> "" Then Obey
+
+| FreeDial uses Inet$LocalIP - which we can rely on - I hope!
+If "<Inet$LocalIP>" <> "" Then Set Inet$HostName <Inet$LocalIP>
+If "<Inet$HostName>" <> "" Then Obey
+
+| This is the VT one - I hope !!
+If "<VTiIP$Address>" <> "" Then Set Inet$HostName <VTiIP$Address>
+If "<Inet$HostName>" <> "" Then Obey
+
+| OK - no idea - lets try the BASIC guesser
+/<IRClient$Dir>.Resources.IPGuess

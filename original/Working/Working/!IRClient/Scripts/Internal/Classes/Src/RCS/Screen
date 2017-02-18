@@ -1,0 +1,69 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     97.04.13.12.44.36;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Screen handling class
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >Screen
+REM A Screen mode class
+REM Just a thought at the moment
+REM 30 Mar 1997 : JF - started                               v1.00
+ERROR 0,"Don't run me"
+END
+:
+DEFPROCOverload_Classes_Initialise
+Class_Screen=FNRegisterClass("Screen")
+PROCAddField(Class_Screen,"mode")
+REM Create an instance for the current mode (always valid ;-) )
+Screen=FNnewScreen(-1)
+REM Pass on
+PROC@@
+ENDPROC
+:
+REM Create a new screen instance
+DEFFNnewScreen(mode)
+LOCAL inst
+inst=FNnew(Class_Screen)
+inst.mode=mode
+=inst
+:
+REM Read one of it's variables
+DEF FNScreen_GetUnknownVar(var$)
+CASE var$ OF
+ WHEN "width"
+  LOCAL eig,val
+  SYS "OS_ReadModeVariable",@@.mode,4 TO ,,eig
+  SYS "OS_ReadModeVariable",@@.mode,11 TO ,,val
+  =val<<eig
+ WHEN "height"
+  LOCAL eig,val
+  SYS "OS_ReadModeVariable",@@.mode,5 TO ,,eig
+  SYS "OS_ReadModeVariable",@@.mode,12 TO ,,val
+  =val<<eig
+ WHEN "colours"
+  LOCAL cols
+  SYS "OS_ReadModeVariable",@@.mode,3 TO ,,cols
+  =cols
+ENDCASE
+=FN@@(var$)
+
+@

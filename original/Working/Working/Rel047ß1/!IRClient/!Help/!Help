@@ -1,0 +1,26 @@
+!IRClient - IRC client for RISC OS
+=========   ======================
+
+For license details please see the file !IRClient.!Help.License
+
+IRClient is an easy(ish) to use IRC client for RISC OS.  It should be
+reasonably straightforward to understand if you have IRC experience, but if not
+you'd better check the documents in the directory which should have opened when
+this document did.
+
+*******************************  PLEASE NOTE  ******************************* 
+
+è This program requires a resolver module, for example ANT's Resolver.
+  Alternatively DNSResolver may be obtained from the Freenet site at
+  http://freenet.barnet.ac.uk/freenet/s.brodie/
+
+è This program *WILL NOT WORK WITH THE DOGGYSOFT TERMITE INTERNET SUITE*
+  Please don't blame me for this - complain to Doggysoft for using a non-
+  standard API for their TCP/IP stack.
+
+è This program isn't Freeware.   It's Shareware, and myself and Justin would
+  really like it if you could spare a tenner for a full version.  We're both
+  poor you see.
+
+Thanks for reading this file!!  Now please go read the Docs in the directory
+!IRClient.!Help

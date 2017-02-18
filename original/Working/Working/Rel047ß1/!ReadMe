@@ -1,0 +1,34 @@
+Quick release of IRClient
+=========================
+This is an incredibly quick release.
+
+Be very very careful with it. It's probably unstable.
+
+Details
+-------
+
+Config window : (YES works, NO doesn't)
+
+  Display IRClient MOTD - NO
+  Show banner at start - YES
+  Beep on Error - YES
+  Beep on Notify - NO
+  Show notes - YES
+  Make Invisible - NO
+  Support metaserver - NO
+  Run IdentD - MAYBE
+  Non-IRC servers - NO
+  Mail server - Not usable.
+
+Help :
+  
+  The help file supplied is very much a beta. It is not complete.
+
+Draw file :
+
+  The draw file displays a typical IRC network. This was grabbed one day in
+  January 1998.
+
+Contact :
+
+  Justin Fletcher <gerph@innocent.com>

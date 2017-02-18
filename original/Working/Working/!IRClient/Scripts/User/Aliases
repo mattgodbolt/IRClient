@@ -1,0 +1,152 @@
+# Some Simple aliases that you can use, © Justin Fletcher, July 1996
+# Multiple lines can be entered using the {} construct shown below
+# Substitutions you can use are :
+# %[0-9] for words in the command passed
+# %*[0-9] for whatever follows the word passed (inclusively)
+# %R for the recipient's nick name (or the channel name)
+# %M for my name (ie the Nick you are currently using)
+#
+# Note: You MUST end the file with #END
+testchat  /ctcp gerph dcc CHAT chat 2130706433 %0
+testdcc   /dcc send justinf $.ali
+debug     /config standard debug %0
+WAVE   /me waves
+SHOUT  /me shouts '%0'
+GIGGLE /me giggles
+PETROL
+ {
+  /me throw petrol over %0
+  /me takes out a match and strikes
+  /me cackles wildly, and throws it at %0's feet
+  /me dives behind the sofa
+  ****** BOOOM ******
+ }
+BEAR
+ {
+  /msg %0         *
+  /msg %0        /_\
+  /msg %0      {~._.~}    A cute bear
+  /msg %0       ( Y )     for you, %b%0%b !
+  /msg %0      ()~*~()    
+  /msg %0      (_)-(_)
+ }
+BYE Bye %R
+
+# Stuff from my old aliases file
+# Channel stuff
+HOP
+ {
+  /part %R
+  /join %0
+ }
+BRB
+ {
+  /say Be right back... %*0
+  /away %*0
+ }
+BACK
+ {
+  /me is back... %*0
+  /away
+ }
+
+# CTCP commands
+uinfo   /ctcp %0 UserInfo
+version /ctcp %0 Version
+machine /ctcp %0 MachineInfo
+
+# DCC commands
+send    /dcc send %*0
+get     /dcc get %*0
+chat    /dcc chat %0
+dcclist /dcc list
+close   /dcc close %*0
+
+# Useful actions
+laugh    /me laughs loudly
+cringe   /me cringes
+smile    /me smiles
+sigh     /me sighs
+sulk     /me sulks in a corner
+yawn     /me yawns
+wink     /me winks
+shrug    /me shrugs
+sob      /me sobs quietly
+bounce   /me bounces around the room...
+cough    /me coughs violently
+shiver   /me shivers
+twilight /me hums the twilight zone theme
+sneeze   /me sneezes
+comfort  /me comforts %0
+bop      /me bops %0
+grin     /me grins widely
+hmm      /me hmm's to himself
+kansas   /me thinks we're not in Kansas anymore, Toto
+home
+ {
+  /me says "There's no place like home"
+  /me says "There's no place like home"
+  /me says "There's no place like home"
+ }
+no       /me replies "We have a negative situation with regards that last query, and furthermore, we are sure of this non-positive answer"
+yes      /me replies "It appears that with regards recent events the aforementioned question requires an answer in the affirmative"
+
+# Cute things
+blush    /me blushes
+kiss     /me kisses %0
+kiss1    /me kisses %0 passionately
+kiss2    /me looks longingly at %0 and gives her a big kiss
+kiss3    /me sweeps %0 around and kisses her passionately
+hug      /me hugs %0 tightly
+giggle   /me giggles
+cuddle   /me cuddles %0
+rose     /me presents a rose to %0
+
+# Violence !
+hit      /me thumps %0 to the ground
+shoot    /me takes out a revolver and shoots %0 at point blank range
+stab     /me stabs %0 with a dagger
+kik      /me kicks %0 in the chest
+bask     /me basks in the glow of %0's slowly charring bones
+maim
+ {
+  /me beats %0 to the floor
+  /me kicks %0 in the head
+  /me takes a red hot poker from the fire and stabs it into %0's face
+ }
+saw
+ {
+  /me grips a chainsaw
+  /me laughs with an evil guffaw
+  /me slowly disembowels %0 with the spinny end
+  /me accidentally chops his own hand off and the chainsaw goes mad killing everyone
+ }
+psycho   /me laughs psycotically hurling themselves over the edge of a building with a hideous scream
+
+#This is dangerous and will kick you off most servers
+floodping
+ {
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+  /ping %0
+ }

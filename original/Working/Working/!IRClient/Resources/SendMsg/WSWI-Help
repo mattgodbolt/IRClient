@@ -1,0 +1,282 @@
+WimpSWIVe       0.05 (30 Oct 1995)
+==================================
+
+
+ NewerLook needs to trap Wimp_ SWIs in order to provide its new error
+windows. The only official way to trap SWIs is to trap the SWI hardware
+vector, but even this is not recommended. It takes much code to implement
+properly in *all* circumstances (about 30K of source code in Desktop Hacker),
+and can slow the machine down, quite considerably when there are multiple
+claimants.
+
+ It is, however, possible to trap Wimp_ SWIs by providing another module
+with the same SWI chunk and names. This method is much quicker and easier,
+but it is - as Iëll happily admit - rather dodgy. One of the problems is
+that only one module can do this at a time. So if NewerLook had a module
+that used this method, it wouldnët work properly when another program tried
+to do the same thing. (And you know some program will.)
+
+ Thus, I have separated the trapping code from the action code (which resides
+in another module), and released this module separately. It can manage SWI
+claims and releases dynamically, a bit like vectors. Actually, quite a lot
+like vectors. You can use it in your own programs if you like. Hereës how.
+
+ Because WimpSWIVe uses the Wimpës SWI chunk, it cannot provide its own
+SWIs. Instead, it communicates using a Wimp SWI, namely Wimp_RegisterFilter.
+Here is the WimpSWIVe specification for Wimp_RegisterFilter.
+
+
+            |                                             Wimp_RegisterFilter
+            |                                                    (SWI &400F5)
+            |
+            | Used by the Filter Manager to register or deregister a filter
+            | OR used to register SWI claims and releases with WimpSWIVe
+            |
+  On entry: | R0 = reason code:
+            |         &49575357 (îWSWIï) for WimpSWIVe operation (see below)
+            |         anything else for filter operation (see RISC OS 3
+            |         Programmersë Reference Manual, page 3-224)
+            | R1 = SWI word:
+            |         bits 0-5 : offset in SWI chunk of SWI to claim/release
+            |         bit  6   : ignore bits 0-5 and claim all Wimp_ SWIs
+            |         bits 7-29: undefined, leave unset
+            |         bit  30  : high priority if set, else low priority
+            |         bit  31  : claim if set, else release
+            | R2 = value to be passed in R12 on entry to code
+            | R3 = address of SWI pre-trapping code, or 0 if none needed
+            | R4 = address of SWI post-trapping code, or 0 if none needed
+            |
+   On exit: | Registers preserved
+            |
+Interrupts: | Interrupts may be enabled
+            | Fast interrupts may be enabled
+            |
+ Processor: | Processor is in SVC mode
+            |
+Reentrancy: | SWI is not re-entrant
+            |
+       Use: | In WimpSWIVe usage, this SWI is used to claim or release SWIs.
+            | The pre-trapping code specified is called before the SWI is
+            | called, and the post-trapping code afterwards.
+            |
+            | High-priority pre-code is called before low priority pre-code.
+            | (And high-priority post-code is called after low priority
+            | post-code.) This is important because one piece of pre-code
+            | could intercept a SWI call before another bit got a look in.
+            | You should use high-priority code for monitoring and register-
+            | altering code. If your pre-code is at all likely to intercept
+            | a SWI, you must use low-priority code. In effect, low-priority
+            | code is êcloserë to the real SWI.
+            |
+            | Pre-trapping code conditions:
+            |
+            | On entry: R0-R8 = registers passed to SWI
+            |           R9    = offset into chunk of SWI called
+            |           R12   = value specified when RegisterFilter called
+            |           R13   = full, descending stack
+            |           R14   = return address
+            |  On exit: R0-R8 = may be altered to change effect of SWI
+            |           R9    = preserved, or -1 to intercept SWI
+            |
+            | Pre-trapping code is entered in SVC mode, with interrupts
+            | disabled. If R9=-1 on exit, the SWI is not called. Instead,
+            | any outstanding post-code is called, and the caller is returned
+            | to with the supplied R0-R8 and PSR flags. An error may be
+            | signified by pointing R0 to an error block and setting the V
+            | flag on return as normal, when intercepting. (See footnote 1.)
+            |
+            | If more than one client has claimed a SWI, it is the earliest
+            | claimantës pre-trapping code that is called last - new
+            | claimants take priority (though high-priority always beats low-
+            | priority, of course). If interception occurs, any post-trapping
+            | code for claims where the pre-trapping code (if any) has
+            | already been executed are also executed. In effect, you are
+            | guaranteed that you will get a post-trap event if you have had
+            | a pre-trap. (See footnote 2.)
+            |
+            |
+            | Post-trapping code conditions:
+            |
+            | On entry: R0-R8 = registers passed back from SWI
+            |           R9    = offset into chunk of SWI called
+            |           R12   = value specified when RegisterFilter called
+            |           R13   = full, descending stack
+            |           R14   = return address
+            |  On exit: R0-R8 = may be altered to change perceived results
+            |           PSR flags may be altered to change perceived results
+            |           (for example to flag an error).
+            |
+            | Post-trapping code is entered in SVC mode, with interrupts
+            | disabled.
+            |
+            | If more than one client has claimed a SWI, it is the earliest
+            | claimantës post-trapping code that is called first, subject
+            | to priority. (See footnote 2.)
+            |
+            | Remember that your post-trapping code may well be entered in an
+            | error condition. So check whether the V flag is set on entry,
+            | and return if it is (if you return with the S flag (MovS Pc,R14
+            | or LdmFd R13!,{...,Pc}^, the flags are unaffected). Never
+            | change the PSR flags by accident.
+            |
+            |
+            | Unlike OS_Claim, this SWI will not remove previous instances of
+            | claims with the same values. The release routine also only
+            | removes one instance of the values at a time.
+            |
+            | Claiming the Wimp_RegisterFilter SWI only traps the normal
+            | filter-based use of the SWI. Under no circumstances should you
+            | call Wimp_RegisterFilter with WimpSWIVe usage in your trapping
+            | code. If you really must claim or release a SWI when some other
+            | SWI is executed, use a CallBack to do it. (See the RISC OS 3
+            | Programmersë Reference Manual, page 1-319.)
+            |
+            | Donët post-trap Wimp_Poll(Idle) or Wimp_StartTask: itës a bad
+            | idea. WimpSWIVe deals with it adequately, but there are all
+            | sorts of simply horrid implications. Trapping Wimp_Poll is
+            | easy anyway, using the old filter system.
+            |
+            | And finally, donët use the êclaim all SWIsë flag unless you
+            | really want all the SWIs. Donët use it for trapping a number
+            | of different SWIs, use many separate claims: the speed
+            | difference will be negligable, and you neednët worry about
+            | Wimp_Poll. The êclaim all SWIsë flag is unlikely to be widely
+            | useful - a Wimp SWI logging program seems to be the only
+            | possible user.
+            |
+    Errors: | Bad value passed to WIMP in R0
+            |    if WimpSWIVe is not loaded, the attempt to use this SWI in
+            |    the WimpSWIVe manner will cause this error
+            | Bad WimpSWIVe release
+            |    releasing a SWI you had not claimed generates this error
+            | No room in RMA
+            |    is also possible but highly unlikely.
+            |
+
+
+ Footnote 1 - Re-entrancy issues:
+
+ Re-entrancy is nae problem if you only use pre-trapping or only use post-
+trapping - you can either be re-entrant by using a stack to store stuff, or
+prevent re-entering using a threaded flag (and unless you call a SWI, you
+cannot be re-entered anyway). If you use both, but the post-code always does
+the same regardless of the pre-code, youëre all right too.
+
+ But if you use both at once and the action of post depends on something
+that happened in pre (for example if you have pre to check the reason code
+is worth bothering with in the post-trap code), it is slightly more complex.
+Itës quite possible that calling a Wimp SWI may cause another Wimp SWI to be
+called, especially when you consider there can be many WimpSWIVe claimants.
+Consider:
+
+     SWI Wimp_Thing called
+       WimpSWIVe claimant 1 pre-traps SWI
+         Claimant 1 store data for SWI 1 in workspace
+       WimpSWIVe claimant 2 pre-traps SWI
+         Claimant 2 executes Wimp_Gubbins
+           Wimp_Gubbins causes Wimp_Thing to be called
+             WimpSWIVe claimant 1 pre-traps SWI
+               Claimant 1 stores data for SWI 2 in workspace
+             WimpSWIVe claimant 2 pre-traps SWI
+               Claimant 2 is threaded, and so does nothing
+             WimpSWIVe executes real SWI Wimp_Thing
+             WimpSWIVe claimant 2 post-traps SWI
+               Claimant 2 is threaded, and so does nothing
+             WimpSWIVe claimant 1 post-traps SWI
+               Claimant 1 performs action on results, dependent on workspace
+               which holds data for SWI 2
+             WimpSWIVe returns
+       WimpSWIVe executes real Wimp_Thing SWI
+       WimpSWIVe claimant 2 post-traps SWI
+         Claimant 2 does whatever it needs to with results
+       WimpSWIVe claimant 1 post-traps SWI
+         Claimant 1 performs action on results, dependent on workspace
+         which holds data for SWI *2*
+       WimpSWIVe returns
+
+ As you can see, there is a lot of scope here for things going wrong, and
+horrible clashes where one WimpSWIVe program may make another go wrong,
+potentially rather messily.
+
+ There are two things you can do about it. Perhaps the best is to store a
+êcountë of post-traps to ignore. This count should be zero initially, and
+should be incremented first when your pre-trap code detects that post-
+trapping should do something effective. It should also be incremented every
+time the pre-trap code is entered with the count non-zero. The post trap code
+then checks the count on entry. If the count is zero, it returns doing
+nothing. If the count is one or greater, the count is decremented. If the
+count is one exactly one, the effect of the post-trap is activated. Thereës
+an example of this in the EigenSysInfo source.
+
+ This is fine normally, but it makes the trapping code only affect the first
+SWI to be affected (the "outermost" affected SWI). If you want to be truly
+re-entrant, youëd have to store values on the stack to indicate whether to
+post-trap on each call. And you couldnët use the SVC stack, so youëd have to
+use a private stack. And youëd have to revert to the above behaviour if the
+stack was filled up. Therefore, I donët reckon itës worth bothering with,
+especially as allowing true re-entrancy opens the door to recursive problems
+(Wimp_Thing calls Wimp_Gubbins calls Wimp_Thing calls Wimp_Gubbins etc.) too.
+
+ Sorry about the complexity of this footnote. Relax. You donët need to
+bother about all this horrid stuff, usually. :-)
+
+
+ Footnote 2:
+
+ Your post-trap code will only be called if the SWI does return. This might
+not happen if the SWI is one that doesnët return (but I canët think of any
+Wimp_ SWIs that donët), or if a serious error happens. The latter should
+never happen in a perfect system, but bugs happen and the SWI being trapped
+might branch through zero or something. With the Wimp, though, a crash at
+this stage often means there is something very wrong with the whole desktop
+and everything is going to die anyway, so your module failing to post-trap
+is unlikely to annoy the user much. :-)
+
+-----------------------------------------------------------------------------
+
+ This module is supplied with some example programs:
+
+ - 3DErrorWindow. This is a useful module that replaces the WIMPës error
+   windows with its own Risc PCable 3D ones (it needs 3DErrorWindow$Path to
+   point to a directory containing Templates and Messages - you can find one
+   in Sources.ErrorWind) using pre-trapping (usually with interception). The
+   windows could do with the NewerLook êtitlejointë sprite in the wimp pool,
+   along with the Risc PC error system sprites. Note that this is an OLD
+   VERSION of 3DErrorWindow, which you should not actually use - get
+   NewerLook for the fullest, newest version. This, however, is a better
+   example of how to use WimpSWIVe, as it is less complicated than the
+   latest version.
+ - EigenSysInfo. This is a pretty useless one that changes Wimp_ReadSysInfo
+   2 always to return 24 or 22, and return the latter if Log2YEig<2 (the
+   WIMP returns 22 if Log2YEig==Log2XEig, which is silly). It also goes
+   êbeepë if the Wimp returned a different value to it (try mode 22 and the
+   like). Itës not particularly great because most programs donët take any
+   notice of ReadSysInfo (partly because of its aforementioned bobbinsness)
+   but it shows you how to pre-trap and post-trap SWIs at the same time (as
+   in footnote 1).
+
+ The source for these programs, along with the full source to WimpSWIVe and
+some resources for 3DErrorWindow are to be found in the Sources directory.
+However, these programs require BAX to be loaded for them to compile. BAX is
+DoggySoftës Basic Assembler Extension, which provides all ARM3, ARM6, FPA10
+and coprocessor instructions, along with many useful pseudo-instructions.
+You can get BAX from good PD libraries and Arcade, Digital Databank and
+Furzefield Hq BBSs. Itës essential for Basic assembler programmers!
+
+ If you use this module in a program, be sure to RMEnsure version 0.04 or
+later - versions 0.01 and 0.02 are NewerLook quick releases with bugs in
+post-trapping, and version 0.03 does not feature high-priority SWI trapping,
+as well as sometimes entering pre-code with interrupts enabled.
+
+ This module is freeware. Free free to distribute and use. To contact me -
+for praise, to suggest new bits to add, or (heaven forbid) to report a bug,
+please write to:
+
+  Andrew Clover,
+   7 Blackhorse Crescent,
+    Amersham,
+     Bucks.,
+      HP6 6HP.
+
+ Or phone me on 01494-431916, send a fax on 01494-675878, send some email to
+ajc@doggysft.demon.co.uk or even telex on 83675 Brit G.

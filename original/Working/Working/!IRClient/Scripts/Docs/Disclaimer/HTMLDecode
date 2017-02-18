@@ -1,0 +1,12 @@
+HTMLDecode
+==========
+
+Licence
+-------
+HTMLDecode is © Justin Fletcher, August 1996.
+Distribution is limited to the Magrathea IRClient scripts suite.
+
+Purpose
+-------
+This module provides many speed ups for old BASIC routines in the HTTPLib
+program and may be of use elsewhere.

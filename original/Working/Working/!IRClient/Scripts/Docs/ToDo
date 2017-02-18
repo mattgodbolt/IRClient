@@ -1,0 +1,66 @@
+                             Features to be implemented
+                             **************************
+
+Note: This is an INTERNAL file and should NEVER be released.
+      It contains certain information which could be taken as implication of
+      intent or developed in parallel by rivals.
+Distribution: Justin Fletcher
+              Matthew Godbolt
+              <NO OTHERS>
+
+lice
+====
+Friends
+automatic away
+tab for names/tab completion
+
+arcirc
+======
+Simple 'Reply Box' handling
+
+
+smirc
+=====
+nothing that I can see...
+
+
+ixRC
+====
+unknown
+
+
+mIRC
+====
+samples
+colours in their style
+more hooks
+
+
+Miscellaneous sources
+=====================
+nntp
+telnet/raw connections
+ftp
+lycos search
+oxo
+ai responses
+improved callbacks
+finger
+configuration for finger/userinfo
+servers maybe ?
+imap
+pop
+external edits
+  smtp to use
+dcc send/get
+image viewing from http
+http grab from spoken text
+same for email
+
+
+New stuff
+=========
+Menus - loadsa stuff (Channel box)
+GLocals
+General tidying up
+

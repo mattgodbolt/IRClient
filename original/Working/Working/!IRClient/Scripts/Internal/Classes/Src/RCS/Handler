@@ -1,0 +1,389 @@
+head     1.5;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.5
+date     97.12.29.14.51.53;  author gerph;  state Exp;
+branches ;
+next     1.4;
+
+1.4
+date     97.04.16.01.30.12;  author gerph;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     97.04.15.22.17.48;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.04.13.23.52.07;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.18.18.51;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Indirected procedure call handler
+@
+
+
+1.5
+log
+@Minor bugs with BTree fixed.
+@
+text
+@REM >Handler
+REM (c) 1997 Justin Fletcher
+REM Handling of indirected routine calls
+REM ---
+REM $Id: Handler 1.4 97/04/16 01:30:12 gerph Exp $
+REM $Log:	Handler $
+REM Revision 1.4  97/04/16  01:30:12  gerph
+REM Lots of IterateFNs<num> functions added.
+REM Added List_Destruct.
+REM
+REM Revision 1.3  97/04/15  22:17:48  gerph
+REM Broken handler code :
+REM For some reason this doesn't work because AddHandler dies with
+REM an error about non-existant 'data' property.
+REM
+REM Revision 1.2  97/04/13  23:52:07  gerph
+REM FNHandler_Compare added.
+REM
+REM Revision 1.1  97/04/13  18:18:51  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: Handler 1.4 97/04/16 01:30:12 gerph Exp $"
+END
+:
+DEF PROCOverload_Classes_Initialise
+Class_Handler=FNRegisterClass("Handler")
+REM The name of the handler
+PROCAddField(Class_Handler,"name$")
+REM Their routine to call FN(routine$)(object,private,...)
+PROCAddField(Class_Handler,"routine$")
+REM Their private handle
+PROCAddField(Class_Handler,"private")
+:
+REM Pass on to any other initialisation routines
+PROC@@
+ENDPROC
+:
+DEF PROCHandler_Destroy
+REM And pass it on
+PROC@@
+ENDPROC
+:
+DEF FNnewHandlerList
+=FNnewBTree("Handler_Compare")
+:
+DEF PROCBTree_AddHandler(name$,routine$,private)
+LOCAL btree,handler
+handler=FNnewHandler(name$,routine$,private)
+btree=FN@@.FindS(name$)
+IF btree=0 THEN
+ LOCAL list
+ list=FNnewList
+ PROClist.Add(handler)
+ PROC@@.Add(list)
+ELSE
+ PROCbtree.data.Add(handler)
+ENDIF
+ENDPROC
+:
+DEF FNnewHandler(name$,routine$,private)
+LOCAL inst
+inst=FNnew(Class_Handler)
+inst.name$=name$
+inst.routine$=routine$
+inst.private=private
+=inst
+:
+REM Return -ve if v1<v2
+REM          0 if v1=v2
+REM        +ve if v1>v2
+DEF FNHandler_CompareS(v1$,v2)
+IF v1$<v2.items.data.name$ THEN=-1
+IF v1$>v2.items.data.name$ THEN=1
+=0
+DEF FNHandler_Compare(v1,v2)
+IF v1.items.data.name$<v2.items.data.name$ THEN=-1
+IF v1.items.data.name$>v2.items.data.name$ THEN=1
+=0
+:
+REM Iterate through all the functions in the list calling them
+REM with FN(fn$)(private,v1,v2) and only continuing if the
+REM routine returned FALSE
+DEF FNList_IterateFNs2(v1,v2)
+LOCAL done,list,next
+list=FN@@.First
+WHILE (list<>0) AND (done=0)
+ next=list.next
+ done=FN(list.data.routine$)(list.data.private,v1,v2)
+ list=next
+ENDWHILE
+=done
+:
+REM Iterate through all the functions in the list calling them
+REM with FN(fn$)(private,v1,v2,v3) and only continuing if the
+REM routine returned FALSE
+DEF FNList_IterateFNs3(v1,v2,v3)
+LOCAL done,list,next
+list=FN@@.First
+WHILE (list<>0) AND (done=0)
+ next=list.next
+ done=FN(list.data.routine$)(list.data.private,v1,v2,v3)
+ list=next
+ENDWHILE
+=done
+:
+REM Iterate through all the functions in the list calling them
+REM with FN(fn$)(private,v1,v2,v3,v4) and only continuing if
+REM the routine returned FALSE
+DEF FNList_IterateFNs4(v1,v2,v3,v4)
+LOCAL done,list,next
+list=FN@@.First
+WHILE (list<>0) AND (done=0)
+ next=list.next
+ done=FN(list.data.routine$)(list.data.private,v1,v2,v3,v4)
+ list=next
+ENDWHILE
+=done
+:
+REM Iterate through all the functions in the list calling them
+REM with FN(fn$)(private,v1,v2,v3,v4) placing div$ between lines
+REM of text
+DEF FNList_IterateFNs4S(div$,v1,v2,v3,v4)
+LOCAL str$,a$,list,next
+list=FN@@.First
+WHILE (list<>0)
+ next=list.next
+ a$=FN(list.data.routine$)(list.data.private,v1,v2,v3,v4)
+ IF a$<>"" THEN str$+=a$+div$
+ list=next
+ENDWHILE
+=str$
+:
+REM Iterate through all the functions in the list calling them
+REM with FN(fn$)(private,v1,v2,v3,v4,v5) and only continuing if
+REM the routine returned FALSE
+DEF FNList_IterateFNs5(v1,v2,v3,v4,v5)
+LOCAL done,list,next
+list=FN@@.First
+WHILE (list<>0) AND (done=0)
+ next=list.next
+ done=FN(list.data.routine$)(list.data.private,v1,v2,v3,v4,v5)
+ list=next
+ENDWHILE
+=done
+@
+
+
+1.4
+log
+@Lots of IterateFNs<num> functions added.
+Added List_Destruct.
+@
+text
+@d5 1
+a5 1
+REM $Id: Handler 1.3 97/04/15 22:17:48 gerph Exp $
+d7 4
+d23 1
+a23 1
+PRINT "$Id: Handler 1.3 97/04/15 22:17:48 gerph Exp $"
+d39 1
+a39 2
+DEFPROCHandler_Destroy
+PRINT"Destroying Handler"
+d44 1
+a44 1
+DEFFNnewHandlerList
+d47 1
+a47 1
+DEFPROCBTree_AddHandler(name$,routine$,private)
+d61 1
+a61 1
+DEFFNnewHandler(name$,routine$,private)
+d72 3
+a74 3
+DEFFNHandler_CompareS(v1$,v2)
+IF v1$<v2.data.name$ THEN=-1
+IF v1$>v2.data.name$ THEN=1
+d76 3
+a78 3
+DEFFNHandler_Compare(v1,v2)
+IF v1.data.name$<v2.data.name$ THEN=-1
+IF v1.data.name$>v2.data.name$ THEN=1
+d84 1
+a84 1
+DEFFNList_IterateFNs2(v1,v2)
+d97 1
+a97 1
+DEFFNList_IterateFNs3(v1,v2,v3)
+d110 1
+a110 1
+DEFFNList_IterateFNs4(v1,v2,v3,v4)
+d123 1
+a123 1
+DEFFNList_IterateFNs4S(div$,v1,v2,v3,v4)
+d137 1
+a137 1
+DEFFNList_IterateFNs5(v1,v2,v3,v4,v5)
+@
+
+
+1.3
+log
+@Broken handler code :
+For some reason this doesn't work because AddHandler dies with
+an error about non-existant 'data' property.
+@
+text
+@d5 1
+a5 1
+REM $Id: Handler 1.2 97/04/13 23:52:07 gerph Exp $
+d7 5
+d19 1
+a19 1
+PRINT "$Id: Handler 1.2 97/04/13 23:52:07 gerph Exp $"
+d23 1
+a23 2
+Class_Handler=FNRegisterSubclass(Class_List,"Handler")
+REM Their private word is 'data'
+d28 2
+d35 6
+d49 4
+a52 1
+ PROC@@.Add(handler)
+d54 1
+a54 2
+ handler.next=btree.data
+ btree.next=handler
+d63 1
+a63 4
+PRINT"Attempt to create a Handler"
+PRINT"private = "+STR$private
+PRINT"data = "+STR$inst.data
+inst.data=private
+d70 2
+a71 2
+IF v1$<v2.name$ THEN=-1
+IF v1$>v2.name$ THEN=1
+d74 2
+a75 2
+IF v1.name$<v2.name$ THEN=-1
+IF v1.name$>v2.name$ THEN=1
+d79 3
+a81 3
+REM with FN(fn$)(private,v1,v2,v3,v4) and only continuing if
+REM the routine returned FALSE
+DEFFNHandler_IterateFNs4(v1,v2,v3,v4)
+d86 1
+a86 1
+ done=FN(list.routine$)(list.data,v1,v2,v3,v4)
+d92 4
+a95 4
+REM with FN(fn$)(private,v1,v2,v3,v4) placing div$ between lines
+REM of text
+DEFFNHandler_IterateFNs4S(div$,v1,v2,v3,v4)
+LOCAL str$,a$,list,next
+d97 1
+a97 1
+WHILE (list<>0)
+d99 1
+a99 2
+ a$=FN(list.routine$)(list.data,v1,v2,v3,v4)
+ IF a$<>"" THEN str$+=a$+div$
+d102 1
+a102 1
+=str$
+d105 1
+a105 1
+REM with FN(fn$)(private,v1,v2,v3,v4,v5) and only continuing if
+d107 1
+a107 1
+DEFFNHandler_IterateFNs5(v1,v2,v3,v4,v5)
+d112 1
+a112 1
+ done=FN(list.routine$)(list.data,v1,v2,v3,v4,v5)
+d118 4
+a121 4
+REM with FN(fn$)(private,v1,v2) and only continuing if the
+REM routine returned FALSE
+DEFFNHandler_IterateFNs2(v1,v2)
+LOCAL done,list,next
+d123 1
+a123 1
+WHILE (list<>0) AND (done=0)
+d125 2
+a126 1
+ done=FN(list.routine$)(list.data,v1,v2)
+d129 1
+a129 1
+=done
+d132 3
+a134 3
+REM with FN(fn$)(private,v1,v2,v3) and only continuing if the
+REM routine returned FALSE
+DEFFNHandler_IterateFNs3(v1,v2,v3)
+d139 1
+a139 1
+ done=FN(list.routine$)(list.data,v1,v2,v3)
+@
+
+
+1.2
+log
+@FNHandler_Compare added.
+@
+text
+@d5 1
+a5 1
+REM $Id: Handler 1.1 97/04/13 18:18:51 gerph Exp $
+d7 3
+d14 1
+a14 1
+PRINT "$Id: Handler 1.1 97/04/13 18:18:51 gerph Exp $"
+d18 2
+a19 1
+Class_Handler=FNRegisterClass("Handler")
+a21 2
+REM Their private word
+PROCAddField(Class_Handler,"private")
+d29 15
+d49 4
+a52 1
+inst.private=private
+d67 65
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d5 5
+a9 2
+REM $Id$
+REM $Log$
+d11 1
+a11 1
+PRINT "$Id$"
+d38 1
+a38 1
+DEFFNHandler_Compare(v1$,v2)
+d42 4
+@

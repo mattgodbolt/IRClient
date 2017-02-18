@@ -1,0 +1,19 @@
++-----------------------------------------+
+|  !IRClient © 1995-7 Matthew Godbolt and |
+|                   Justin Fletcher       |
+|  Please see file 'License' for          |
+|  important details about this program   |
++-----------------------------------------+
+
+Known bugs
+-===- -==-
+
+There are problems with use of SLIRP with IRClient.  I'm not sure quite how to
+approach these, as SLIRP isn't really a 'proper' Internet connection.  If
+inspiration strikes anyone, give me a bell!
+
+Selecting blank lines and dragging the mouse up has strange effects
+
+Very occasionally the panes of a channel get left on the screen after you've left it.
+
+The garbage collector is too slow.

@@ -1,0 +1,16 @@
+Skeleton window class must implement :
+
+wClick(xoff,yoff,selNotAdj*,iconh)
+wMenu(xoff,yoff,iconh)
+wRedraw(redrawx0,redrawy0,redrawx1,redrawy1)
+        : as offsets from window class,
+        : redrawx0 = redraw rect minx - window x0 position - scrollx
+wOpen(scrrenxmin,screenymin, ..., as given,scrx,scry,behind)
+wClose(flags) bit 0 = shift held down; bit 1 = adjust closed
+wEnter
+wLeave
+wKey(charcode, icon)
+wFocus(gainNotLost, icon)
+
+* - is actually button flags
+Perhaps menu should return xabs, yabs?

@@ -1,0 +1,9 @@
+                              The GDBM module
+                              ---------------
+
+The GDBM module is covered by the GNU public license. I am required by this
+to give the location of the source for the code. I direct you to the Perl
+5.001 port to RiscOS (1.51) which can be found on Hensa, Sunsite and at
+Demon.
+
+The GDBM module was ported by Steve Ellacott <S.W.Ellacott@brighton.ac.uk>.

@@ -1,0 +1,1134 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @@;
+
+
+1.1
+date     97.04.13.17.37.38;  author matt;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Object handler and broker for IRClient
+@
+
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >Object
+REM $Id$
+REM v1.00       MG      First release - very slow garbage collection
+REM v1.01       MG      Garbage collection made aware of Heap format
+REM v1.02       MG      Garbage collector sped up more, Garbage_Clear added
+REM v1.03       MG      Subclass system added 5/2/97
+REM v1.04       MG      Rewritten GC again!  Copes with new MAlloc system 27/2/97
+REM v1.05       MG      GC now collects together everything, destructs without freeing and then
+REM                     frees everything.  Still probs with order in some cases ;(
+REM v1.06       MG      Added XInstance_Resolve
+REM v1.07       MG      Made classes count their instantiations properly - take into account
+REM                     superclasses.  Made FNRegisterClass implicitly use the Object class as
+REM                     parent
+CHAIN "<IRClient$Dir>.IRCsource"
+END
+
+DEF FNwkspObject
+[OPT pass%
+.Object_MagicWord                       EQUS "CALLbjLOCAL"             ; magic word for object
+.Object_Mark                            EQUD 0                  ; the mark value atm
+.GarbageTime                            EQUD 0
+.GarbageFlag                            EQUD 0
+.Garbage_LowMark                        EQUD 0                  ; posn of lowest obj
+.Garbage_HighMark                       EQUD 0                  ; posn of highest obj
+.Garbage_SweepingFlag                   EQUD 0
+.Object_ObjectClass                     EQUD 0
+]
+=""
+
+DEF FNassembleObject
+
+Object_Magic            = 0
+Object_Name             = 4
+Object_Fields           = 8
+Object_NumFields        = 12
+Object_NumInstances     = 16
+Object_Parent           = 20
+sizeof_Object           = 24
+
+Field_Next              = 0
+Field_Type              = 4
+Field_Name              = 8
+sizeof_Field            = 12
+
+Instance_Object         = 0
+Instance_Ref            = 4
+sizeof_Instance         = 8
+Instance_Fields         = sizeof_Instance                  : REM tacked onto the end
+
+[OPT pass%
+
+; ***************************************************************
+; Name          Object_Define
+; Function      Defines a new object
+; On Entry      r0 -> name of object
+;               r1 -> unique reference of parent, or 0 if none
+; On Exit       r0 -> object unique reference
+; Notes         This call does not instantiate an object, it merely
+;               creates a new definition.  The name is used for
+;               type checking, but otherwise is unused
+;               Objects are permanent, and are never freed, so use
+;               with reasonable caution
+;               It is assumed any parent has some fields
+; ***************************************************************
+
+.Object_Define
+STMFD   R13!,{R1-R6,R14}
+FNfunction("Object_Define")
+
+MOV     R4,R1                           ; preserve parent for later use
+
+BL      Strdup                          ; duplicate the name string, into r1
+MOV     R3,#sizeof_Object
+BL      Claim                           ; claim some memory for the object
+
+STR     R1,[R2,#Object_Name]            ; store in the object's name
+
+LDR     R1,[R12,#Object_MagicWord]
+STR     R1,[R2,#Object_Magic]           ; store in the object's magic word
+
+MOV     R1,#0
+STR     R1,[R2,#Object_NumFields]       ; object initially has no fields
+STR     R1,[R2,#Object_Fields]
+STR     R1,[R2,#Object_NumInstances]
+
+MOV     R5,R2                           ; preserve the return value
+
+TEQ     R4,#0                           ; was there a parent?
+STR     R4,[R2,#Object_Parent]          ; if not, store zero in the parent of this object
+BEQ     Object_Define_No_Parent
+
+MOV     R0,R4
+BL      Object_MustBeObject             ; make sure the parent *is* an object
+
+LDR     R1,[R4,#Object_NumFields]       ; get number of fields
+STR     R1,[R2,#Object_NumFields]       ; copy to this one
+
+ADD     R6,R2,#Object_Fields            ; r6 points to the fields to be filled in
+LDR     R4,[R4,#Object_Fields]          ; r4 points to the fields to read from
+
+TEQ     R4,#0
+BEQ     Object_Define_No_Parent
+
+.Object_Define_Loop                     ; now to duplicate the fields
+MOV     R3,#sizeof_Field
+BL      Claim                           ; get some memory for this field
+
+LDR     R14,[R4,#Field_Type]            ; get the type of the field
+STR     R14,[R2,#Field_Type]            ; store the type in
+LDR     R14,[R4,#Field_Name]            ; get the name of the field
+STR     R14,[R2,#Field_Name]            ; store the name in
+
+STR     R2,[R6]                         ; put prev->next = this
+MOV     R6,R2                           ; prev = this now
+
+LDR     R14,[R4]                        ; get the next field
+TEQ     R14,#0
+MOVNE   R4,R14                          ; this = next
+BNE     Object_Define_Loop
+MOV     R2,#0                           ; last->next = 0
+STR     R2,[R6]
+
+.Object_Define_No_Parent
+
+MOV     R0,R5                           ; return value in r0
+
+FNend
+LDMFD   R13!,{R1-R6,PC}^
+
+:
+
+; ***************************************************************
+; Name          Object_IsObject
+; Function      Check that r0 points to a valid object definition
+; On Entry      r0 -> object
+; On Exit       EQ/NE depending on whether it is an object or not
+; Notes         -
+; ***************************************************************
+
+.Object_IsObject
+STMFD   R13!,{R0-R1,R14}
+FNfunction("Object_IsObject")
+
+LDR     R1,[R12,#HeapPtr]                       ; all objects are allocated from the heap,
+                                                ; so this should exist inside the heap
+CMP     R0,R1
+BLT     Object_IsObject_Not
+
+ADD     R1,R0,#sizeof_Object                    ; r0-r1 is range of object
+SWI     "OS_ValidateAddress"
+BCS     Object_IsObject_Not
+
+LDR     R1,[R0,#Object_Magic]                   ; check the magic word
+LDR     R0,[R12,#Object_MagicWord]
+CMP     R0,R1                                   ; check them
+BNE     Object_IsObject_Not
+B       Object_IsObject_Done
+
+.Object_IsObject_Not
+CMP     PC,#0
+
+.Object_IsObject_Done
+FNend
+LDMFD   R13!,{R0-R1,PC}
+
+; ***************************************************************
+; Name          Object_MustBeObject
+; Function      Makes sure an object is ok, generating error otherwise
+; On Entry      r0 -> object
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.Object_MustBeObject
+STMFD   R13!,{R14}
+BL      Object_IsObject
+ADRNE   R0,Object_MustBeObject_Not_Message
+BNE     Error
+LDMFD   R13!,{PC}^
+.Object_MustBeObject_Not_Message
+        EQUS    "Invalid object reference"+CHR$0:ALIGN
+
+:
+
+; ***************************************************************
+; Name          Object_AddField
+; Function      Adds a field to a given object definition
+; On Entry      r0 -> object definition
+;               r1 -> name of field
+;               r2 =  fptrNum or fptrStr
+; On Exit       -
+; Notes         Generates an error if the object has already been
+;               NumInstances, or if the field already exists
+;               Like objects, fields cannot be freed
+; ***************************************************************
+
+.Object_AddField
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Object_AddField")
+
+BL      Object_MustBeObject             ; make sure this is an object
+
+LDR     R7,[R0,#Object_NumInstances]
+TEQ     R7,#0                           ; make sure this object has not been NumInstances
+ADRNE   R0,Object_AddField_AlreadyNumInstances
+BNE     Error
+
+; Now we must find the last entry in the field linked list
+ADD     R7,R0,#Object_Fields
+.Object_AddField_Loop
+LDR     R2,[R7,#Field_Next]             ; get the next field
+TEQ     R2,#0                           ; is this entry the last one?
+BEQ     Object_AddField_LastFound
+LDR     R0,[R2,#Field_Name]             ; get the name of this field
+BL      CheckSame
+MOVNE   R7,R2                           ; if not same, try along one
+BNE     Object_AddField_Loop
+ADR     R0,Object_AddField_Duplicated
+B       Error
+
+.Object_AddField_LastFound
+; at this point r1 points to the entry to chain after
+MOV     R3,#sizeof_Field
+BL      Claim                           ; make a new Field structure
+STR     R2,[R7,#Field_Next]             ; chain it onto the llist
+MOV     R14,#0
+STR     R14,[R2,#Field_Next]            ; this field has no next field
+
+MOV     R0,R1                           ; get the name of this field
+BL      Strdup
+STR     R1,[R2,#Field_Name]             ; and store the duplicated one in
+
+LDR     R0,[R13,#2*4]                   ; get the type
+STR     R0,[R2,#Field_Type]             ; and store it in
+
+LDR     R0,[R13]                        ; get the object back
+LDR     R14,[R0,#Object_NumFields]
+ADD     R14,R14,#1
+STR     R14,[R0,#Object_NumFields]      ; and store the incremented number of fields in
+
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.Object_AddField_AlreadyNumInstances
+        EQUS "Cannot add a field to object as it has been instantiated"+CHR$0:ALIGN
+.Object_AddField_Duplicated
+        EQUS "Attempt to register duplicate field in object"+CHR$0:ALIGN
+
+:
+
+; ***************************************************************
+; Name          Object_Instantiate
+; Function      Creates an Instance of an object and calls a constructor
+; On Entry      r0 -> object reference
+; On Exit       r0 =  instance handle
+; Notes         Blanks all strings, and sets all numbers to zero
+;               The NumInstances object handle is an offset into
+;               the heap, ORred with &fc000003
+; ***************************************************************
+
+.Object_Instantiate
+STMFD   R13!,{R1-R7,R14}
+FNfunction("Object_Instantiate")
+
+BL      Object_MustBeObject             ; make sure this is an object
+
+LDR     R1,[R0,#Object_NumFields]       ; find out how many field we need to alloc
+MOV     R3,#sizeof_Instance             ; the base length of an Instance
+ADD     R3,R3,R1,LSL #2                 ; 4 bytes per field
+BL      Claim                           ; get that much memory
+
+STR     R0,[R2,#Instance_Object]        ; store the type of this Instance
+
+LDR     R6,[R12,#Garbage_LowMark]
+TEQ     R6,#0
+MOVEQ   R6,R2                           ; is there a low-water mark?
+CMP     R2,R6                           ; is this less than the low mark?
+MOVLT   R6,R2
+STR     R6,[R12,#Garbage_LowMark]
+
+LDR     R6,[R12,#Garbage_HighMark]
+TEQ     R6,#0
+MOVEQ   R6,R2                           ; is there a high-water mark?
+CMP     R2,R6                           ; is this less than the high mark?
+MOVGT   R6,R2
+STR     R6,[R12,#Garbage_HighMark]
+
+
+MOV     R7,R0                           ; point at current, ready for recurse up
+.Object_Instantiate_Add_Loop
+LDR     R14,[R7,#Object_NumInstances]   ; increment the number of Instances
+ADD     R14,R14,#1                      ; make sure it has a reference during construction
+STR     R14,[R7,#Object_NumInstances]
+LDR     R7,[R7,#Object_Parent]          ; get parent
+TEQ     R7,#0
+BNE     Object_Instantiate_Add_Loop
+
+LDR     R14,[R12,#Object_Mark]
+ADD     R14,R14,#1                      ; one reference
+STR     R14,[R2,#Instance_Ref]          ; put the mark in
+MOV     R7,R2                           ; keep a copy of r2
+
+; Now we must set each field accordingly
+
+ADD     R3,R2,#Instance_Fields          ; r3 points to where to put the value
+LDR     R4,[R0,#Object_Fields]          ; r4 describes the fields
+FNadr(5,Blank2)                         ; r5 points to an empty string
+MOV     R6,#0                           ; r6 is zero
+
+.Object_Instantiate_Loop
+TEQ     R4,#0
+BEQ     Object_Instantiate_Done         ; Have we finished?
+LDR     R14,[R4,#Field_Type]            ; get the type
+TEQ     R14,#fptrNum                    ; is it a number?
+STREQ   R6,[R3],#4                      ; yes - stick the 0 in
+STRNE   R5,[R3],#4                      ; no - stick a blank string ref
+LDR     R4,[R4]
+B       Object_Instantiate_Loop
+
+.Object_Instantiate_Done
+STR     R0,Object_Instantiate_Block + 4 ; store the class in
+LDR     R14,[R12,#HeapPtr]              ; get the beginning of the heap
+SUB     R0,R2,R14                       ; r0 is an offset into the heap
+ORR     R0,R0,#&FC000003                ; set the fc0-03 bits
+
+STR     R0,Object_Instantiate_Block+12  ; store instance in
+MOV     R5,R0                           ; keep track of it
+ADR     R0,Object_Instantiate_Constructor
+MOV     R1,#2
+ADR     R2,Object_Instantiate_Block
+BL      ImplicitCallRootProcedure
+
+MOV     R0,R5                           ; get instance back
+
+LDR     R14,[R12,#Object_Mark]
+STR     R14,[R7,#Instance_Ref]          ; reset reference count to zero
+
+FNend
+LDMFD   R13!,{R1-R7,PC}^
+.Object_Instantiate_Constructor
+        EQUS "Construct"+CHR$0:ALIGN    ; PROCConstruct(class,instance)
+.Object_Instantiate_Block
+        EQUD    fptrNum:EQUD    0
+        EQUD    fptrNum:EQUD    0
+
+:
+
+; ***************************************************************
+; Name          Instance_GetInstance
+; Function      Gets the pointer to an Instance from a handle
+; On Entry      r0 =  Instance handle
+; On Exit       r0 -> Instance structure, or 0 if problem
+; Notes         Does not generate an error if given an invalid handle,
+;               just returns 0. Jump to Instance_Invalid to
+;               generate a suitable error
+; ***************************************************************
+
+.Instance_GetInstance
+STMFD   R13!,{R1-R2,R14}
+FNfunction("Instance_GetInstance")
+
+AND     R1,R0,#&FC000003
+TEQ     R1,#&FC000003                   ; make sure fc0-03 bits are set
+MOVNE   R0,#0
+BNE     Instance_GetInstantation_Done
+
+LDR     R1,[R12,#HeapPtr]
+BIC     R0,R0,#&FC000003
+ADD     R2,R0,R1                        ; r2 now is the appropriate Instance handle
+
+MOV     R0,R2
+ADD     R1,R0,#4                        ; make sure we can read out a word
+SWI     "OS_ValidateAddress"
+MOVCS   R0,#0
+BCS     Instance_GetInstantation_Done
+
+LDR     R0,[R0,#Instance_Object]        ; get the alleged object
+BL      Object_IsObject
+MOVNE   R0,#0                           ; if not an object, this isn't an Instance
+BNE     Instance_GetInstantation_Done
+
+MOV     R0,R2                           ; now point r0 to the Instance structure
+
+.Instance_GetInstantation_Done
+FNend
+LDMFD   R13!,{R1-R2,PC}^
+
+.Instance_Invalid
+ADR     R0,Instance_Invalid_Message
+B       Error
+.Instance_Invalid_Message
+        EQUS "Invalid Instance handle"+CHR$0:ALIGN
+
+:
+
+; ***************************************************************
+; Name          Instance_RegisterReference
+; Function      Tells an Instance it is being referenced by
+;               someone, so don't garbage collect it!
+; On Entry      r0 =  Instance handle
+; On Exit       -
+; Notes         Ignores bogus handles
+; ***************************************************************
+
+.Instance_RegisterReference
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Instance_RegisterReference")
+
+BL      Instance_GetInstance            ; guess
+TEQ     R0,#0                           ; is this a valid one?
+BEQ     Instance_RegisterReference_Done
+
+LDR     R1,[R0,#Instance_Ref]           ; get the references
+ADD     R1,R1,#1                        ; add one to it
+STR     R1,[R0,#Instance_Ref]           ; and store back
+
+.Instance_RegisterReference_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Instance_DecrementReference
+; Function      Decrement an instance's count without freeing it
+; On Entry      r0 =  Instance handle
+; On Exit       -
+; Notes         Ignores invalid handles
+; ***************************************************************
+.Instance_DecrementReference
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Instance_DecrementReference")
+
+BL      Instance_GetInstance            ; guess
+TEQ     R0,#0                           ; is this a valid one?
+BEQ     Instance_DecrementReference_Done
+                                        ; ignore if so
+
+LDR     R1,[R0,#Instance_Ref]           ; get the references
+BIC     R14,R1,#1<<31                   ; clear the mark
+SUBS    R14,R14,#1                      ; subtract one from it
+MOVMI   R14,#0
+AND     R1,R1,#1<<31                    ; keep the mark
+ORR     R1,R1,R14                       ; put the mark and the decrement together
+STR     R1,[R0,#Instance_Ref]           ; and store back
+
+.Instance_DecrementReference_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Instance_DeregisterReference
+; Function      Tells an Instance someone is no longer interested
+;               in it
+; On Entry      r0 =  Instance handle
+; On Exit       -
+; Notes         Ignores invalid handles
+; ***************************************************************
+
+.Instance_DeregisterReference
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Instance_DeregisterReference")
+
+BL      Instance_GetInstance            ; guess
+TEQ     R0,#0                           ; is this a valid one?
+BEQ     Instance_DeregisterReference_Done
+                                        ; ignore if so
+
+LDR     R1,[R0,#Instance_Ref]           ; get the references
+BIC     R14,R1,#1<<31                   ; clear the mark
+SUBS    R14,R14,#1                      ; subtract one from it
+AND     R1,R1,#1<<31                    ; keep the mark
+ORR     R1,R1,R14                       ; put the mark and the decrement together
+STR     R1,[R0,#Instance_Ref]           ; and store back
+
+BNE     Instance_DeregisterReference_Done
+                                        ; if that wasn't the last one, done
+
+; we now have to free everything within this Instance
+LDR     R14,[R12,#Garbage_SweepingFlag]  ; is Mr GC running?
+TEQ     R14,#0
+BLEQ    Instance_Free                   ; if not, we have to free everything
+
+.Instance_DeregisterReference_Done
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Instance_Free
+; Function      Frees an instance, having first called its destructor
+; On Entry      r0 -> Instance pointer
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.Instance_Free
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Instance_Free")
+
+BL      Instance_Destroy                        ; Call the destructor
+BL      Instance_Release                        ; release the memory associated
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Instance_Destroy
+; Function      Call the destructor of an instance
+; On Entry      r0 -> Instance pointer
+; On Exit       -
+; Notes
+; ***************************************************************
+
+.Instance_Destroy
+STMFD   R13!,{R0-R7,R14}
+
+MOV     R1,R0
+LDR     R0,[R0,#Instance_Object]                ; get the object type
+BL      Object_IsObject
+LDMNEFD R13!,{R0-R7,PC}^                        ; if not an object anymore, return
+MOV     R0,R1
+
+LDR     R14,[R12,#HeapPtr]
+SUB     R14,R0,R14                              ; r14 is offset to instance
+ORR     R14,R14,#&FC000003                      ; make a handle from the pointer
+STR     R14,Instance_Free_Block + 12            ; store in the instance HANDLE
+
+LDR     R14,[R12,#Object_Mark]
+ADD     R14,R14,#100                            ; give the object lots of references to
+                                                ; prevent recursion
+STR     R14,[R0,#Instance_Ref]
+
+LDR     R1,[R0,#Instance_Object]
+STR     R1,Instance_Free_Block + 4              ; store the class in
+
+ADR     R0,Instance_Free_Destructor
+MOV     R1,#2
+ADR     R2,Instance_Free_Block
+BL      ImplicitCallRootProcedure               ; not callrootproc as we may already
+                                                ; be threaded, and if so we want this to
+                                                ; look like an implicit procedure call
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Instance_Release
+; Function      Release all memory associated with an instance
+; On Entry      r0 -> instance pointer
+; On Exit       -
+; Notes         Ignores non-instances
+; ***************************************************************
+
+.Instance_Release
+STMFD   R13!,{R0-R7,R14}
+
+MOV     R2,R0
+
+LDR     R0,[R0,#Instance_Object]                ; get the object type
+BL      Object_IsObject
+LDMNEFD R13!,{R0-R7,PC}^                        ; if not an object anymore, return
+
+MOV     R1,R0
+MOV     R0,R2
+
+LDR     R2,[R1,#Object_Fields]                  ; r2 points to the fields
+ADD     R3,R0,#Instance_Fields                  ; r3 -> fields
+
+; Here we go through all the fields, unstrdupping all the strings, and ensuring all the
+; numbers are destroyed, in case they happened to point to other objects
+.Instance_Free_Loop
+TEQ     R2,#0                                   ; have we done?
+BEQ     Instance_Free_Done
+LDR     R14,[R2,#Field_Type]                    ; get the type of this field
+LDR     R0,[R3],#4                              ; and the field itself
+TEQ     R14,#fptrStr                            ; is it a string?
+BLEQ    Str_free                                ; free it if so
+BLNE    Instance_DeregisterReference            ; if not, try and deregister the ref
+LDR     R2,[R2,#Field_Next]
+B       Instance_Free_Loop
+
+.Instance_Free_Done
+LDR     R2,[R13]                                ; get the instance structure itself in r2
+LDR     R1,[R2,#Instance_Object]
+
+MOV     R4,R1                                   ; ready for recurse
+.Instance_Release_Sub_Loop
+LDR     R3,[R4,#Object_NumInstances]
+SUB     R3,R3,#1
+STR     R3,[R4,#Object_NumInstances]            ; decrement the number of instances
+LDR     R4,[R4,#Object_Parent]                  ; parent
+TEQ     R4,#0
+BNE     Instance_Release_Sub_Loop
+
+STR     R3,[R2]                                 ; overwrite the ptr
+
+BL      Release                                 ; and release the memory
+
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+.Instance_Free_Block
+        EQUD    fptrNum:EQUD    0
+        EQUD    fptrNum:EQUD    0
+.Instance_Free_Destructor          ; PROCDestroy(class,instance)
+        EQUS    "Destruct"+CHR$0:ALIGN
+
+:
+
+; ***************************************************************
+; Name          Garbage_Clear
+; Function      Clear the whole heap
+; On Entry      -
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.Garbage_Clear
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Garbage_Clear")
+SWI     "Hourglass_On"
+;FNadr(6,fptrs)                                  ; point r6 at the array of linked lists of
+;                                                ; global variables
+;MOV     R5,#ASC"z"-ASC"A"                       ; number of lists to check
+;BL      Garbage_Clear_Loop                      ; and clear away
+;
+;; Now for the GLOCALs
+;FNadr(6,ProgVars)
+;LDR     R5,[R12,#ProgNumber]                    ; number of programs
+;BL      Garbage_Clear_Loop                      ; and mark the glocals too
+;
+;; Now to completely sweep the heap of the rest
+FNadr(6,Thing%)
+
+MOV     R2,#1
+STR     R2,[R12,#Garbage_SweepingFlag]
+
+MOV     R2,#0                                   ; we sweeping from the beginning
+BL      EnumerateBlocks
+
+.Garbage_ClearAll_Loop
+TEQ     R2,#0
+BEQ     Garbage_Sweep_Done                      ; NAUGHTY CHEAT!!!!!!!!!!
+TEQ     R0,#0                                   ; is this a free block?
+BLEQ    EnumerateBlocks                         ; loop until we get an allocated block
+BEQ     Garbage_ClearAll_Loop
+
+LDR     R0,[R2,#Instance_Object]                ; get the object pointer
+BL      Object_IsObject                         ; is it an object?
+BLNE    EnumerateBlocks                         ; get next block if not
+BNE     Garbage_ClearAll_Loop
+
+STR     R2,[R6],#4                                ; discard this
+
+BL    EnumerateBlocks
+B     Garbage_ClearAll_Loop
+FNend
+
+.Garbage_Clear_Loop                             ; snippet of code to Clear a set of ptrs at r6
+STMFD   R13!,{R14}
+.Garbage_Clear_Loop_fptrs
+LDR     R1,[R6],#4                              ; get the head of the linked list
+.Garbage_Clear_Loop_Llist
+TEQ     R1,#0                                   ; have we done?
+BEQ     Garbage_Clear_Loop_Llist_Done
+LDR     R0,[R1,#8]                              ; get the type of this variable
+TEQ     R0,#fptrNum
+LDRNE   R1,[R1]
+BNE     Garbage_Clear_Loop_Llist                ; if not a number, loop round
+LDR     R0,[R1,#12]                             ; get the value
+AND     R2,R0,#&FC000003                        ; is it an instance handle?
+TEQ     R2,#&FC000003                           ; if not, loop
+BLEQ    Instance_DeregisterReference            ; one less reference
+LDR     R1,[R1]
+B       Garbage_Clear_Loop_Llist                ; if not a number, loop round
+.Garbage_Clear_Loop_Llist_Done
+SUBS    R5,R5,#1                                ; one less line to do
+BNE     Garbage_Clear_Loop_fptrs
+LDMFD   R13!,{PC}^
+
+:
+
+; ***************************************************************
+; Name          Garbage_Mark
+; Function      Marks all used instances in the heap
+; On Entry      -
+; On Exit       -
+; Notes         Can only be called when IRBasic is completely
+;               threaded out of, as it does not check LOCAL
+;               variables
+; ***************************************************************
+
+.Garbage_Mark
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Garbage_Mark")
+
+SWI     "Hourglass_On"
+LDR     R7,[R12,#Object_Mark]                   ; get the current mark status
+EOR     R7,R7,#1<<31                            ; toggle it
+STR     R7,[R12,#Object_Mark]                   ; and store it back, r7 is mark
+
+; first, check all the global variables
+
+FNadr(6,fptrs)                                  ; point r6 at the array of linked lists of
+                                                ; global variables
+MOV     R5,#ASC"z"-ASC"A"                       ; number of lists to check
+BL      Garbage_Mark_Loop                       ; and mark away
+
+; Now for the GLOCALs
+FNadr(6,ProgVars)
+LDR     R5,[R12,#ProgNumber]                    ; number of programs
+BL      Garbage_Mark_Loop                       ; and mark the glocals too
+
+SWI     "Hourglass_Off"
+FNend
+LDMFD   R13!,{R0-R7,PC}^
+
+.Garbage_Mark_Loop                              ; snippet of code to mark a set of ptrs at r6
+STMFD   R13!,{R14}
+.Garbage_Mark_Loop_fptrs
+LDR     R1,[R6],#4                              ; get the head of the linked list
+.Garbage_Mark_Loop_Llist
+TEQ     R1,#0                                   ; have we done?
+BEQ     Garbage_Mark_Loop_Llist_Done
+LDR     R0,[R1,#8]                              ; get the type of this variable
+TEQ     R0,#fptrNum
+LDRNE   R1,[R1]
+BNE     Garbage_Mark_Loop_Llist                 ; if not a number, loop round
+LDR     R0,[R1,#12]                             ; get the value
+AND     R2,R0,#&FC000003                        ; is it an instance handle?
+TEQ     R2,#&FC000003                           ; if not, loop
+BLEQ    Garbage_Mark_Instance                   ; mark it
+LDR     R1,[R1]
+B       Garbage_Mark_Loop_Llist                 ; if not a number, loop round
+
+.Garbage_Mark_Loop_Llist_Done
+SUBS    R5,R5,#1                                ; one less line to do
+BNE     Garbage_Mark_Loop_fptrs
+LDMFD   R13!,{PC}^
+
+:
+
+; ***************************************************************
+; Name          Garbage_Mark_Instance
+; Function      Marks an instance
+; On Entry      r0 =  instance handle
+;               r7 =  value of the mark
+; On Exit       -
+; Notes         Very recursive
+; ***************************************************************
+
+.Garbage_Mark_Instance
+STMFD   R13!,{R0-R3,R14}
+;FNfunction("Garbage_Mark_Instance") - too recursive, really
+
+BL      Instance_GetInstance
+MOVS    R2,R0                                   ; was this an instance?
+LDMEQFD R13!,{R0-R3,PC}^
+
+LDR     R1,[R2,#Instance_Ref]                   ; get the instance's ref
+TEQ     R1,R7                                   ; is this already marked?
+LDMPLIA R13!,{R0-R3,PC}^                        ; return if so
+EOR     R1,R1,#1<<31                            ; toggle the mark
+STR     R1,[R2,#Instance_Ref]                   ; store the modified thang
+
+LDR     R1,[R2,#Instance_Object]                ; get the object pointer in r1
+LDR     R3,[R1,#Object_Fields]                  ; get the field pointer
+ADD     R2,R2,#Instance_Fields
+
+.Garbage_Mark_Instance_Loop
+TEQ     R3,#0                                   ; have we done?
+LDMEQFD R13!,{R0-R3,PC}^
+LDR     R4,[R3,#Field_Type]                     ; check the type
+TEQ     R4,#fptrNum                             ; is it a number?
+LDREQ   R0,[R2]
+BLEQ    Garbage_Mark_Instance                   ; mark it if so
+ADD     R2,R2,#4
+LDR     R3,[R3,#Field_Next]
+B       Garbage_Mark_Instance_Loop              ; loop till done
+
+:
+
+; ***************************************************************
+; Name          Garbage_Sweep
+; Function      Sweeps the heap for unreferenced instances
+; On Entry      -
+; On Exit       -
+; Notes         Can be called at any time
+; ***************************************************************
+
+.Garbage_Sweep
+STMFD   R13!,{R0-R7,R14}
+FNfunction("Garbage_Sweep")
+LDR     R7,[R12,#Object_Mark]                   ; the mark that everything should have
+
+MOV     R2,#1
+STR     R2,[R12,#Garbage_SweepingFlag]
+
+FNadr(6,Thing%)
+
+;LDR     R2,[R12,#Garbage_LowMark]               ; lowest allocated object
+LDR     R4,[R12,#Garbage_HighMark]              ; last object to sweep
+TEQ     R4,#0                                   ; all objects?
+MVNEQ   R4,#0                                   ; quite big
+
+MOV     R2,#0                                   ; we sweeping from the beginning
+BL      EnumerateBlocks
+
+.Garbage_Sweep_Loop
+TEQ     R2,#0
+BEQ     Garbage_Sweep_Done
+TEQ     R0,#0                                   ; is this a free block?
+BLEQ    EnumerateBlocks                         ; loop until we get an allocated block
+BEQ     Garbage_Sweep_Loop
+CMP     R2,R4                                   ; have we done?
+BHI     Garbage_Sweep_Done
+
+LDR     R0,[R2,#Instance_Object]                ; get the object pointer
+BL      Object_IsObject                         ; is it an object?
+BLNE    EnumerateBlocks                         ; get next block if not
+BNE     Garbage_Sweep_Loop
+
+LDR     R0,[R2,#Instance_Ref]
+TEQ     R0,R7                                   ; is it marked correctly?
+
+STRMI   R2,[R6],#4                              ; if not marked ok - remember to discard it
+
+BL    EnumerateBlocks
+B     Garbage_Sweep_Loop
+
+.Garbage_Sweep_Done ; REM EMBER GARBAGE_CLEAR JUMPS HERE SO DON'T CHANGE NETHING WITHOUT CHECKING
+
+; now to delete all those nasty orphans! Muahahahahahah
+; First call all the destructors...
+FNadr(1,Thing%)
+.Garbage_Sweep_Destroy_Loop
+CMP     R1,R6
+LDRLT   R0,[R1],#4
+BLLT    Instance_Destroy
+BLT     Garbage_Sweep_Destroy_Loop
+
+;; Now to free any that haven't been freed by calling the destructors
+FNadr(1,Thing%)
+.Garbage_Sweep_Release_Loop
+CMP     R1,R6
+LDRLT   R0,[R1],#4
+BLLT    Instance_Release
+BLT     Garbage_Sweep_Release_Loop
+
+MOV     R2,#0
+STR     R2,[R12,#Garbage_SweepingFlag]
+
+SWI     "Hourglass_Off"
+FNend
+
+LDMFD   R13!,{R0-R7,PC}^
+
+:
+
+; ***************************************************************
+; Name          Initialise_Root_Class
+; Function      Initialise the 'Object' meta-class
+; On Entry      -
+; On Exit       -
+; Notes         -
+; ***************************************************************
+.Initialise_Root_Class
+STMFD   R13!,{R0,R1,R14}
+ADR     R0,Initialise_Root_Class_Object
+MOV     R1,#0
+BL      Object_Define
+STR     R0,[R12,#Object_ObjectClass]
+LDMFD   R13!,{R0,R1,PC}^
+.Initialise_Root_Class_Object
+EQUS    "Object"+CHR$0:ALIGN
+; ***************************************************************
+; Name          Fn_RegisterClass
+; Function      IRBasic interface to Object_Define
+; On Entry      r1 should be 1
+;               r2 -> IRBasic interface structure
+; On Exit       r0 =  1
+;               r1 =  fptrNum
+;               r2 -> Object handle
+; Notes         -
+; ***************************************************************
+.Fn_RegisterClass
+STMFD   R13!,{R14}
+CMP     R1,#1
+LDREQ   R0,[R2]
+CMPEQ   R0,#fptrStr
+BNE     CrapParms
+LDR     R0,[R2,#4]
+LDR     R1,[R12,#Object_ObjectClass]
+BL      Object_Define
+MOV     R2,R0
+MOV     R0,#1
+MOV     R1,#fptrNum
+LDMFD   R13!,{PC}^
+
+
+; ***************************************************************
+; Name          Fn_RegisterSubclass
+; Function      IRBasic interface to Object_Define with a subclass
+; On Entry      r1 should be 1
+;               r2 -> IRBasic interface structure
+; On Exit       r0 =  1
+;               r1 =  fptrNum
+;               r2 -> Object handle
+; Notes         -
+; ***************************************************************
+.Fn_RegisterSubclass
+STMFD   R13!,{R14}
+CMP     R1,#2
+LDREQ   R0,[R2]
+CMPEQ   R0,#fptrNum
+LDREQ   R0,[R2,#8]
+CMPEQ   R0,#fptrStr
+BNE     CrapParms
+LDR     R0,[R2,#12]
+LDR     R1,[R2,#4]
+BL      Object_Define
+MOV     R2,R0
+MOV     R0,#1
+MOV     R1,#fptrNum
+LDMFD   R13!,{PC}^
+
+; ***************************************************************
+; Name          Proc_AddField
+; Function      IRBasic interface to Object_AddField
+; On Entry      r1 should be 2
+;               r2 -> IRBasic interface
+; On Exit       r0 =0
+; Notes         -
+; ***************************************************************
+
+.Proc_AddField
+STMFD   R13!,{R14}
+CMP     R1,#2
+LDREQ   R0,[R2]
+CMPEQ   R0,#fptrNum
+LDREQ   R0,[R2,#8]
+CMPEQ   R0,#fptrStr
+BNE     CrapParms
+LDR     R0,[R2,#12]
+BL      GetStrLen
+ADD     R0,R0,R1
+LDRB    R0,[R0,#-1]
+CMP     R0,#ASC"$"
+LDR     R0,[R2,#4]
+LDR     R1,[R2,#12]
+MOVEQ   R2,#fptrStr
+MOVNE   R2,#fptrNum
+BL      Object_AddField
+MOV     R0,#0
+LDMFD   R13!,{PC}^
+
+; ***************************************************************
+; Name          Fn_new
+; Function      IRBasic interface to Object_Instantiate
+; On Entry      r1 should be 1
+;               r2 -> IRBasic interface
+; On Exit       r0 =  1
+;               r1 =  fptrNum
+;               r2 =  Instance handle
+; Notes         Sets up the instance to have *no* references
+; ***************************************************************
+.Fn_new
+STMFD   R13!,{R14}
+CMP     R1,#1
+LDREQ   R0,[R2]
+CMPEQ   R0,#fptrNum
+BNE     CrapParms
+LDR     R0,[R2,#4]
+BL      Object_Instantiate
+MOV     R2,R0
+MOV     R0,#1
+MOV     R1,#fptrNum
+LDMFD   R13!,{PC}^
+
+:
+
+; ***************************************************************
+; Name          Instance_Resolve
+; Function      Find a field within an instance
+; On Entry      r0 =  Instance handle
+;               r1 -> Name of field to look up
+; On Exit       r0 -> value (ptr to)
+;               r1 =  type
+; Notes         Will generate an error if can't lookup
+; ***************************************************************
+
+.Instance_Resolve
+STMFD   R13!,{R14}
+FNfunction("Instance_Resolve")
+
+BL      Instance_Resolve_Internal
+TEQ     R0,#0
+BEQ     NoSuchMember
+
+FNend
+LDMFD   R13!,{PC}^
+
+; ***************************************************************
+; Name          XInstance_Resolve
+; Function      Resolve a reference sans errors
+; On Entry      as for Instance_Resolve
+; On Exit       r0 = 0 if error else as instance_resolve
+; Notes
+; ***************************************************************
+.XInstance_Resolve
+STMFD   R13!,{R14}
+FNfunction("Instance_Resolve")
+
+BL      Instance_Resolve_Internal
+
+FNend
+LDMFD   R13!,{PC}^
+
+
+; ***************************************************************
+; Name          Instance_Resolve_Internal
+; Function      Internally called by resolvers
+; On Entry      as for calling routine
+; On Exit       r0 = 0 if error, else as calling routine
+; Notes
+; ***************************************************************
+
+.Instance_Resolve_Internal
+STMFD   R13!,{R2-R7,R14}
+FNfunction("Instance_Resolve_Internal")
+BL      Instance_GetInstance
+TEQ     R0,#0                                           ; a valid reference?
+BEQ     NotAClass
+LDR     R2,[R0,#Instance_Object]
+LDR     R2,[R2,#Object_Fields]                          ; get the fields for this object
+ADD     R3,R0,#Instance_Fields                          ; point r3 at the fields
+
+.Instance_Resolve_Loop
+TEQ     R2,#0                                           ; have we done?
+MOVEQ   R0,#0
+BEQ     End_Instance_Resolve_Internal
+
+LDR     R0,[R2,#Field_Name]                             ; get the name of the field
+BL      CheckSame                                       ; are they the same?
+LDRNE   R2,[R2]
+ADDNE   R3,R3,#4
+BNE     Instance_Resolve_Loop
+LDR     R1,[R2,#Field_Type]                             ; get the type
+MOV     R0,R3                                           ; point r0 at the data
+
+.End_Instance_Resolve_Internal
+FNend
+LDMFD   R13!,{R2-R7,PC}^
+
+.NoSuchMember
+ADR     R0,NoSuchMemberMes
+B       Error
+.NoSuchMemberMes
+        EQUS "No such class member"+CHR$0:ALIGN
+
+:
+
+; ***************************************************************
+; Name          Instance_GetClass
+; Function      Gets the class pointer
+; On Entry      r0 =  Instance handle
+; On Exit       r0 -> class, or 0
+; Notes         -
+; ***************************************************************
+
+.Instance_GetClass
+STMFD   R13!,{R14}
+FNfunction("Instance_GetClass")
+BL      Instance_GetInstance
+TEQ     R0,#0
+LDRNE   R0,[R0,#Instance_Object]
+FNend
+LDMFD   R13!,{PC}^
+
+:
+
+; ***************************************************************
+; Name          Fn_GetClassName
+; Function      IRBasic wrapper for Instance_GetClassName
+; On Entry      as for IRBasic
+; On Exit       -
+; Notes         -
+; ***************************************************************
+
+.Fn_GetClassName
+STMFD   R13!,{R14}
+CMP     R1,#1
+LDREQ   R3,[R2]
+CMPEQ   R3,#fptrNum
+BNE     CrapParms
+LDR     R0,[R2,#4]
+BL      Instance_GetClass
+FNadr(2,Blank2)
+TEQ     R0,#0
+LDRNE   R2,[R0,#Object_Name]
+MOV     R0,#1
+MOV     R1,#fptrStr
+LDMFD   R13!,{PC}^
+
+]
+=""
+@

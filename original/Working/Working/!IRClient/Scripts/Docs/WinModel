@@ -1,0 +1,23 @@
+
+Parts of this windowing model have been implemented.
+
+Click  - xoff, yoff, selnotadjust, icon handle
+Menu   - xoff, yoff, icon handle
+Redraw - redraw x0,y0,x1,x1
+Open   - x,y, sx,sy, behind -1/-2/-3
+         CHANGE: x0,y0, x1,y1, sx,sy, behind -1/-2/-3
+         Reason: We need to know how big to open it :-)
+Close  - flags
+         (1 | 4) + &1000 [shift]
+Enter  - .
+Leave  - .
+Key    - char, icon handle
+Focus  - gainnotlost, icon
+
+Iconize- ?
+Help   - x, y, icon
+
+Save      dragged to somewhere
+Load      dragged onto us
+Dragging  dragged to us
+Info      iconise

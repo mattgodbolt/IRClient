@@ -1,0 +1,42 @@
+Scheduler
+---------
+
+This is a very simple scheduling module which provides very little control.
+To add a call back you should use :
+  PROCAddCallBack(name$,time,private)
+where :
+  name$ = the name of the module, or a prefixed name if many callbacks are used
+  time = number of cs from now to callback
+  private = a private value
+
+To add a recurrant callback you should use :
+  PROCCallEvery(name$,time,private)
+where the values are as above.
+
+To remove call backs, or call every's you should use :
+  PROCRemoveCallBack(name$,private)
+where :
+  name$ = the name as passed to AddCallBack
+          ALL instances of this name will be removed from the chain
+  
+
+On being triggered, CallBacks will be overloaded through :
+  PROCOverload_CallBack(name$,private)
+which you should recognise and pass on otherwise. Uncaught CallBacks will
+raise an error in the server window.
+
+More technical notes
+--------------------
+Call backs will occur after the minimum period has passed, but not before.
+The exact time cannot be guarenteed.
+
+Routines which are called in CallBack MUST be fully re-entrant. It is
+theoretically possible that a CallBack may occur at any time, and possibly
+even whilst execution of another routine is progressing. It should be taken
+as given, however, that callbacks will not occur during 'simple' code, but
+only on procedure calls.
+
+It will be possible in version 0.27 and later of IRClient to install
+callbacks in a more flexible manner, and this will probably not have the
+possibility of interupting executing code.
+

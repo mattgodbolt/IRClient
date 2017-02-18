@@ -1,0 +1,275 @@
+REM >ListLib
+REM Deals with /LIST so that it won't hang IRC
+REM (c) Justin Fletcher
+REM 13 Aug 1996 : JF: Started                           v1.00
+REM ---
+REM $Id: List 1.3 98/02/02 16:01:13 gerph Exp $
+REM $Log:	List $
+REM Revision 1.3  98/02/02  16:01:13  gerph
+REM Modified the Version string to return a
+REM RCS revsion name.
+REM 
+REM Revision 1.2  98/02/02  15:13:04  gerph
+REM Uses GLocals now to reduce namespace problems (I hope).
+REM Fixed wildcard matching code at long last !
+REM
+REM Revision 1.1  98/02/02  15:06:24  gerph
+REM Initial revision
+REM
+REM ---
+PRINT "$Id: List 1.3 98/02/02 16:01:13 gerph Exp $"
+END
+:
+REM GLocals
+LOCAL namenum,ListSocket,ListBuffer
+LOCAL on,basename$,min,max,match$
+:
+REM Initialise this module
+DEF PROCInitialiseModule
+REM Initialise sockets and name guesser
+PROCStartupStatus("Initialising List...")
+namenum=1
+ListSocket=0
+ListBuffer=0
+PROCList_Reset
+REM Read configuration
+on=VAL(FNDB_ReadConfig("List_Remote"))
+basename$=FNDB_ReadConfig("List_Name")
+IF basename$="" THEN
+ basename$="[IC]List"
+ENDIF
+REM Pass on to other modules
+PROC@
+ENDPROC
+:
+REM We've just started listing
+DEF PROCList_Reset
+REM Initialise List specific variables
+min=0
+max=65536
+match$="*"
+ListDone=FALSE
+ENDPROC
+:
+REM Give ourselves a sensible name
+DEF FNOverload_ScriptInfo(num)
+LOCAL ret$
+IF num=0 THEN
+ ret$="List v"+FNRCSVersion("$Revision: 1.3 $")+" (Gerph)"
+ELSE
+ ret$=FN@(num-1)
+ENDIF
+=ret$
+:
+REM Overloaded onto the original routine
+DEF PROCDoList(str$)
+LOCAL chan$,com$,val
+IF on THEN
+ PROCList_Reset
+ match$=FNoneparam(str$)
+ IF LEFT$(match$,1)="-" THEN
+  match$="*"
+ ELSE
+  str$=FNStrip(FNmoveon(str$))
+ ENDIF
+ WHILE str$<>""
+  IF LEFT$(str$,1)="-" THEN
+   com$=FNcapitalise(FNoneparam(MID$(str$,2)))
+   str$=FNmoveon(MID$(str$,2))
+   val=VAL(FNoneparam(str$))
+   str$=FNmoveon(str$)
+   CASE com$ OF
+    WHEN "MIN","MINIMUM"
+     min=val
+    WHEN "MAX","MAXIMUM"
+     max=val
+    OTHERWISE
+     PROCDisplayWarning("*** Unknown list modifier '-"+str$+"' ignored.","")
+   ENDCASE
+  ELSE
+   PROCDisplayWarning("*** Unknown list modifier '"+str$+"' ignored.","")
+   str$=FNmoveon(str$)
+  ENDIF
+ ENDWHILE
+ IF (min > max) THEN
+  PROCDisplayWarning("*** Silly.  List minimum > list maximum.  List ignored","")
+ ELSE
+  IF ( (INSTR(match$,"*")) OR (INSTR(match$,"?")) ) THEN
+   PROCList_Connect("LIST")
+  ELSE
+   PROCList_Connect("LIST "+match$)
+   match$="*"
+  ENDIF
+ ENDIF
+ELSE
+ REM They want to use the old yucky list :-(
+ PROC@(str$)
+ENDIF
+ENDPROC
+
+DEF PROCList_Connect(line$)
+REM Now to start up the extra connection :-(
+IF ListBuffer THEN
+ PROCFreeBuffer(ListBuffer)
+ ListBuffer=0
+ENDIF
+IF ListSocket THEN
+ PROCClose(ListSocket)
+ ListSocket=0
+ENDIF
+ListBuffer = FNNewBuffer
+ListSocket = FNConnect(IRC_Server$,IRC_Port,"ListConnected","ListError","ListIncoming",0)
+IF ListSocket=0 THEN
+ PROCDisplayError("*** Could not connect to IRC Server","")
+ELSE
+ PROCSendString(ListSocket,"NICK "+FNlist_nick)
+ PROCSendString(ListSocket,"USER "+FNGetUsername+" * * :IRClient List")
+ PROCSendString(ListSocket,line$)
+ENDIF
+ENDPROC
+:
+DEF FNlist_nick
+namenum=namenum+1
+=basename$+STR$ namenum
+:
+DEF PROCListConnected(i1,i2)
+ENDPROC
+:
+DEF PROCListError(i1,i2,reason$)
+PROCClose(ListSocket)
+PROCFreeBuffer(ListBuffer)
+ListSocket=0
+ListBuffer=0
+IF ListDone=FALSE THEN
+ PROCNotify("List: "+reason$)
+ENDIF
+ENDPROC
+:
+DEF PROCListIncoming(i1,i2)
+  LOCAL numbytes,str$
+  numbytes=FNReadToStaticBuffer(ListSocket)
+  PROCBufferAdd(ListBuffer,FNStaticBufferAddr,numbytes)
+  str$=FNGetLineFromBuffer(ListBuffer)
+  WHILE LEN(str$)
+    PROCListLine(str$)
+    str$=FNGetLineFromBuffer(ListBuffer)
+  ENDWHILE
+ENDPROC
+:
+DEF PROCListLine(line$)
+LOCAL from$,command$,to$,num
+IF LEFT$(line$,1)=":" THEN
+ line$=MID$(line$,2)
+ from$=FNoneparam(line$)
+ line$=FNmoveon(line$)
+ command$=FNoneparam(line$)
+ line$=FNmoveon(line$)
+ to$=FNoneparam(line$)
+ line$=FNmoveon(line$)
+ IF VAL(command$)<>0 THEN
+  CASE VAL(command$) OF
+   WHEN 321:
+    PROCKillDisplay("##list##")
+    PROCNewDisplay("##list##",256,"Results of /LIST *",0)
+    num=0
+
+   WHEN 322:
+    chan$=FNoneparam(line$)
+    line$=FNmoveon(line$)
+    num$=FNoneparam(line$)
+    users=VAL num$
+    topic$=FNoneparam(FNmoveon(line$))
+    ok = FNWildcardMatch(MID$(chan$,2),match$)
+    PROCBeep
+    IF (ok AND (users >= min) AND (users <= max)) THEN
+      IF num=0 THEN
+        PROCDisplayInfo("Channel name            No.Users  Topic","##list##")
+      ENDIF
+      num = num+1
+      chan$=LEFT$(chan$,22)
+      topic$=LEFT$(topic$,55)
+      PROCDisplayInfo(chan$+STRING$((24-LEN chan$)," ")+num$+STRING$((10-LEN num$)," ")+topic$,"##list##")
+    ENDIF
+   WHEN 323
+    IF num=0 THEN
+      PROCDisplayInfo("No matching results","##list##")
+    ELSE
+      PROCDisplayInfo(STR$(num)+" matching channels","##list##")
+    ENDIF
+    PROCSendString(ListSocket,"QUIT")
+    PROCChangeDisplayTitle("##list##","Results of /LIST")
+    ListDone=TRUE
+
+   WHEN 433:
+    PROCSendString(ListSocket,"NICK "+FNlist_nick)
+    PROCSendString(ListSocket,"USER "+FNGetUsername+" * * :IRClient List")
+    PROCSendString(ListSocket,"LIST")
+  ENDCASE
+ ENDIF
+ENDIF
+ENDPROC
+:
+REM *********** Overloaded configuration options **************
+REM Enumerate module names
+DEF FNOverload_ConfigModName(count)
+LOCAL ret$
+IF count=0 THEN
+ ret$="List"
+ELSE
+ ret$=FN@(count-1)
+ENDIF
+=ret$
+:
+REM What options do we provide ?
+DEF PROCOverload_ConfigOptions(module$)
+IF module$="List" THEN
+ PROCDisplayConfig("")
+ PROCDisplayConfig("-- List configuration --")
+ PROCDisplayConfig("You can configure :")
+ PROCDisplayConfig("  Remote   : Whether to use remote /LIST")
+ PROCDisplayConfig("  Name     : Base name to use for /LIST")
+ELSE
+ PROC@(module$)
+ENDIF
+ENDPROC
+:
+REM How do we configure things
+DEF PROCOverload_ConfigCommand(module$,com$,str$)
+LOCAL var
+IF module$="List" THEN
+ CASE com$ OF
+  WHEN "NAME"
+   IF str$<>"" OR LEN(str$)>8 THEN
+    basename$=str$
+    PROCDB_WriteConfig("List_Name",basename$)
+    PROCDisplayConfig("Set Name to "+str$)
+   ELSE
+    PROCDisplayConfig("Syntax: Name <nickname>")
+   ENDIF
+
+  WHEN "REMOTE"
+   var=FNboolean(str$)
+   CASE var OF
+    WHEN 0,-1
+     on=var
+     PROCDB_WriteConfig("List_Remote",STR$ on)
+     PROCDisplayConfig("Set Remote to "+FNbooltext(on))
+    WHEN -2
+     PROCDisplayConfig("Syntax: Remote <boolean>")
+   ENDCASE
+
+  WHEN "LIST"
+   PROCDisplayConfig("")
+   PROCDisplayConfig("Remote : "+FNbooltext(on))
+   PROCDisplayConfig("Name   : "+basename$)
+
+  WHEN "HELP"
+   PROCOverload_ConfigOptions(module$)
+
+  OTHERWISE
+   PROCDisplayConfig("Command not recognised")
+ ENDCASE
+ELSE
+ PROC@(module$,com$,str$)
+ENDIF
+ENDPROC

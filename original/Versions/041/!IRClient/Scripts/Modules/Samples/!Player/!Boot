@@ -1,0 +1,7 @@
+IconSprites <Obey$Dir>.!Sprites
+Set File$Type_350 Squished
+Set File$Type_351 Sequence
+If "<Alias$@RunType_350>"="" Then Set Alias$@RunType_350 Run <Obey$Dir>.!Run %%0
+If "<Alias$@RunType_351>"="" Then Set Alias$@RunType_351 Run <Obey$Dir>.!Run %%0
+| This file has been innoculated against the Extend Virus
+||ÿ

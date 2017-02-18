@@ -1,0 +1,34 @@
++-----------------------------------------+
+|  !IRClient © 1995-8 Matthew Godbolt and |
+|                   Justin Fletcher       |
+|  Please see file 'License' for          |
+|  important details about this program   |
++-----------------------------------------+
+
+Thanks are due to (in no particular order) :
+
+Alex Howarth for his help with the user interface, and testing
+Dirk Engling for more information
+Dave Thomas for the newer sprites and templates
+Dominic Symes for letting me use ZapRedraw
+James Wilson for his suggestions for Voyager integration
+Jo Hornsby (gabriell) for lending me his PRMs - thank you!!!!!!!!!
+Malcolm Rowe for his work on the meta-server, and for giving me access to his
+DNS for irclient.pyro.org, and for generally laughing at my insane ideas...
+Neil Tarrant for his continued help with TCP/IP stacks and reference and also
+for helping me solve the dreaded DCC receive bug :)
+Phil 'Fish' Norman for his reference manuals and his graphical ability
+Philip Temple for his plug in AW!
+pixeleyes for the smalltalk during the early hours ...
+Richard Talbot-Watkins for all sortsa things
+RiscTaker and the rest of the #acorn crew for pretty much the same ...
+Stewart Brodie for his excellent WWW browser and handy TCP/IP stack hints
+thom for his long suffering crashing of his RPC while we sorted out DCC....
+Zorack for putting up with my continual system crashes and modem-line
+droppings ...
+
+...and last but not least
+
+This program is dedicated to Hilary Gage, my girlfriend who puts up with my
+anti-social programming behaviour completely uncomplainingly!  I love her
+lots - and hope she forgives me for not spending enough time with her ever.

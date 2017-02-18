@@ -1,0 +1,38 @@
+
+| *******************************************************************
+| ** !IRClient by Matthew Godbolt and Justin Fletcher  © 1995-1997 **
+| ** IRClient is now *SHAREWARE* and should be registered, see the **
+| ** !Help file                                                    **
+| ** ZapRedraw module © 1994 Dominic Symes - used with permission  **
+| *******************************************************************
+
+Set IRClient$Dir <Obey$Dir>
+IconSprites <IRClient$Dir>.!Sprites
+
+Set EqWimp$Path System:Modules.,<IRClient$Dir>.Resources.
+
+RmEnsure EqWimpMod 0.30 RmLoad EqWimp:EqWimpMod
+RmEnsure EqWimpMod 0.30 Error 0 You need EqWimp version 0.30 or greater to run !IRClient
+RmEnsure EqNet     0.05 RmLoad EqWimp:EqNet
+RmEnsure EqNet     0.05 Error 0 You need EqNet v0.05 installed to run !IRClient
+RmEnsure ZapRedraw 0.22 RmLoad EqWimp:ZapRedraw
+RmEnsure ZapRedraw 0.22 Error 0 You need ZapRedraw version 0.22 or greater to run !IRClient
+|RmEnsure InetDB    0.00 Error 0 You need INetDB installed to run !IRClient - see the help file
+RmEnsure MemoryAllocater 1.05 RmLoad EqWimp:MAlloc
+RmEnsure MemoryAllocater 1.05 Error 0 You need MemoryAllocater 1.06 or greater to run !IRClient
+
+Unset EqWimp$Path
+
+| *********************************************************************
+| ** If you are having problems with IRClient not recognising your   **
+| ** IP address, and you *know* what IP address you have, then un-   **
+| ** comment the next line, and change it to be either your IP       **
+| ** address, or a resolvable hostname                           MrG **
+| *********************************************************************
+|Set Inet$HostName your_ip_address_here
+
+If "<Inet$HostName>" = "" Then Run <IRClient$Dir>.Resources.HostName
+
+WimpSlot -min 160k -max 160k
+| debugaif <IRClient$Dir>.!RunImage
+Run <IRClient$Dir>.!RunImage

@@ -1,0 +1,151 @@
+REM >SpriteF class
+REM Sprite file handling (maybe)
+REM ---
+REM $Id: SpriteF 1.1 97/04/16 02:34:28 gerph Exp $
+REM $Log:	SpriteF $
+Revision 1.1  97/04/16  02:34:28  gerph
+Initial revision
+
+REM ---
+ERROR 0,"Don't run me, I'm a class above you"
+END
+:
+DEFPROCOverload_Classes_Initialise
+Class_SpriteF=FNRegisterClass("SpriteF")
+REM The sprite area block
+PROCAddField(Class_SpriteF,"area")
+:
+Class_Sprite=FNRegisterClass("Sprite")
+REM The sprite area class
+PROCAddField(Class_Sprite,"spritef")
+REM The sprite name
+PROCAddField(Class_Sprite,"name$")
+REM Pass the call on
+PROC@
+ENDPROC
+:
+DEFFNnewSpriteF(file$)
+LOCAL inst,obj,type,len
+SYS "OS_File",20,file$ TO obj,,,,len,,type
+IF type<>&FF9 OR (obj AND 1)<>1 THEN ERROR "Not a Sprite file"
+inst=FNnew(Class_SpriteF)
+inst.area=FNnewBlock(len+4)
+!(inst.area.data)=len+4
+!(inst.area.data+4)=0
+!(inst.area.data+8)=16
+!(inst.area.data+12)=16
+SYS "OS_SpriteOp",&109,inst.area.data,len+4
+SYS "OS_SpriteOp",&10A,inst.area.data,file$
+=inst
+:
+DEFFNSpriteF_FindSprite(a$)
+LOCAL inst,f
+SYS "OS_SpriteOp",&128,@.area.data,a$ TO;f
+IF f<>0 THEN
+ inst=FNnew(Class_Sprite)
+ inst.name$=a$
+ inst.spritef=@
+ENDIF
+=inst
+:
+DEFFNSpriteF_GetUnknownVar(a$)
+LOCAL v$,num
+CASE a$ OF
+ WHEN "sprites"
+  SYS "OS_SpriteOp",&108,@.area.data TO ,,,num
+  =num
+ENDCASE
+=FN@(a$)
+:
+DEFFNSprite_GetUnknownVar(a$)
+LOCAL num
+CASE a$ OF
+ WHEN "width"
+  SYS "OS_SpriteOp",&128,@.spritef.area.data,@.name$ TO ,,,num
+  =num
+ WHEN "height"
+  SYS "OS_SpriteOp",&128,@.spritef.area.data,@.name$ TO ,,,,num
+  =num
+ WHEN "mode"
+  SYS "OS_SpriteOp",&128,@.spritef.area.data,@.name$ TO ,,,,,,num
+  =num
+ENDCASE
+=FN@(a$)
+:
+DEFPROCSprite_Plot(x,y)
+LOCAL scale,trans,scr
+scale=FNnewBlock(16)
+trans=FNnewBlock(256*4)
+scr=FNnewScreen(@.mode)
+IF scr.colours<63 THEN
+ SYS "Wimp_ReadPixTrans",&100,@.spritef.area.data,@.name$,3,4,5,scale.data,trans.data
+ELSE
+ SYS "ColourTrans_SelectTable",@.spritef.area.data,@.name$,-1,-1,trans.data,0
+ !(scale.data+0)=1
+ !(scale.data+4)=1
+ !(scale.data+8)=1
+ !(scale.data+12)=1
+ENDIF
+SYS "OS_SpriteOp",&134,@.spritef.area.data,@.name$,x,y,0,scale.data,trans.data
+ENDPROC
+:
+DEFPROCSprite_PlotScaled(x,y,xs,ys,xd,yd)
+LOCAL scale,trans,scr,iter
+scale=FNnewBlock(16)
+trans=FNnewBlock(256*4)
+scr=FNnewScreen(@.mode)
+IF scr.colours<63 THEN
+ SYS "Wimp_ReadPixTrans",&100,@.spritef.area.data,@.name$,3,4,5,scale.data,trans.data
+ELSE
+ SYS "ColourTrans_SelectTable",@.spritef.area.data,@.name$,-1,-1,trans.data,0
+ !(scale.data+0)=1
+ !(scale.data+4)=1
+ !(scale.data+8)=1
+ !(scale.data+12)=1
+ENDIF
+REM Change the x ratio
+!(scale.data+0)=(!(scale.data+0))*xs
+!(scale.data+8)=(!(scale.data+8))*xd
+REM Change the y ratio
+!(scale.data+4)=(!(scale.data+4))*ys
+!(scale.data+12)=(!(scale.data+12))*yd
+SYS "OS_SpriteOp",&134,@.spritef.area.data,@.name$,x,y,0,scale.data,trans.data
+ENDPROC
+:
+DEFPROCSprite_FlipX
+SYS "OS_SpriteOp",&121,@.spritef.area.data,@.name$
+ENDPROC
+DEFPROCSprite_FlipY
+SYS "OS_SpriteOp",&12F,@.spritef.area.data,@.name$
+ENDPROC
+DEFPROCSprite_Rename(y$)
+SYS "OS_SpriteOp",&12F,@.spritef.area.data,@.name$,y$
+@.name$=y$
+ENDPROC
+DEFPROCSprite_Delete
+SYS "OS_SpriteOp",&12F,@.spritef.area.data,@.name$
+@=0
+ENDPROC
+:
+DEFFNSprite_Read(x,y)
+LOCAL col,tint
+SYS "OS_SpriteOp",&29,@.spritef.area.data,@.name$,x,y TO ,,,,,col,tint
+=col+64*tint
+DEFPROCSprite_Write(x,y,col)
+SYS "OS_SpriteOp",&29,@.spritef.area.data,@.name$,x,y,col MOD 64,col DIV64
+ENDPROC
+:
+DEFFNSprite_SwitchTo
+ERROR "I've not written this yet"
+LOCAL blk,a,b,c,d
+blk=FNnewSpriteContext
+SYS "OS_SpriteOp",something, TO a,b,c,d
+blk blah = a,b,c,d
+=blk
+:
+DEFPROCSpriteContext_Destruct
+ERROR "This is also unwritten"
+SYS "OS_SpriteOp",blah
+REM And pass on
+PROC@
+ENDPROC

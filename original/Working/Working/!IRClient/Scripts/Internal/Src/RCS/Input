@@ -1,0 +1,345 @@
+head     1.3;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.3
+date     97.12.22.18.24.51;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.12.22.18.23.19;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.12.38.55;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@IRClient's basic input handling
+@
+
+
+1.3
+log
+@Fixed RCS headers on log lines
+@
+text
+@REM >Internal.Input
+REM (c) 1997 Matthew Godbolt
+REM This file deals with character input into the text box.
+REM ---
+REM $Id: Input 1.2 97/12/22 18:23:19 gerph Exp $
+REM $Log:	Input $
+REM Revision 1.2  97/12/22  18:23:19  gerph
+REM Fixed DLL things to use the new structures.
+REM ---
+PRINT "$Id: Input 1.2 97/12/22 18:23:19 gerph Exp $"
+END
+:
+LOCAL String$,CurPos,prevString$
+LOCAL StringList,ListPtr
+LOCAL Keys
+LOCAL Display$
+:
+DEF PROCInput_Initialise
+String$=""
+prevString$=""
+CurPos=0
+StringList=FNnewDLList
+Keys=FNnewList
+ListPtr=0
+Class_BoundKey = FNRegisterClass("BoundKey")
+PROCAddField(Class_BoundKey,"key")
+PROCAddField(Class_BoundKey,"functionlist")
+ENDPROC
+:
+DEF PROCInputChanged
+PROCSetInputText(String$)
+PROCSetCursorPos(CurPos)
+PROCRedrawInputBox
+ENDPROC
+:
+DEF PROCInputDelete
+IF CurPos>0 THEN
+ String$ = LEFT$(String$,CurPos-1) + MID$(String$,CurPos+1)
+ CurPos-=1
+ PROCInputChanged
+ENDIF
+ENDPROC
+:
+DEF PROCInputInsert(char)
+String$ = LEFT$(String$,CurPos) + CHR$ char + MID$(String$,CurPos+1)
+CurPos+=1
+PROCInputChanged
+ENDPROC
+:
+DEF PROCInputInsertStr(char$)
+String$ = LEFT$(String$,CurPos) + char$ + MID$(String$,CurPos+1)
+CurPos+=LEN char$
+PROCInputChanged
+ENDPROC
+:
+DEF PROCCursorMove(n)
+LOCAL len
+len = LEN(String$)
+CurPos+=n
+IF CurPos<0 THEN
+ CurPos=0
+ELSE
+ IF CurPos > len THEN CurPos = len
+ENDIF
+PROCSetCursorPos(CurPos)
+PROCRedrawInputBox
+ENDPROC
+:
+DEF PROCCharEntered(display$,char)
+LOCAL HandledByBinding
+Display$=display$
+HandledByBinding= FNProcessKeyBinding(char)
+IF HandledByBinding=0 THEN
+ IF char < 32 OR char = 127 THEN
+  CASE char OF
+   WHEN 8,127
+    PROCInputDelete
+   WHEN 2,22,31
+    REM Control codes - avoid inserting unnessary duplicates
+    IF CurPos>0 THEN
+     IF (ASC(MID$(String$,CurPos,1))=char) THEN
+      PROCInputDelete
+     ELSE
+      PROCInputInsert(char)
+     ENDIF
+    ELSE
+     PROCInputInsert(char)
+    ENDIF
+   WHEN 7,15
+    PROCInputInsert(char)
+   WHEN 13
+    IF ListPtr=0 THEN
+     PROCStringList.Add(FNnewString(String$))
+    ELSE
+     IF (ListPtr.data.data$<>String$) AND String$<>"" THEN PROCStringList.Add(FNnewString(String$))
+    ENDIF
+    PROCUserLine(String$)
+    ListPtr=0
+    String$=""
+    prevString$=""
+    CurPos=0
+    PROCInputChanged
+   WHEN 21
+    CurPos = 0
+    String$ = ""
+    PROCInputChanged
+   OTHERWISE
+    PROCProcessKey(char)
+  ENDCASE
+ ELSE
+  IF char < 256 THEN
+   PROCInputInsert(char)
+  ELSE
+   CASE char OF
+    WHEN &18C
+     PROCCursorMove(-1)
+    WHEN &18D
+     PROCCursorMove(1)
+    WHEN &18E
+     IF ListPtr THEN
+      ListPtr=ListPtr.prev
+      IF ListPtr THEN
+       String$=ListPtr.data.data$
+      ELSE
+       String$=prevString$
+      ENDIF
+     ENDIF
+     CurPos=LEN(String$)
+     PROCInputChanged
+    WHEN &18F
+     IF ListPtr=0 THEN
+      ListPtr=FNStringList.First
+     ELSE
+      IF ListPtr.next THEN ListPtr=ListPtr.next
+     ENDIF
+     IF ListPtr THEN
+      IF ListPtr=FNStringList.First THEN prevString$=String$
+      String$=ListPtr.data.data$
+      CurPos=LEN(String$)
+      PROCInputChanged
+     ENDIF
+    WHEN &1AC
+     PROCCursorMove(-512)
+    WHEN &1AD
+     PROCCursorMove(512)
+    OTHERWISE
+     PROCProcessKey(char)
+   ENDCASE
+  ENDIF
+ ENDIF
+ENDIF
+ENDPROC
+:
+DEF PROCBindKey(key$,command$)
+LOCAL key,binding,com$,space
+CASE LEFT$(key$,1) OF
+ WHEN "^"
+  IF MID$(key$,2,1)="ELSE" THEN
+   key = FNkeyNumberFromName(MID$(key$,3))
+   IF key >= &100 THEN
+    key+=&30
+   ELSE
+    key= (key AND 31) + &200
+   ENDIF
+  ELSE
+   key = FNkeyNumberFromName(MID$(key$,2))
+   IF key >= &100 THEN
+    key+=&20
+   ELSE
+    key=key AND 31
+   ENDIF
+  ENDIF
+ WHEN "ELSE"
+  key = FNkeyNumberFromName(MID$(key$,2))
+  IF key >= &100 THEN key+=&10
+ OTHERWISE
+  key = FNkeyNumberFromName(key$)
+ENDCASE
+binding = FNnew(Class_BoundKey)
+binding.key = key
+binding.functionlist=FNnewList
+WHILE command$<>""
+ space = INSTR(command$," :: ")
+ IF space = 0 THEN space = LEN(command$)+1
+ com$=FNStrip(LEFT$(command$,space-1))
+ command$=FNStrip(MID$(command$,space+4))
+ PROCbinding.functionlist.AddAtEnd(FNnewString(com$))
+ENDWHILE
+PROCKeys.Add(binding)
+ENDPROC
+:
+DEF FNkeyNumberFromName(name$)
+ LOCAL key
+ CASE FNCapitalise(name$) OF
+  WHEN "RETURN"
+   key = 13
+  WHEN "DELETE"
+   key = 127
+  WHEN "BACKSPACE"
+   key = 8
+  WHEN "UP"
+   key = &18f
+  WHEN "DOWN"
+   key = &18e
+  WHEN "F1"
+   key = &181
+  OTHERWISE
+   key = ASC(name$)
+ ENDCASE
+=key
+:
+DEF FNBoundKey_Compare(value)
+ LOCAL retval
+ IF @@.key = value THEN retval = 1
+=retval
+:
+DEF FNProcessKeyBinding(key)
+LOCAL binding
+binding = FNKeys.Find(key)
+IF binding THEN
+ PROCbinding.data.functionlist.Iterate("runBinding")
+=1
+ELSE
+=0
+ENDIF
+
+:
+DEF PROCrunBinding(function)
+LOCAL fun,fun$,parm,function$,parm$
+parm=FNnewList
+function$=function.data$
+fun = INSTR(function$,"(")
+IF fun THEN
+ fun$=LEFT$(function$,fun-1)
+ function$=FNStrip(MID$(function$,fun+1))
+ WHILE function$<>")" AND function$<>""
+  fun = INSTR(function$,",")
+  IF fun = 0 THEN fun = INSTR(function$,")")
+  IF fun = 0 THEN fun = LEN(function$)+1
+  parm$=LEFT$(function$,fun-1)
+  function$=FNStrip(MID$(function$,fun+1))
+  CASE LEFT$(parm$,1) OF
+   WHEN """"
+    PROCparm.AddAtEnd(FNnewString(EVAL(parm$)))
+   OTHERWISE
+    PROCparm.AddAtEnd(EVAL(parm$))
+  ENDCASE
+ ENDWHILE
+ PROC(fun$)(parm)
+ELSE
+ PROC(function$)
+ENDIF
+ENDPROC
+@
+
+
+1.2
+log
+@Fixed DLL things to use the new structures.
+@
+text
+@d5 4
+a8 2
+REM $Id$
+REM $Log$
+d10 1
+a10 1
+PRINT "$Id$"
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+REM LEN 1997 Matthew Godbolt
+d4 5
+a8 4
+REM 02 Mar 1997 - JF : Changed to use new DLList            v1.01
+REM 05 Mar 1997 - MG : Key bindings added                   v1.02
+REM 09 Mar 1997 - JF : Changed to use new DLList (again)    v1.03
+REM 22 Mar 1997 - MG : More bugfixes, now works!            v1.04
+d105 1
+a105 1
+   
+d122 2
+a123 2
+       ELSE
+      String$=prevString$
+d130 1
+a130 1
+      ListPtr=StringList
+d135 1
+a135 1
+      IF ListPtr=StringList THEN prevString$=String$
+d144 1
+a144 1
+    
+d174 1
+a174 1
+ 
+d205 1
+a205 1
+  
+d243 1
+a243 1
+   
+@

@@ -1,0 +1,196 @@
+head     1.1;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.1
+date     98.02.02.15.57.48;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Simple flood protection.
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@REM >FloodProt
+REM Flood Protection by reduced output time
+REM 23 Sep 1996 - JF: Started                               v1.00
+REM 26 Sep 1996 - JF: Linked to the Scheduler               v1.01
+REM 27 Sep 1996 - JF: Will work with cumulative msgs        v1.02
+REM 27 Sep 1996 - JF: Configuration added                   v1.03
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+:
+DEF PROCInitialiseModule
+PROCStartupStatus("Initialising FloodProt...")
+stacktop=0
+stackend=0
+lasttime=0
+cb_active=FALSE
+floodprot_on=VAL(FNDB_ReadConfig("FloodProt_On"))
+floodprot_delay=VAL(FNDB_ReadConfig("FloodProt_Delay"))
+IF floodprot_delay<5 THEN
+ floodprot_delay=33
+ENDIF
+REM Pass on to the next module
+PROC@@
+ENDPROC
+:
+REM ******* Overloaded configuration options ********
+:
+REM Give ourselves a sensible name
+DEF FNOverload_ScriptInfo(num)
+LOCAL ret$
+IF num=0 THEN
+ ret$="FloodProt v"+FNRCSVersion("$Revision$")+" (Gerph)"
+ELSE
+ ret$=FN@@(num-1)
+ENDIF
+=ret$
+:
+REM Overload the main transmit routine
+DEF PROCSendToIRC(a$)
+IF floodprot_on THEN
+ LOCAL loc
+ loc=FNClaim(8)
+ REM No end, with data in
+ !loc=0
+ !(loc+4)=FNStrdup(a$)
+ IF debug THEN
+  PROCDisplayWarning("Stack>>"+a$,"##Debug##")
+ ENDIF
+ IF stackend<>0 THEN
+  REM Attach it to the end of the list
+  !stackend=loc
+ ENDIF
+ stackend=loc
+ IF stacktop=0 THEN
+  REM If nothing on stack, attach
+  stacktop=loc
+ ENDIF
+ REM Now to dispatch the message
+ PROCFloodProt_Dispatch
+ELSE
+ PROC@@(a$)
+ENDIF
+ENDPROC
+:
+DEF PROCFloodProt_Dispatch
+LOCAL now,a$,loc
+IF stacktop<>0 THEN
+ SYS "OS_ReadMonotonicTime" TO now
+ IF now-lasttime>floodprot_delay THEN
+  REM Interval has passed
+  loc=stacktop
+  a$=$(!(loc+4))
+  stacktop=!loc
+  IF stackend=loc THEN
+   stackend=0
+  ENDIF
+  REM Release string
+  PROCRelease(!(loc+4))
+  REM Release the block
+  PROCRelease(loc)
+  PROCSendString(MasterSocket,a$)
+  IF debug THEN
+   PROCDisplayWarning("Unstack<<"+a$,"##Debug##")
+  ENDIF
+  lasttime=now
+ ENDIF
+ IF stacktop<>0 THEN
+  IF cb_active=FALSE THEN
+   PROCAddCallBack("FloodProt",lasttime+floodprot_delay-now,0)
+   cb_active=TRUE
+  ENDIF
+ ENDIF
+ENDIF
+ENDPROC
+:
+REM Overload the CallBack routine to trap the calls
+DEF PROCOverload_CallBack(name$,private)
+IF name$="FloodProt" THEN
+ cb_active=FALSE
+ PROCFloodProt_Dispatch
+ELSE
+ PROC@@(name$,private)
+ENDIF
+ENDPROC
+REM ****************** Configuration options *******************
+:
+REM Enumerate module names
+DEF FNOverload_ConfigModName(count)
+LOCAL ret$
+IF count=0 THEN
+ ret$="FloodProt"
+ELSE
+ ret$=FN@@(count-1)
+ENDIF
+=ret$
+:
+REM What options do we provide ?
+DEF PROCOverload_ConfigOptions(module$)
+IF module$="FloodProt" THEN
+ PROCDisplayConfig("")
+ PROCDisplayConfig("-- FloodProt configuration --")
+ PROCDisplayConfig("You can configure :")
+ PROCDisplayConfig("  Prot <boolean> : Whether the protection is active")
+ PROCDisplayConfig("  Delay <time>   : Delay in centi-seconds")
+ELSE
+ PROC@@(module$)
+ENDIF
+ENDPROC
+:
+REM How do we configure things
+DEF PROCOverload_ConfigCommand(module$,com$,str$)
+IF module$="FloodProt" THEN
+ CASE com$ OF
+  WHEN "DELAY"
+   IF VAL(str$)<5 THEN
+    PROCDisplayConfig("Syntax: Delay <time>")
+   ELSE
+    floodprot_delay=VAL(str$)
+    PROCDB_WriteConfig("FloodProt_Delay",STR$ floodprot_delay)
+    PROCDisplayConfig("Set Delay to "+STR$ floodprot_delay)
+   ENDIF
+
+  WHEN "PROT"
+   var=FNboolean(str$)
+   CASE var OF
+    WHEN 0,-1
+     floodprot_on=var
+     PROCDB_WriteConfig("FloodProt_Prot",STR$ floodprot_on)
+     PROCDisplayConfig("Set Prot to "+FNbooltext(floodprot_on))
+    WHEN -2
+     PROCDisplayConfig("Syntax: Prot <boolean>")
+   ENDCASE
+
+  WHEN "LIST"
+   PROCDisplayConfig("")
+   PROCDisplayConfig("Prot   : "+FNbooltext(floodprot_on))
+   PROCDisplayConfig("Delay  : "+STR$ floodprot_delay+"cs")
+
+  WHEN "HELP"
+   PROCOverload_ConfigOptions(module$)
+
+  OTHERWISE
+   PROCDisplayConfig("Command not recognised")
+ ENDCASE
+ELSE
+ PROC@@(module$,com$,str$)
+ENDIF
+ENDPROC
+@

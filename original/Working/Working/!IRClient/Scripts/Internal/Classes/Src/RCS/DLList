@@ -1,0 +1,114 @@
+head     1.2;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.2
+date     97.12.29.14.49.00;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.12.43.18;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@Doubly linked list class
+(you can chain forwards and backwards)
+@
+
+
+1.2
+log
+@Unknown changes.
+@
+text
+@REM >Internal.Classes.DLList
+REM (c) 1997 Matthew Godbolt
+REM Doubly-linked lists
+REM ---
+REM $Id$
+REM $Log$
+REM ---
+PRINT "$Id$"
+END
+
+DEF PROCOverload_Classes_Initialise
+ Class_DLList     = FNRegisterSubclass(Class_List,"DLList")
+ Class_DLListItem = FNRegisterSubclass(Class_ListItem,"DLListItem")
+ PROCAddField(Class_DLListItem,"prev")
+ PROC@@
+ENDPROC
+:
+DEF FNnewDLList
+=FNnew(Class_DLList)
+:
+DEF PROCDLList_Construct
+REM Nowt special - use List_Construct to do our dirties
+PROC@@
+ENDPROC
+:
+DEF PROCDLList_Add(data)
+ LOCAL item
+ item = FNnew(FN@@.GetDataType)
+ item.data = data
+ item.next = @@.items
+ item.prev = 0
+ IF @@.items THEN @@.items.prev = item
+ @@.items = item
+ENDPROC
+:
+DEF FNDLList_GetDataType
+=Class_DLListItem
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+REM LEN 1997 Matthew Godbolt
+d4 5
+a8 2
+REM 20 Feb 1997 : MG - Started                              v1.00
+REM 02 Mar 1997 : JF - Modified for new List syntax         v1.01
+d12 3
+a14 2
+ Class_DLList = FNRegisterSubclass(Class_List,"DLList")
+ PROCAddField(Class_DLList,"prev")
+d18 1
+a18 1
+DEFFNnewDLList
+d21 3
+a23 3
+DEFPROCDLList_Construct
+@@.next=-1
+@@.prev=-1
+d26 8
+a33 16
+DEFPROCDLList_Add(item)
+LOCAL last,this
+IF @@.next=-1 THEN
+ last=0
+ this=@@
+ELSE
+ this=FNnew(Class_DLList)
+ last=@@
+ENDIF
+this.data = item
+this.next = last
+this.prev = 0
+IF last<>0 THEN
+ last.prev=this
+ENDIF
+@@=this
+d35 3
+@

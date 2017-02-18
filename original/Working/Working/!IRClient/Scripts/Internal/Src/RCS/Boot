@@ -1,0 +1,174 @@
+head     1.4;
+branch   ;
+access   ;
+symbols  ;
+locks    ;
+comment  @REM @;
+
+
+1.4
+date     98.02.02.14.16.24;  author gerph;  state Exp;
+branches ;
+next     1.3;
+
+1.3
+date     97.04.13.13.15.54;  author gerph;  state Exp;
+branches ;
+next     1.2;
+
+1.2
+date     97.04.13.13.11.51;  author gerph;  state Exp;
+branches ;
+next     1.1;
+
+1.1
+date     97.04.13.12.38.07;  author gerph;  state Exp;
+branches ;
+next     ;
+
+
+desc
+@IRBasic's initial boot script
+@
+
+
+1.4
+log
+@Added check for scripts directory into global
+variable ScriptsDir$.
+@
+text
+@REM >Internal.Boot
+REM (c) 1997 M Richard G
+REM This file loads all the internal modules in the right order
+REM ?? ??? ???? : MG - Started                               v1.00
+REM 29 Mar 1997 : JF - Added PROCFinalise                    v1.01
+REM 13 Apr 1997 : ** - Switched to RCS !                     r1
+REM ---
+REM $Id: boot 1.3 97/04/13 13:15:54 gerph Exp $
+REM $Log:	boot $
+REM Revision 1.3  97/04/13  13:15:54  gerph
+REM Header re-organisation
+REM
+REM Revision 1.2  97/04/13  13:11:51  gerph
+REM Trying out the RCS system 'live'
+REM ---
+PRINT "$Id$"
+END
+
+REM Initialise the internal libraries
+DEF PROCInitialise
+REM Firstly read in the scripts directory so we don't have to mess
+LOCAL blk,read
+blk=FNClaim(256)
+SYS "OS_ReadVarVal","IRClient$Dir",blk,256,0,1 TO ,,read
+?(blk+read)=0
+ScriptsDir$=($(blk))+".Scripts"
+PROCRelease(blk)
+REM Now initialise things
+PROCStartupStatus("Loading internals...")
+LOAD ScriptsDir$+".Internal.Throwback"
+PROCErrors_Initialise
+LOAD ScriptsDir$+".Internal.Constants"
+PROCConstants_Initialise
+LOAD ScriptsDir$+".Internal.MiscUtils"
+PROCMiscUtils_Initialise
+LOAD ScriptsDir$+".Internal.Classes.!Module"
+PROCClasses_Initialise
+LOAD ScriptsDir$+".Internal.Menus"
+PROCMenus_Initialise
+LOAD ScriptsDir$+".Internal.Input"
+PROCInput_Initialise
+REM ---- Insert what ever library you wish to use here, with
+REM      a call to initialise it
+LOAD ScriptsDir$+".Magrathea"
+PROCMagratheaAwakes
+REM ---- Stop
+PROCStartupStatus("Initialisation complete")
+ENDPROC
+:
+REM Finalise everything safely
+DEFPROCFinalise
+ENDPROC
+:
+REM These must exist or the error handler will fault it !
+DEFPROCScriptError(error$,line,file$)
+ENDPROC
+DEFPROCScriptErrorRetrace(line,file$)
+ENDPROC
+DEFPROCScriptErrorDone
+ENDPROC
+:
+REM Ensure that clicks on the iconbar at this point don't crash
+DEFPROCMenu_OpenMenu(menu$,x,y)
+PROCMenu_Quit
+ENDPROC
+DEFPROCIconbarClick
+PROCMenu_Quit
+ENDPROC
+@
+
+
+1.3
+log
+@Header re-organisation
+@
+text
+@d8 5
+a12 2
+REM $Id: Boot 1.2 97/04/13 13:11:51 gerph Exp $
+REM $Log:	Boot $
+d16 1
+a16 2
+PRINT "$RCSfile$"
+PRINT "$Revision: 1.2 $ $State$"
+d21 8
+d30 3
+a32 1
+LOAD "<IRClient$Dir>.Scripts.Internal.Constants"
+d34 5
+a38 1
+LOAD "<IRClient$Dir>.Scripts.Internal.Menus"
+d40 1
+a40 3
+LOAD "<IRClient$Dir>.Scripts.Internal.Classes.!Module"
+PROCClasses_Initialise
+LOAD "<IRClient$Dir>.Scripts.Internal.Input"
+d44 2
+a45 2
+REM LOAD "<IRClient$Dir>.Scripts.Magrathea"
+REM PROCMagratheaAwakes
+d52 16
+@
+
+
+1.2
+log
+@Trying out the RCS system 'live'
+@
+text
+@d7 8
+a14 10
+REM $Author$
+REM $Date$
+REM $Header$
+REM $Id$
+REM $Locker$
+REM $Log$
+REM $RCSfile$
+REM $Revision$
+REM $Source$
+REM $State$
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d2 1
+a2 1
+REM LEN 1997 M Richard G
+d6 11
+@
